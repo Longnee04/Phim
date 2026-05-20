@@ -64,6 +64,8 @@ function normalizeList(raw) { return raw.items || raw.data?.items || []; }
 const STORAGE = {
     HISTORY_KEY: 'longphim_history',
     MYLIST_KEY: 'longphim_mylist',
+    RATINGS_KEY: 'longphim_ratings',
+    NOTES_KEY: 'longphim_notes',
     MAX_HISTORY: 20,
 
     _get(key) { try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; } },
@@ -118,6 +120,34 @@ const STORAGE = {
     removeFromMyList(slug) {
         let list = this.getMyList().filter(m => m.slug !== slug);
         this._set(this.MYLIST_KEY, list);
+    },
+
+    // ---- Ratings ----
+    getRatings() { return this._get(this.RATINGS_KEY); },
+    getRating(slug) {
+        const list = this.getRatings();
+        const found = list.find(r => r.slug === slug);
+        return found ? found.rating : 0;
+    },
+    saveRating(slug, rating) {
+        let list = this.getRatings().filter(r => r.slug !== slug);
+        list.push({ slug, rating, time: Date.now() });
+        this._set(this.RATINGS_KEY, list);
+    },
+
+    // ---- Notes ----
+    getNotes() { return this._get(this.NOTES_KEY); },
+    getNote(slug) {
+        const list = this.getNotes();
+        const found = list.find(n => n.slug === slug);
+        return found ? found.note : '';
+    },
+    saveNote(slug, note) {
+        let list = this.getNotes().filter(n => n.slug !== slug);
+        if (note.trim() !== '') {
+            list.push({ slug, note: note.trim(), time: Date.now() });
+        }
+        this._set(this.NOTES_KEY, list);
     }
 };
 
@@ -337,6 +367,9 @@ async function loadAll() {
 
         // Re-init touch swipe after content loads
         initTouchSwipe();
+
+        // Gợi ý phim ngẫu nhiên sau khi tải
+        if (m1.length) triggerRandomMovieSuggestion(m1);
     } catch (e) { console.error('loadAll:', e); }
 }
 
@@ -712,12 +745,169 @@ function sortBrowse() {
 }
 
 // ══════════════════════════════════════════════════════════
+//  TOAST NOTIFICATIONS
+// ══════════════════════════════════════════════════════════
+function showToast(title, desc, icon = 'fa-info-circle', onClickAction = null) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    if (onClickAction) {
+        toast.style.cursor = 'pointer';
+    }
+
+    toast.innerHTML = `
+        <div class="toast__icon"><i class="fas ${icon}"></i></div>
+        <div class="toast__content">
+            <div class="toast__title">${title}</div>
+            <div class="toast__desc">${desc}</div>
+        </div>
+        <button class="toast__close" type="button" aria-label="Đóng"><i class="fas fa-times"></i></button>
+    `;
+
+    if (onClickAction) {
+        toast.addEventListener('click', (e) => {
+            if (e.target.closest('.toast__close')) return;
+            onClickAction();
+            hide();
+        });
+    }
+
+    const hide = () => {
+        toast.classList.add('toast-hide');
+        setTimeout(() => toast.remove(), 300);
+    };
+
+    toast.querySelector('.toast__close').addEventListener('click', (e) => {
+        e.stopPropagation();
+        hide();
+    });
+
+    container.appendChild(toast);
+
+    // Tự động đóng sau 6 giây
+    setTimeout(() => {
+        if (toast.parentNode) hide();
+    }, 6000);
+}
+
+// Gợi ý phim mới ngẫu nhiên khi vào trang
+function triggerRandomMovieSuggestion(movies) {
+    if (!movies || !movies.length) return;
+    setTimeout(() => {
+        const rand = movies[Math.floor(Math.random() * movies.length)];
+        showToast(
+            'Gợi ý phim hot hôm nay 🎬',
+            `Có phim mới cập nhật: <b>${rand.name}</b>. Xem ngay!`,
+            'fa-ticket',
+            () => openModal(rand.slug)
+        );
+    }, 3500); // 3.5 giây sau khi trang tải xong
+}
+
+// ══════════════════════════════════════════════════════════
 //  MODAL
 // ══════════════════════════════════════════════════════════
 function initModal() {
     document.getElementById('modal-close').addEventListener('click', closeModal);
     document.getElementById('modal-backdrop').addEventListener('click', closeModal);
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('modal').getAttribute('aria-hidden') === 'false') closeModal(); });
+
+    // Nút Tắt đèn (Theater Light Mode)
+    const lightBtn = document.getElementById('modal-light-btn');
+    if (lightBtn) {
+        lightBtn.addEventListener('click', () => {
+            const isOff = document.body.classList.toggle('theater-light-off');
+            lightBtn.title = isOff ? 'Bật đèn' : 'Tắt đèn (Theater Mode)';
+            lightBtn.innerHTML = `<i class="fas ${isOff ? 'fa-lightbulb' : 'fa-lightbulb'}"></i>`;
+            
+            showToast(
+                isOff ? 'Chế độ rạp chiếu 🌙' : 'Chế độ thường ☀️',
+                isOff ? 'Đã tắt đèn xung quanh để bạn tập trung xem phim!' : 'Đã bật lại đèn phòng.',
+                isOff ? 'fa-moon' : 'fa-sun'
+            );
+        });
+    }
+
+    // Nút Rộng hơn (Theater Layout)
+    const theaterBtn = document.getElementById('modal-theater-btn');
+    if (theaterBtn) {
+        theaterBtn.addEventListener('click', () => {
+            const dialog = document.querySelector('.modal__dialog');
+            if (dialog) {
+                const isWide = dialog.classList.toggle('theater-layout');
+                theaterBtn.title = isWide ? 'Thu nhỏ lại' : 'Chế độ rạp chiếu (Rộng hơn)';
+                theaterBtn.innerHTML = `<i class="fas ${isWide ? 'fa-compress' : 'fa-expand'}"></i>`;
+                
+                showToast(
+                    isWide ? 'Khung nhìn cực đại 🖥️' : 'Khung nhìn mặc định 📺',
+                    isWide ? 'Đã mở rộng trình phát phim sang chuẩn rạp chiếu phim 21:9!' : 'Đã đưa trình phát về kích thước tiêu chuẩn.',
+                    isWide ? 'fa-maximize' : 'fa-minimize'
+                );
+            }
+        });
+    }
+
+    // Nút Lưu ghi chú cá nhân
+    const saveNotesBtn = document.getElementById('modal-save-notes-btn');
+    if (saveNotesBtn) {
+        saveNotesBtn.addEventListener('click', () => {
+            if (!_currentModalSlug) return;
+            const input = document.getElementById('modal-notes-input');
+            const noteText = input ? input.value : '';
+            STORAGE.saveNote(_currentModalSlug, noteText);
+            
+            showToast(
+                'Lưu thành công! 📝',
+                'Ghi chú cá nhân của bạn đã được ghi nhớ thành công.',
+                'fa-circle-check'
+            );
+        });
+    }
+
+    // Sự kiện tương tác đánh giá sao (Star Rating)
+    const starsContainer = document.getElementById('modal-stars');
+    if (starsContainer) {
+        starsContainer.querySelectorAll('i').forEach(star => {
+            // Hover hiệu ứng
+            star.addEventListener('mouseenter', () => {
+                const val = parseInt(star.dataset.value);
+                highlightStars(val);
+            });
+            // Mouse leave thì hồi phục về giá trị đã lưu
+            star.addEventListener('mouseleave', () => {
+                const savedVal = STORAGE.getRating(_currentModalSlug);
+                highlightStars(savedVal);
+            });
+            // Click chọn sao
+            star.addEventListener('click', () => {
+                const val = parseInt(star.dataset.value);
+                STORAGE.saveRating(_currentModalSlug, val);
+                highlightStars(val);
+                
+                showToast(
+                    'Đánh giá thành công! ⭐',
+                    `Cảm ơn bạn đã chấm <b>${val} sao</b> cho bộ phim này!`,
+                    'fa-star'
+                );
+            });
+        });
+    }
+}
+
+// Tô màu sao phụ trợ
+function highlightStars(ratingValue) {
+    const starsContainer = document.getElementById('modal-stars');
+    if (!starsContainer) return;
+    starsContainer.querySelectorAll('i').forEach(star => {
+        const val = parseInt(star.dataset.value);
+        if (val <= ratingValue) {
+            star.className = 'fas fa-star';
+        } else {
+            star.className = 'far fa-star';
+        }
+    });
 }
 
 async function openModal(slug, autoPlay = false) {
@@ -741,10 +931,22 @@ async function openModal(slug, autoPlay = false) {
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
 
+    // Ẩn các nút điều khiển video khi chưa phát
+    document.getElementById('modal-light-btn').style.display = 'none';
+    document.getElementById('modal-theater-btn').style.display = 'none';
+    document.getElementById('modal-light-btn').title = 'Tắt đèn (Theater Mode)';
+
     // Reset My List button
     const myListBtn = document.getElementById('modal-mylist-btn');
     myListBtn.classList.remove('in-list');
     myListBtn.innerHTML = '<i class="fas fa-plus"></i>';
+
+    // Đọc rating & note của người dùng từ localStorage
+    const savedRating = STORAGE.getRating(slug);
+    highlightStars(savedRating);
+    const savedNote = STORAGE.getNote(slug);
+    const noteInput = document.getElementById('modal-notes-input');
+    if (noteInput) noteInput.value = savedNote;
 
     try {
         const d = await apiFetch(API.detail + slug, { signal: _modalAbort.signal });
@@ -776,6 +978,12 @@ async function openModal(slug, autoPlay = false) {
             myListBtn.innerHTML = `<i class="fas fa-${added ? 'check' : 'plus'}"></i>`;
             // Also update card buttons in background
             updateAllMyListButtons(_currentModalMovie.slug, added);
+            
+            showToast(
+                added ? 'Đã thêm vào danh sách! ✓' : 'Đã xóa khỏi danh sách!',
+                added ? `Đã lưu phim <b>${_currentModalMovie.name}</b> vào Danh sách của tôi.` : `Đã xóa <b>${_currentModalMovie.name}</b> khỏi Danh sách của tôi.`,
+                added ? 'fa-heart' : 'fa-trash-can'
+            );
         };
 
         renderEpisodes(eps, m);
@@ -827,6 +1035,10 @@ function playInModal(url) {
     hero.appendChild(iframe);
     document.getElementById('modal-hero-img').style.opacity = '0';
     hero.querySelector('.modal__hero-gradient').style.opacity = '0';
+
+    // Hiện các nút điều khiển video khi video bắt đầu được phát
+    document.getElementById('modal-light-btn').style.display = 'inline-flex';
+    document.getElementById('modal-theater-btn').style.display = 'inline-flex';
 }
 
 function closeModal() {
@@ -839,6 +1051,17 @@ function closeModal() {
     if (_modalAbort) try { _modalAbort.abort(); } catch {}
     _currentModalSlug = null;
     _currentModalMovie = null;
+
+    // Tắt các class rạp chiếu, tắt đèn
+    document.body.classList.remove('theater-light-off');
+    const dialog = document.querySelector('.modal__dialog');
+    if (dialog) dialog.classList.remove('theater-layout');
+    
+    const theaterBtn = document.getElementById('modal-theater-btn');
+    if (theaterBtn) {
+        theaterBtn.innerHTML = '<i class="fas fa-expand"></i>';
+        theaterBtn.title = 'Chế độ rạp chiếu (Rộng hơn)';
+    }
 
     // Refresh history row if on home page
     if (!document.getElementById('home-view').style.display || document.getElementById('home-view').style.display !== 'none') {

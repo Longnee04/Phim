@@ -357,6 +357,8 @@
                     <div class="modal__hero-actions">
                         <button class="btn btn--play" id="modal-play-btn" type="button"><i class="fas fa-play"></i> Phát</button>
                         <button class="btn-circle" id="modal-mylist-btn" type="button" title="Thêm vào danh sách"><i class="fas fa-plus"></i></button>
+                        <button class="btn-circle" id="modal-light-btn" type="button" title="Tắt đèn (Theater Mode)" style="display:none;"><i class="fas fa-lightbulb"></i></button>
+                        <button class="btn-circle" id="modal-theater-btn" type="button" title="Chế độ rạp chiếu (Rộng hơn)" style="display:none;"><i class="fas fa-expand"></i></button>
                     </div>
                 </div>
             </div>
@@ -366,6 +368,18 @@
                     <span class="modal__year" id="modal-year"></span>
                     <span class="modal__badge" id="modal-quality">HD</span>
                     <span class="modal__badge" id="modal-lang">Vietsub</span>
+                    
+                    <!-- Star Rating (Chấm sao) -->
+                    <div class="modal__rating" id="modal-rating">
+                        <span class="modal__rating-label">Đánh giá của bạn:</span>
+                        <div class="modal__stars" id="modal-stars">
+                            <i class="far fa-star" data-value="1"></i>
+                            <i class="far fa-star" data-value="2"></i>
+                            <i class="far fa-star" data-value="3"></i>
+                            <i class="far fa-star" data-value="4"></i>
+                            <i class="far fa-star" data-value="5"></i>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal__grid">
                     <div class="modal__desc" id="modal-desc">Đang tải...</div>
@@ -374,6 +388,16 @@
                         <p id="modal-country"><span class="modal__label">Quốc gia:</span> ...</p>
                     </div>
                 </div>
+                
+                <!-- Personal Notes (Ghi chú cá nhân) -->
+                <div class="modal__notes-section">
+                    <h3 class="modal__notes-title"><i class="far fa-edit"></i> Ghi chú cá nhân của bạn</h3>
+                    <div class="modal__notes-container">
+                        <textarea id="modal-notes-input" placeholder="Viết ghi chú về phim này (ví dụ: tập đang xem dở, cảm nhận, thời gian xem lại...)..." rows="2"></textarea>
+                        <button class="btn btn--more" id="modal-save-notes-btn" type="button"><i class="fas fa-save"></i> Lưu ghi chú</button>
+                    </div>
+                </div>
+
                 <div class="modal__episodes-section" id="modal-episodes-section">
                     <h3 class="modal__episodes-title">Các tập</h3>
                     <div class="modal__episodes-list" id="modal-episodes-list"></div>
@@ -381,6 +405,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
 
     <script src="js/script.js"></script>
 </body>
