@@ -1,5 +1,5 @@
 /* ==========================================================
-   WebPhim — Netflix Premium Clone JS (Expanded Categories)
+   LongPhim — Netflix Premium Clone JS (Full Featured)
    ========================================================== */
 
 const IMG_CDN = "https://img.ophim.live/uploads/movies/";
@@ -17,19 +17,20 @@ const API = {
     year:      "https://ophim1.com/v1/api/nam/",
 };
 
-// State
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
 let billboardMovies = [], billboardIdx = 0, billboardTimer = null, progressIv = null;
 const BILLBOARD_MS = 8000, ITEMS_PER_PAGE = 6;
 const _cache = new Map();
 let _modalReqId = 0, _modalAbort = null;
 const sliderState = {};
+let _currentModalSlug = null, _currentModalMovie = null;
 
-// Browse state
 let browseType = null, browseSlug = null, browsePage = 1, browseTotalPages = 1;
 const BROWSE_SIZE = 24;
 let browseAllItems = [];
 
-// Genre/Country display names
 const GENRE_NAMES = {
     'hanh-dong':'Hành Động','tinh-cam':'Tình Cảm','hai-huoc':'Hài Hước','co-trang':'Cổ Trang',
     'tam-ly':'Tâm Lý','hinh-su':'Hình Sự','chien-tranh':'Chiến Tranh','the-thao':'Thể Thao',
@@ -58,6 +59,69 @@ async function apiFetch(url, opts = {}) {
 function normalizeList(raw) { return raw.items || raw.data?.items || []; }
 
 // ══════════════════════════════════════════════════════════
+//  LOCALSTORAGE MANAGER
+// ══════════════════════════════════════════════════════════
+const STORAGE = {
+    HISTORY_KEY: 'longphim_history',
+    MYLIST_KEY: 'longphim_mylist',
+    MAX_HISTORY: 20,
+
+    _get(key) { try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; } },
+    _set(key, arr) { localStorage.setItem(key, JSON.stringify(arr)); },
+
+    // ---- History ----
+    getHistory() { return this._get(this.HISTORY_KEY); },
+    addHistory(movie) {
+        let list = this.getHistory();
+        // Remove existing if present (move to front)
+        list = list.filter(m => m.slug !== movie.slug);
+        list.unshift({
+            slug: movie.slug,
+            name: movie.name,
+            poster_url: movie.poster_url || movie.thumb_url || '',
+            thumb_url: movie.thumb_url || movie.poster_url || '',
+            episode: movie.episode || '',
+            time: Date.now()
+        });
+        if (list.length > this.MAX_HISTORY) list = list.slice(0, this.MAX_HISTORY);
+        this._set(this.HISTORY_KEY, list);
+    },
+    removeHistory(slug) {
+        let list = this.getHistory().filter(m => m.slug !== slug);
+        this._set(this.HISTORY_KEY, list);
+    },
+
+    // ---- My List ----
+    getMyList() { return this._get(this.MYLIST_KEY); },
+    isInMyList(slug) { return this.getMyList().some(m => m.slug === slug); },
+    toggleMyList(movie) {
+        let list = this.getMyList();
+        const idx = list.findIndex(m => m.slug === movie.slug);
+        if (idx !== -1) {
+            list.splice(idx, 1);
+            this._set(this.MYLIST_KEY, list);
+            return false; // removed
+        } else {
+            list.unshift({
+                slug: movie.slug,
+                name: movie.name,
+                poster_url: movie.poster_url || movie.thumb_url || '',
+                thumb_url: movie.thumb_url || movie.poster_url || '',
+                year: movie.year || '',
+                quality: movie.quality || '',
+                lang: movie.lang || ''
+            });
+            this._set(this.MYLIST_KEY, list);
+            return true; // added
+        }
+    },
+    removeFromMyList(slug) {
+        let list = this.getMyList().filter(m => m.slug !== slug);
+        this._set(this.MYLIST_KEY, list);
+    }
+};
+
+// ══════════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
@@ -65,6 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initSearch();
     initModal();
     initBrowse();
+    initSidebar();
+    initTouchSwipe();
     loadAll();
 });
 
@@ -74,6 +140,80 @@ document.addEventListener('DOMContentLoaded', () => {
 function initNav() {
     window.addEventListener('scroll', () => {
         document.getElementById('nav').classList.toggle('nav--solid', scrollY > 50);
+    });
+}
+
+// ══════════════════════════════════════════════════════════
+//  MOBILE SIDEBAR
+// ══════════════════════════════════════════════════════════
+function initSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const openBtn = document.getElementById('mobile-menu-btn');
+    const closeBtn = document.getElementById('sidebar-close');
+
+    const openSidebar = () => { sidebar.classList.add('open'); overlay.classList.add('open'); document.body.style.overflow = 'hidden'; };
+    const closeSidebar = () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); document.body.style.overflow = ''; };
+
+    openBtn.addEventListener('click', openSidebar);
+    closeBtn.addEventListener('click', closeSidebar);
+    overlay.addEventListener('click', closeSidebar);
+
+    // Sidebar nav links
+    sidebar.querySelectorAll('[data-section="home"]').forEach(el => {
+        el.addEventListener('click', e => { e.preventDefault(); showHome(); closeSidebar(); setActiveNav(document.getElementById('link-home')); });
+    });
+    sidebar.querySelectorAll('[data-browse]').forEach(el => {
+        el.addEventListener('click', e => { e.preventDefault(); openBrowse('type', el.dataset.browse); closeSidebar(); clearActiveNav(); });
+    });
+    sidebar.querySelectorAll('[data-genre]').forEach(el => {
+        el.addEventListener('click', e => { e.preventDefault(); openBrowse('genre', el.dataset.genre); closeSidebar(); clearActiveNav(); });
+    });
+    sidebar.querySelectorAll('[data-country]').forEach(el => {
+        el.addEventListener('click', e => { e.preventDefault(); openBrowse('country', el.dataset.country); closeSidebar(); clearActiveNav(); });
+    });
+    sidebar.querySelectorAll('[data-year]').forEach(el => {
+        el.addEventListener('click', e => { e.preventDefault(); openBrowse('year', el.dataset.year); closeSidebar(); clearActiveNav(); });
+    });
+    sidebar.querySelectorAll('[data-action="mylist"]').forEach(el => {
+        el.addEventListener('click', e => { e.preventDefault(); openMyListPage(); closeSidebar(); });
+    });
+
+    // Accordion toggle
+    sidebar.querySelectorAll('.sidebar__accordion-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.closest('.sidebar__accordion').classList.toggle('open');
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════════
+//  TOUCH SWIPE for sliders
+// ══════════════════════════════════════════════════════════
+function initTouchSwipe() {
+    document.querySelectorAll('.row__slider').forEach(slider => {
+        let startX = 0, startY = 0, isSwiping = false;
+        slider.addEventListener('touchstart', e => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            isSwiping = false;
+        }, { passive: true });
+        slider.addEventListener('touchmove', e => {
+            const dx = Math.abs(e.touches[0].clientX - startX);
+            const dy = Math.abs(e.touches[0].clientY - startY);
+            if (dx > dy && dx > 10) isSwiping = true;
+        }, { passive: true });
+        slider.addEventListener('touchend', e => {
+            if (!isSwiping) return;
+            const endX = e.changedTouches[0].clientX;
+            const diff = startX - endX;
+            const section = slider.closest('.row');
+            if (!section) return;
+            const name = section.id.replace('section-', '');
+            if (Math.abs(diff) > 50) {
+                slideRow(name, diff > 0 ? 1 : -1);
+            }
+        }, { passive: true });
     });
 }
 
@@ -168,6 +308,9 @@ async function loadAll() {
         if (el) el.innerHTML = Array(ITEMS_PER_PAGE).fill('<div class="skeleton-card"></div>').join('');
     });
 
+    // Render history row
+    renderHistoryRow();
+
     try {
         const [d1,d2,d3,d4,d5,d6] = await Promise.all([
             apiFetch(API.new + '?page=1'),
@@ -191,7 +334,46 @@ async function loadAll() {
         else document.getElementById('section-vietsub')?.remove();
 
         if (m1.length) initBillboard(m1);
+
+        // Re-init touch swipe after content loads
+        initTouchSwipe();
     } catch (e) { console.error('loadAll:', e); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  HISTORY ROW
+// ══════════════════════════════════════════════════════════
+function renderHistoryRow() {
+    const section = document.getElementById('section-history');
+    const track = document.getElementById('track-history');
+    if (!section || !track) return;
+
+    const history = STORAGE.getHistory();
+    if (!history.length) { section.style.display = 'none'; return; }
+
+    section.style.display = '';
+    track.innerHTML = '';
+    history.forEach(m => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+            <button class="card__remove" data-remove-history="${m.slug}" type="button" title="Xóa khỏi lịch sử"><i class="fas fa-times"></i></button>
+            <img class="card__img" src="${img(m.thumb_url || m.poster_url)}" alt="${m.name}" loading="lazy" onerror="this.style.opacity=.2">
+            ${m.episode ? `<div class="card__history-ep">Tập ${m.episode}</div>` : ''}
+        `;
+        card.querySelector('.card__img').addEventListener('click', () => openModal(m.slug));
+        card.querySelector('[data-remove-history]').addEventListener('click', e => {
+            e.stopPropagation();
+            STORAGE.removeHistory(m.slug);
+            renderHistoryRow();
+        });
+        track.appendChild(card);
+    });
+
+    const totalPages = Math.max(1, Math.ceil(history.length / ITEMS_PER_PAGE));
+    sliderState['history'] = { page: 0, totalPages, movies: history };
+    renderRowDots('dots-history', totalPages, 0);
+    bindArrows('history');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -253,6 +435,7 @@ function createCard(movie) {
     const poster = img(movie.thumb_url || movie.poster_url);
     const quality = movie.quality || '', lang = movie.lang || '';
     const genres = (movie.category || []).map(g => g.name).filter(Boolean);
+    const inList = STORAGE.isInMyList(movie.slug);
     card.innerHTML = `
         <img class="card__img" src="${poster}" alt="${movie.name}" loading="lazy" onerror="this.style.opacity=.2">
         <div class="card__info">
@@ -261,7 +444,7 @@ function createCard(movie) {
                     <button class="card__mini-btn card__mini-btn--play" data-slug="${movie.slug}" data-play="1" type="button"><i class="fas fa-play"></i></button>
                 </div>
                 <div class="card__info-right">
-                    <button class="card__mini-btn" type="button"><i class="fas fa-thumbs-up"></i></button>
+                    <button class="card__mini-btn card__mylist-btn${inList ? ' in-list' : ''}" data-mylist-slug="${movie.slug}" type="button" title="${inList ? 'Xóa khỏi danh sách' : 'Thêm vào danh sách'}"><i class="fas fa-${inList ? 'check' : 'plus'}"></i></button>
                     <button class="card__mini-btn" data-slug="${movie.slug}" type="button"><i class="fas fa-chevron-down"></i></button>
                 </div>
             </div>
@@ -277,6 +460,17 @@ function createCard(movie) {
     card.querySelectorAll('[data-slug]').forEach(b => {
         b.addEventListener('click', e => { e.stopPropagation(); openModal(b.dataset.slug, b.dataset.play === '1'); });
     });
+    // My List toggle on card
+    const myListBtn = card.querySelector('[data-mylist-slug]');
+    if (myListBtn) {
+        myListBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            const added = STORAGE.toggleMyList(movie);
+            myListBtn.classList.toggle('in-list', added);
+            myListBtn.innerHTML = `<i class="fas fa-${added ? 'check' : 'plus'}"></i>`;
+            myListBtn.title = added ? 'Xóa khỏi danh sách' : 'Thêm vào danh sách';
+        });
+    }
     return card;
 }
 
@@ -284,31 +478,29 @@ function createCard(movie) {
 //  BROWSE (Category / Genre / Country / Year)
 // ══════════════════════════════════════════════════════════
 function initBrowse() {
-    // Direct nav links (Phim Bộ, Phim Lẻ, etc.)
-    document.querySelectorAll('[data-section="home"]').forEach(el => {
+    document.querySelectorAll('#nav-menu [data-section="home"]').forEach(el => {
         el.addEventListener('click', e => { e.preventDefault(); showHome(); setActiveNav(el); });
     });
-    document.querySelectorAll('[data-browse]').forEach(el => {
+    document.querySelectorAll('#nav-menu [data-browse]').forEach(el => {
         el.addEventListener('click', e => {
             e.preventDefault();
             openBrowse('type', el.dataset.browse);
             setActiveNav(el);
         });
     });
-
-    // Genre dropdown
-    document.querySelectorAll('[data-genre]').forEach(el => {
+    document.querySelectorAll('#nav-menu [data-genre]').forEach(el => {
         el.addEventListener('click', e => { e.preventDefault(); openBrowse('genre', el.dataset.genre); clearActiveNav(); });
     });
-
-    // Country dropdown
-    document.querySelectorAll('[data-country]').forEach(el => {
+    document.querySelectorAll('#nav-menu [data-country]').forEach(el => {
         el.addEventListener('click', e => { e.preventDefault(); openBrowse('country', el.dataset.country); clearActiveNav(); });
     });
-
-    // Year dropdown
-    document.querySelectorAll('[data-year]').forEach(el => {
+    document.querySelectorAll('#nav-menu [data-year]').forEach(el => {
         el.addEventListener('click', e => { e.preventDefault(); openBrowse('year', el.dataset.year); clearActiveNav(); });
+    });
+
+    // My List link in nav
+    document.querySelectorAll('#nav-menu [data-action="mylist"]').forEach(el => {
+        el.addEventListener('click', e => { e.preventDefault(); openMyListPage(); setActiveNav(el); });
     });
 
     // Logo click → home
@@ -342,6 +534,7 @@ function showHome() {
     document.getElementById('home-view').style.display = '';
     document.getElementById('browse').hidden = true;
     browseType = null;
+    renderHistoryRow();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -351,7 +544,6 @@ function openBrowse(type, slug) {
     document.getElementById('browse').hidden = false;
     document.getElementById('browse-sort').value = 'default';
 
-    // Set title
     let title = slug;
     if (type === 'type') title = TYPE_NAMES[slug] || slug;
     else if (type === 'genre') title = 'Thể loại: ' + (GENRE_NAMES[slug] || slug);
@@ -359,8 +551,73 @@ function openBrowse(type, slug) {
     else if (type === 'year') title = 'Phim năm ' + slug;
     document.getElementById('browse-title').textContent = title;
 
+    // Show sort & pager
+    document.querySelector('.browse__toolbar').style.display = '';
+    document.getElementById('browse-pager').style.display = '';
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
     loadBrowsePage();
+}
+
+// ══════════════════════════════════════════════════════════
+//  MY LIST PAGE
+// ══════════════════════════════════════════════════════════
+function openMyListPage() {
+    document.getElementById('home-view').style.display = 'none';
+    document.getElementById('browse').hidden = false;
+    document.getElementById('browse-title').textContent = 'Danh sách của tôi';
+    document.getElementById('browse-hero-bg').style.backgroundImage = '';
+
+    // Hide sort & pager for local list
+    document.querySelector('.browse__toolbar').style.display = 'none';
+    document.getElementById('browse-pager').style.display = 'none';
+
+    browseType = 'mylist';
+    const list = STORAGE.getMyList();
+    const grid = document.getElementById('browse-grid');
+    grid.innerHTML = '';
+    document.getElementById('browse-count').textContent = `${list.length} phim`;
+
+    if (!list.length) {
+        grid.innerHTML = `<div class="browse__empty" style="grid-column:1/-1;">
+            <i class="fas fa-heart"></i>
+            <p>Danh sách của bạn đang trống</p>
+            <span>Hãy bấm nút + trên các phim bạn yêu thích để thêm vào đây!</span>
+        </div>`;
+        return;
+    }
+
+    // Use first item's poster as hero bg
+    const heroEl = document.getElementById('browse-hero-bg');
+    if (list.length) heroEl.style.backgroundImage = `url("${img(list[0].poster_url||list[0].thumb_url)}")`;
+
+    list.forEach(m => {
+        const card = document.createElement('div'); card.className = 'browse__card';
+        card.innerHTML = `
+            <img src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="this.style.opacity=.2">
+            <button class="browse__card-play" type="button"><i class="fas fa-play"></i></button>
+            <button class="browse__card-remove" data-remove-mylist="${m.slug}" type="button" title="Xóa khỏi danh sách"><i class="fas fa-times"></i></button>
+            <div class="browse__card-info">
+                <div class="browse__card-name">${m.name}</div>
+                <div class="browse__card-meta">
+                    ${m.year ? `<span>${m.year}</span>` : ''}
+                    ${m.quality ? `<span class="browse__card-badge">${m.quality}</span>` : ''}
+                    ${m.lang ? `<span class="browse__card-badge">${m.lang}</span>` : ''}
+                </div>
+            </div>`;
+        card.querySelector('.browse__card-play').addEventListener('click', e => { e.stopPropagation(); openModal(m.slug, true); });
+        card.querySelector('[data-remove-mylist]').addEventListener('click', e => {
+            e.stopPropagation();
+            STORAGE.removeFromMyList(m.slug);
+            card.style.transform = 'scale(0.8)';
+            card.style.opacity = '0';
+            setTimeout(() => openMyListPage(), 300);
+        });
+        card.addEventListener('click', () => openModal(m.slug));
+        grid.appendChild(card);
+    });
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function getBrowseUrl(page) {
@@ -472,6 +729,9 @@ async function openModal(slug, autoPlay = false) {
     if (_modalAbort) try { _modalAbort.abort(); } catch {}
     _modalAbort = new AbortController();
 
+    _currentModalSlug = slug;
+    _currentModalMovie = null;
+
     heroImg.style.backgroundImage = ''; heroImg.style.opacity = '';
     hero.querySelectorAll('iframe').forEach(f => f.remove());
     const grad = hero.querySelector('.modal__hero-gradient'); if (grad) grad.style.opacity = '';
@@ -481,10 +741,17 @@ async function openModal(slug, autoPlay = false) {
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
 
+    // Reset My List button
+    const myListBtn = document.getElementById('modal-mylist-btn');
+    myListBtn.classList.remove('in-list');
+    myListBtn.innerHTML = '<i class="fas fa-plus"></i>';
+
     try {
         const d = await apiFetch(API.detail + slug, { signal: _modalAbort.signal });
         if (reqId !== _modalReqId) return;
         const m = d.movie || {}, eps = d.episodes?.[0]?.server_data || [];
+
+        _currentModalMovie = m;
 
         heroImg.style.backgroundImage = `url("${img(m.poster_url||m.thumb_url)}")`;
         document.getElementById('modal-title').textContent = m.name || '';
@@ -496,16 +763,31 @@ async function openModal(slug, autoPlay = false) {
         document.getElementById('modal-genres').innerHTML = `<span class="modal__label">Thể loại:</span> ${(m.category||[]).map(c=>c.name).filter(Boolean).join(', ')||'N/A'}`;
         document.getElementById('modal-country').innerHTML = `<span class="modal__label">Quốc gia:</span> ${(m.country||[]).map(c=>c.name).filter(Boolean).join(', ')||'N/A'}`;
 
-        renderEpisodes(eps);
-        document.getElementById('modal-play-btn').onclick = () => { if (eps.length) { playInModal(eps[0].link_embed); const f=document.querySelector('.ep-btn'); if(f) f.classList.add('active'); } };
-        if (autoPlay && eps.length) { playInModal(eps[0].link_embed); const f=document.querySelector('.ep-btn'); if(f) f.classList.add('active'); }
+        // Update My List button state
+        const inList = STORAGE.isInMyList(slug);
+        myListBtn.classList.toggle('in-list', inList);
+        myListBtn.innerHTML = `<i class="fas fa-${inList ? 'check' : 'plus'}"></i>`;
+
+        // My List button handler
+        myListBtn.onclick = () => {
+            if (!_currentModalMovie) return;
+            const added = STORAGE.toggleMyList(_currentModalMovie);
+            myListBtn.classList.toggle('in-list', added);
+            myListBtn.innerHTML = `<i class="fas fa-${added ? 'check' : 'plus'}"></i>`;
+            // Also update card buttons in background
+            updateAllMyListButtons(_currentModalMovie.slug, added);
+        };
+
+        renderEpisodes(eps, m);
+        document.getElementById('modal-play-btn').onclick = () => { if (eps.length) { playEpisode(eps[0], m); const f=document.querySelector('.ep-btn'); if(f) f.classList.add('active'); } };
+        if (autoPlay && eps.length) { playEpisode(eps[0], m); const f=document.querySelector('.ep-btn'); if(f) f.classList.add('active'); }
     } catch (err) {
         if (err.name === 'AbortError') return;
         document.getElementById('modal-desc').textContent = 'Lỗi khi tải.';
     }
 }
 
-function renderEpisodes(eps) {
+function renderEpisodes(eps, movie) {
     const c = document.getElementById('modal-episodes-list');
     const sec = document.getElementById('modal-episodes-section');
     c.innerHTML = '';
@@ -514,9 +796,27 @@ function renderEpisodes(eps) {
     eps.forEach(ep => {
         const b = document.createElement('button'); b.className = 'ep-btn';
         b.textContent = `Tập ${ep.name}`;
-        b.onclick = () => { c.querySelectorAll('.ep-btn').forEach(x => x.classList.remove('active')); b.classList.add('active'); playInModal(ep.link_embed); };
+        b.onclick = () => {
+            c.querySelectorAll('.ep-btn').forEach(x => x.classList.remove('active'));
+            b.classList.add('active');
+            playEpisode(ep, movie);
+        };
         c.appendChild(b);
     });
+}
+
+function playEpisode(ep, movie) {
+    playInModal(ep.link_embed);
+    // Save to history
+    if (movie) {
+        STORAGE.addHistory({
+            slug: movie.slug || _currentModalSlug,
+            name: movie.name || '',
+            poster_url: movie.poster_url || '',
+            thumb_url: movie.thumb_url || '',
+            episode: ep.name || ''
+        });
+    }
 }
 
 function playInModal(url) {
@@ -537,4 +837,23 @@ function closeModal() {
     modal.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
     if (_modalAbort) try { _modalAbort.abort(); } catch {}
+    _currentModalSlug = null;
+    _currentModalMovie = null;
+
+    // Refresh history row if on home page
+    if (!document.getElementById('home-view').style.display || document.getElementById('home-view').style.display !== 'none') {
+        renderHistoryRow();
+    }
+    // Refresh My List page if currently showing
+    if (browseType === 'mylist') {
+        openMyListPage();
+    }
+}
+
+// Update all card mylist buttons when toggling from modal
+function updateAllMyListButtons(slug, added) {
+    document.querySelectorAll(`[data-mylist-slug="${slug}"]`).forEach(btn => {
+        btn.classList.toggle('in-list', added);
+        btn.innerHTML = `<i class="fas fa-${added ? 'check' : 'plus'}"></i>`;
+    });
 }
