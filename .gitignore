@@ -1,0 +1,21 @@
+# Maven/Tomcat build outputs
+target/
+work/
+temp/
+logs/
+
+# Local Tomcat Server
+apache-tomcat-*/
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files
+.DS_Store
+Thumbs.db
