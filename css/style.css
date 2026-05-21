@@ -707,14 +707,15 @@ body.theater-light-off .modal__body,
 body.theater-light-off .modal__close,
 body.theater-light-off .modal__hero-info h2,
 body.theater-light-off .modal__hero-info .btn--play,
-body.theater-light-off .modal__hero-info .btn-circle:not(#modal-light-btn):not(#modal-theater-btn) {
+body.theater-light-off .modal__hero-info .btn-circle:not(#modal-light-btn):not(#modal-theater-btn):not(#modal-next-btn) {
   opacity: 0.15; /* Làm mờ các thành phần khác để tập trung xem phim */
   transition: opacity var(--med);
   pointer-events: none;
 }
 body.theater-light-off .modal__hero-info .btn-circle#modal-light-btn,
-body.theater-light-off .modal__hero-info .btn-circle#modal-theater-btn {
-  opacity: 1; /* Nút bật/tắt đèn và Rạp chiếu vẫn hiển thị rõ nét */
+body.theater-light-off .modal__hero-info .btn-circle#modal-theater-btn,
+body.theater-light-off .modal__hero-info .btn-circle#modal-next-btn {
+  opacity: 1; /* Nút bật/tắt đèn, Rạp chiếu và Chuyển tập vẫn hiển thị rõ nét */
   background: rgba(229, 9, 20, 0.8);
   border-color: var(--red);
 }

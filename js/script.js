@@ -27,7 +27,7 @@ const _cache = new Map();
 let _modalReqId = 0, _modalAbort = null;
 const sliderState = {};
 let _currentModalSlug = null, _currentModalMovie = null;
-let _currentEpisode = null;
+let _currentEpisode = null, _currentEpisodesList = [];
 
 let browseType = null, browseSlug = null, browsePage = 1, browseTotalPages = 1;
 const BROWSE_SIZE = 24;
@@ -1065,7 +1065,32 @@ function initModal() {
         });
     }
 
-
+    // Nút Tập tiếp theo
+    const nextBtn = document.getElementById('modal-next-btn');
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            const nextEp = getNextEpisode();
+            if (nextEp && _currentModalMovie) {
+                const epButtons = document.querySelectorAll('#modal-episodes-list .ep-btn');
+                const currentIndex = _currentEpisodesList.findIndex(ep => ep.slug === _currentEpisode.slug || ep.name === _currentEpisode.name);
+                const nextIndex = currentIndex + 1;
+                
+                if (epButtons && epButtons[nextIndex]) {
+                    epButtons.forEach(x => x.classList.remove('active'));
+                    epButtons[nextIndex].classList.add('active');
+                    epButtons[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+                
+                playEpisode(nextEp, _currentModalMovie);
+                
+                showToast(
+                    'Đang chuyển tập 🚀',
+                    `Đang tải <b>Tập ${nextEp.name}</b>...`,
+                    'fa-forward'
+                );
+            }
+        });
+    }
 }
 
 // Tô màu sao phụ trợ
@@ -1082,6 +1107,28 @@ function highlightStars(ratingValue) {
     });
 }
 
+function getNextEpisode() {
+    if (!_currentEpisode || !_currentEpisodesList || !_currentEpisodesList.length) return null;
+    const currentIndex = _currentEpisodesList.findIndex(ep => ep.slug === _currentEpisode.slug || ep.name === _currentEpisode.name);
+    if (currentIndex !== -1 && currentIndex + 1 < _currentEpisodesList.length) {
+        return _currentEpisodesList[currentIndex + 1];
+    }
+    return null;
+}
+
+function updateNextEpisodeButton() {
+    const nextBtn = document.getElementById('modal-next-btn');
+    if (!nextBtn) return;
+    
+    const nextEp = getNextEpisode();
+    if (nextEp && document.getElementById('modal').classList.contains('is-playing')) {
+        nextBtn.style.display = 'inline-flex';
+        nextBtn.title = `Chuyển sang Tập ${nextEp.name}`;
+    } else {
+        nextBtn.style.display = 'none';
+    }
+}
+
 async function openModal(slug, autoPlay = false) {
     const modal = document.getElementById('modal');
     const heroImg = document.getElementById('modal-hero-img');
@@ -1094,6 +1141,7 @@ async function openModal(slug, autoPlay = false) {
     _currentModalSlug = slug;
     _currentModalMovie = null;
     _currentEpisode = null;
+    _currentEpisodesList = [];
     modal.classList.remove('is-playing');
 
     heroImg.style.backgroundImage = ''; heroImg.style.opacity = '';
@@ -1108,6 +1156,7 @@ async function openModal(slug, autoPlay = false) {
     // Ẩn các nút điều khiển video khi chưa phát
     document.getElementById('modal-light-btn').style.display = 'none';
     document.getElementById('modal-theater-btn').style.display = 'none';
+    document.getElementById('modal-next-btn').style.display = 'none';
     document.getElementById('modal-light-btn').title = 'Tắt đèn (Theater Mode)';
 
     // Reset buttons
@@ -1131,6 +1180,7 @@ async function openModal(slug, autoPlay = false) {
         const m = d.movie || {}, eps = d.episodes?.[0]?.server_data || [];
 
         _currentModalMovie = m;
+        _currentEpisodesList = eps;
 
 
 
@@ -1214,6 +1264,7 @@ function playEpisode(ep, movie) {
 
     const url = ep.link_embed;
     playInModal(url);
+    updateNextEpisodeButton();
     // Save to history
     if (movie) {
         STORAGE.addHistory({
@@ -1268,8 +1319,11 @@ function closeModal() {
     if (_modalAbort) try { _modalAbort.abort(); } catch {}
     _currentModalSlug = null;
     _currentModalMovie = null;
+    _currentEpisodesList = [];
 
     modal.classList.remove('is-playing');
+    const nextBtn = document.getElementById('modal-next-btn');
+    if (nextBtn) nextBtn.style.display = 'none';
 
     // Tắt các class rạp chiếu, tắt đèn
     document.body.classList.remove('theater-light-off');
