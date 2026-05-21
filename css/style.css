@@ -679,7 +679,7 @@ a{text-decoration:none;color:inherit;}
 }
 .ep-btn:hover{background:rgba(255,255,255,.1);color:var(--white);border-color:var(--t2);}
 .ep-btn.active{background:var(--red);color:var(--white);border-color:var(--red);}
-.modal__hero iframe{position:absolute;inset:0;width:100%;height:100%;border:none;}
+.modal__hero iframe{position:absolute;inset:0;width:100%;height:100%;border:none;touch-action:manipulation;}
 
 /* ==================== FOOTER ==================== */
 .footer{padding:60px var(--row-pad) 40px;color:var(--t3);}
@@ -719,51 +719,83 @@ body.theater-light-off .modal__hero-info .btn-circle#modal-theater-btn {
   border-color: var(--red);
 }
 
-/* Nút chuyển tập nổi dưới đáy góc phải video */
-.btn-next-bottom {
-  position: absolute;
-  bottom: 55px;
-  right: 20px;
-  z-index: 10;
-  background: rgba(20, 20, 20, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+/* Thanh điều khiển phát phim (nằm ngay dưới video) */
+.modal__player-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 24px;
+  background: linear-gradient(180deg, rgba(20,20,20,0.95) 0%, var(--surface) 100%);
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  min-height: 48px;
+}
+.player-bar__info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--t1);
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+}
+.player-bar__info i {
+  color: var(--red);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.player-bar__info span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.player-bar__next-btn {
+  background: var(--red);
   color: var(--white);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 8px 16px;
+  border: none;
+  padding: 8px 18px;
   border-radius: var(--radius);
   font-size: 0.82rem;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   transition: all var(--fast);
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.btn-next-bottom:hover {
-  background: var(--red);
-  border-color: var(--red);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(229, 9, 20, 0.4);
+.player-bar__next-btn:hover {
+  background: var(--red-hover);
+  transform: scale(1.03);
+  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
 }
-.btn-next-bottom i {
-  font-size: 0.8rem;
+.player-bar__next-btn:active {
+  transform: scale(0.97);
+}
+.player-bar__next-btn i {
+  font-size: 0.78rem;
   transition: transform var(--fast);
 }
-.btn-next-bottom:hover i {
-  transform: translateX(2px);
+.player-bar__next-btn:hover i {
+  transform: translateX(3px);
 }
 
-/* Tương thích di động cho nút chuyển tập dưới */
+/* Mobile: thanh điều khiển nhỏ gọn hơn */
 @media(max-width: 600px) {
-  .btn-next-bottom {
-    bottom: 45px;
-    right: 12px;
-    padding: 6px 12px;
-    font-size: 0.72rem;
+  .modal__player-bar {
+    padding: 8px 16px;
+    min-height: 44px;
+    gap: 8px;
+  }
+  .player-bar__info {
+    font-size: 0.78rem;
+  }
+  .player-bar__next-btn {
+    padding: 7px 14px;
+    font-size: 0.76rem;
   }
 }
 body.theater-light-off .modal__hero iframe {

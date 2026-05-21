@@ -68,6 +68,7 @@ const STORAGE = {
     MYLIST_KEY: 'longphim_mylist',
     RATINGS_KEY: 'longphim_ratings',
     NOTES_KEY: 'longphim_notes',
+    PROGRESS_KEY: 'longphim_progress',
     MAX_HISTORY: 20,
 
     _get(key) { try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; } },
@@ -150,6 +151,21 @@ const STORAGE = {
             list.push({ slug, note: note.trim(), time: Date.now() });
         }
         this._set(this.NOTES_KEY, list);
+    },
+
+    // ---- Watch Progress ----
+    getProgress(slug) {
+        try {
+            const data = JSON.parse(localStorage.getItem(this.PROGRESS_KEY)) || {};
+            return data[slug] || null;
+        } catch { return null; }
+    },
+    saveProgress(slug, epName) {
+        try {
+            const data = JSON.parse(localStorage.getItem(this.PROGRESS_KEY)) || {};
+            data[slug] = { ep: epName, time: Date.now() };
+            localStorage.setItem(this.PROGRESS_KEY, JSON.stringify(data));
+        } catch {}
     }
 };
 
@@ -1117,15 +1133,32 @@ function getNextEpisode() {
 }
 
 function updateNextEpisodeButton() {
+    const playerBar = document.getElementById('modal-player-bar');
     const nextBtn = document.getElementById('modal-next-bottom-btn');
-    if (!nextBtn) return;
+    const epText = document.getElementById('player-bar-ep-text');
+    if (!playerBar) return;
     
-    const nextEp = getNextEpisode();
-    if (nextEp && document.getElementById('modal').classList.contains('is-playing')) {
-        nextBtn.style.display = 'inline-flex';
-        nextBtn.title = `Chuyển sang Tập ${nextEp.name}`;
+    const isPlaying = document.getElementById('modal').classList.contains('is-playing');
+    const hasMultipleEps = _currentEpisodesList && _currentEpisodesList.length > 1;
+    
+    if (isPlaying && hasMultipleEps) {
+        playerBar.style.display = 'flex';
+        // Update ep info text
+        if (epText && _currentEpisode) {
+            epText.textContent = `Đang phát: Tập ${_currentEpisode.name}`;
+        }
+        // Show/hide next button
+        const nextEp = getNextEpisode();
+        if (nextBtn) {
+            if (nextEp) {
+                nextBtn.style.display = 'inline-flex';
+                nextBtn.title = `Chuyển sang Tập ${nextEp.name}`;
+            } else {
+                nextBtn.style.display = 'none';
+            }
+        }
     } else {
-        nextBtn.style.display = 'none';
+        playerBar.style.display = 'none';
     }
 }
 
@@ -1156,7 +1189,7 @@ async function openModal(slug, autoPlay = false) {
     // Ẩn các nút điều khiển video khi chưa phát
     document.getElementById('modal-light-btn').style.display = 'none';
     document.getElementById('modal-theater-btn').style.display = 'none';
-    document.getElementById('modal-next-bottom-btn').style.display = 'none';
+    document.getElementById('modal-player-bar').style.display = 'none';
     document.getElementById('modal-light-btn').title = 'Tắt đèn (Theater Mode)';
 
     // Reset buttons
@@ -1232,8 +1265,35 @@ async function openModal(slug, autoPlay = false) {
         }
 
         renderEpisodes(eps, m);
-        document.getElementById('modal-play-btn').onclick = () => { if (eps.length) { playEpisode(eps[0], m); const f=document.querySelector('.ep-btn'); if(f) f.classList.add('active'); } };
-        if (autoPlay && eps.length) { playEpisode(eps[0], m); const f=document.querySelector('.ep-btn'); if(f) f.classList.add('active'); }
+
+        // Khôi phục tiến trình xem dở (nếu có)
+        const savedProgress = STORAGE.getProgress(slug);
+        let resumeIdx = 0;
+        if (savedProgress && savedProgress.ep) {
+            const idx = eps.findIndex(ep => ep.name === savedProgress.ep);
+            if (idx !== -1) resumeIdx = idx;
+        }
+
+        document.getElementById('modal-play-btn').onclick = () => {
+            if (eps.length) {
+                playEpisode(eps[resumeIdx], m);
+                const btns = document.querySelectorAll('.ep-btn');
+                btns.forEach(x => x.classList.remove('active'));
+                if (btns[resumeIdx]) btns[resumeIdx].classList.add('active');
+            }
+        };
+        if (autoPlay && eps.length) {
+            playEpisode(eps[resumeIdx], m);
+            const btns = document.querySelectorAll('.ep-btn');
+            btns.forEach(x => x.classList.remove('active'));
+            if (btns[resumeIdx]) btns[resumeIdx].classList.add('active');
+        }
+
+        // Hiển thị badge tiếp tục xem cho nhanh nếu có lưu tiến trình
+        if (savedProgress && savedProgress.ep && eps.length > 1 && !autoPlay) {
+            const btns = document.querySelectorAll('.ep-btn');
+            if (btns[resumeIdx]) btns[resumeIdx].classList.add('active');
+        }
     } catch (err) {
         if (err.name === 'AbortError') return;
         document.getElementById('modal-desc').textContent = 'Lỗi khi tải.';
@@ -1265,6 +1325,11 @@ function playEpisode(ep, movie) {
     const url = ep.link_embed;
     playInModal(url);
     updateNextEpisodeButton();
+
+    // Lưu tiến trình xem dở (tập nào)
+    const slug = (movie && movie.slug) || _currentModalSlug;
+    if (slug) STORAGE.saveProgress(slug, ep.name);
+
     // Save to history
     if (movie) {
         STORAGE.addHistory({
@@ -1322,8 +1387,8 @@ function closeModal() {
     _currentEpisodesList = [];
 
     modal.classList.remove('is-playing');
-    const nextBtn = document.getElementById('modal-next-bottom-btn');
-    if (nextBtn) nextBtn.style.display = 'none';
+    const playerBar = document.getElementById('modal-player-bar');
+    if (playerBar) playerBar.style.display = 'none';
 
     // Tắt các class rạp chiếu, tắt đèn
     document.body.classList.remove('theater-light-off');

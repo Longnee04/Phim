@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>LongPhim - Xem Với Long đi bà con</title>
     <meta name="description" content="LongPhim - Xem phim online miễn phí chất lượng cao HD Vietsub.">
     <link rel="stylesheet" href="css/style.css">
@@ -368,9 +368,15 @@
                         <button class="btn-circle" id="modal-theater-btn" type="button" title="Chế độ rạp chiếu (Rộng hơn)" style="display:none;"><i class="fas fa-expand"></i></button>
                     </div>
                 </div>
-                <!-- Nút chuyển tập nổi dưới đáy góc phải video -->
-                <button class="btn-next-bottom" id="modal-next-bottom-btn" type="button" style="display:none;">
-                    <span>Tập tiếp theo</span> <i class="fas fa-step-forward"></i>
+            </div>
+            <!-- Thanh điều khiển phát phim (nằm ngay dưới video) -->
+            <div class="modal__player-bar" id="modal-player-bar" style="display:none;">
+                <div class="player-bar__info" id="player-bar-info">
+                    <i class="fas fa-play-circle"></i>
+                    <span id="player-bar-ep-text">Đang phát: Tập 1</span>
+                </div>
+                <button class="player-bar__next-btn" id="modal-next-bottom-btn" type="button">
+                    <span>Tập tiếp theo</span> <i class="fas fa-forward-step"></i>
                 </button>
             </div>
             <div class="modal__body">
