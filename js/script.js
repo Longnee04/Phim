@@ -1066,7 +1066,7 @@ function initModal() {
     }
 
     // Nút Tập tiếp theo
-    const nextBtn = document.getElementById('modal-next-btn');
+    const nextBtn = document.getElementById('modal-next-bottom-btn');
     if (nextBtn) {
         nextBtn.addEventListener('click', () => {
             const nextEp = getNextEpisode();
@@ -1117,7 +1117,7 @@ function getNextEpisode() {
 }
 
 function updateNextEpisodeButton() {
-    const nextBtn = document.getElementById('modal-next-btn');
+    const nextBtn = document.getElementById('modal-next-bottom-btn');
     if (!nextBtn) return;
     
     const nextEp = getNextEpisode();
@@ -1156,7 +1156,7 @@ async function openModal(slug, autoPlay = false) {
     // Ẩn các nút điều khiển video khi chưa phát
     document.getElementById('modal-light-btn').style.display = 'none';
     document.getElementById('modal-theater-btn').style.display = 'none';
-    document.getElementById('modal-next-btn').style.display = 'none';
+    document.getElementById('modal-next-bottom-btn').style.display = 'none';
     document.getElementById('modal-light-btn').title = 'Tắt đèn (Theater Mode)';
 
     // Reset buttons
@@ -1322,7 +1322,7 @@ function closeModal() {
     _currentEpisodesList = [];
 
     modal.classList.remove('is-playing');
-    const nextBtn = document.getElementById('modal-next-btn');
+    const nextBtn = document.getElementById('modal-next-bottom-btn');
     if (nextBtn) nextBtn.style.display = 'none';
 
     // Tắt các class rạp chiếu, tắt đèn

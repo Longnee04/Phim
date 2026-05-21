@@ -707,17 +707,64 @@ body.theater-light-off .modal__body,
 body.theater-light-off .modal__close,
 body.theater-light-off .modal__hero-info h2,
 body.theater-light-off .modal__hero-info .btn--play,
-body.theater-light-off .modal__hero-info .btn-circle:not(#modal-light-btn):not(#modal-theater-btn):not(#modal-next-btn) {
+body.theater-light-off .modal__hero-info .btn-circle:not(#modal-light-btn):not(#modal-theater-btn) {
   opacity: 0.15; /* Làm mờ các thành phần khác để tập trung xem phim */
   transition: opacity var(--med);
   pointer-events: none;
 }
 body.theater-light-off .modal__hero-info .btn-circle#modal-light-btn,
-body.theater-light-off .modal__hero-info .btn-circle#modal-theater-btn,
-body.theater-light-off .modal__hero-info .btn-circle#modal-next-btn {
-  opacity: 1; /* Nút bật/tắt đèn, Rạp chiếu và Chuyển tập vẫn hiển thị rõ nét */
+body.theater-light-off .modal__hero-info .btn-circle#modal-theater-btn {
+  opacity: 1; /* Nút bật/tắt đèn và Rạp chiếu vẫn hiển thị rõ nét */
   background: rgba(229, 9, 20, 0.8);
   border-color: var(--red);
+}
+
+/* Nút chuyển tập nổi dưới đáy góc phải video */
+.btn-next-bottom {
+  position: absolute;
+  bottom: 55px;
+  right: 20px;
+  z-index: 10;
+  background: rgba(20, 20, 20, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--white);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all var(--fast);
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.btn-next-bottom:hover {
+  background: var(--red);
+  border-color: var(--red);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(229, 9, 20, 0.4);
+}
+.btn-next-bottom i {
+  font-size: 0.8rem;
+  transition: transform var(--fast);
+}
+.btn-next-bottom:hover i {
+  transform: translateX(2px);
+}
+
+/* Tương thích di động cho nút chuyển tập dưới */
+@media(max-width: 600px) {
+  .btn-next-bottom {
+    bottom: 45px;
+    right: 12px;
+    padding: 6px 12px;
+    font-size: 0.72rem;
+  }
 }
 body.theater-light-off .modal__hero iframe {
   box-shadow: 0 0 100px rgba(255, 255, 255, 0.15); /* Tạo hiệu ứng hào quang nhẹ phía sau video */
