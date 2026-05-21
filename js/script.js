@@ -27,6 +27,7 @@ const _cache = new Map();
 let _modalReqId = 0, _modalAbort = null;
 const sliderState = {};
 let _currentModalSlug = null, _currentModalMovie = null;
+let _currentServer = 'vietsub', _currentEpisode = null;
 
 let browseType = null, browseSlug = null, browsePage = 1, browseTotalPages = 1;
 const BROWSE_SIZE = 24;
@@ -1063,6 +1064,31 @@ function initModal() {
             });
         });
     }
+
+    // Sự kiện chọn Server
+    const serverContainer = document.getElementById('modal-servers');
+    if (serverContainer) {
+        serverContainer.querySelectorAll('.server-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const s = btn.dataset.server;
+                if (_currentServer === s) return;
+                
+                serverContainer.querySelectorAll('.server-btn').forEach(x => x.classList.remove('active'));
+                btn.classList.add('active');
+                _currentServer = s;
+
+                showToast(
+                    'Đã đổi Server 🌐',
+                    `Đã chuyển sang trình chiếu từ: <b>${btn.textContent.trim()}</b>`,
+                    'fa-server'
+                );
+
+                if (_currentEpisode && _currentModalMovie) {
+                    playEpisode(_currentEpisode, _currentModalMovie);
+                }
+            });
+        });
+    }
 }
 
 // Tô màu sao phụ trợ
@@ -1090,6 +1116,17 @@ async function openModal(slug, autoPlay = false) {
 
     _currentModalSlug = slug;
     _currentModalMovie = null;
+    _currentServer = 'vietsub';
+    _currentEpisode = null;
+    modal.classList.remove('is-playing');
+
+    const serverContainer = document.getElementById('modal-servers');
+    if (serverContainer) {
+        serverContainer.style.display = 'none';
+        serverContainer.querySelectorAll('.server-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.server === 'vietsub');
+        });
+    }
 
     heroImg.style.backgroundImage = ''; heroImg.style.opacity = '';
     hero.querySelectorAll('iframe').forEach(f => f.remove());
@@ -1126,6 +1163,17 @@ async function openModal(slug, autoPlay = false) {
         const m = d.movie || {}, eps = d.episodes?.[0]?.server_data || [];
 
         _currentModalMovie = m;
+
+        // Check for IMDb or TMDB ID to enable English Sub server toggle
+        const hasImdb = !!(m.imdb?.id || m.imdb_id);
+        const hasTmdb = !!(m.tmdb?.id || m.tmdb_id);
+        if (serverContainer && (hasImdb || hasTmdb)) {
+            serverContainer.style.display = 'flex';
+            const eng1Btn = serverContainer.querySelector('[data-server="english1"]');
+            if (eng1Btn) eng1Btn.style.display = hasImdb ? 'inline-flex' : 'none';
+            const eng2Btn = serverContainer.querySelector('[data-server="english2"]');
+            if (eng2Btn) eng2Btn.style.display = hasTmdb ? 'inline-flex' : 'none';
+        }
 
         heroImg.style.backgroundImage = `url("${img(m.poster_url||m.thumb_url)}")`;
         document.getElementById('modal-title').textContent = m.name || '';
@@ -1202,7 +1250,51 @@ function renderEpisodes(eps, movie) {
 }
 
 function playEpisode(ep, movie) {
-    playInModal(ep.link_embed);
+    _currentEpisode = ep;
+    if (movie) _currentModalMovie = movie;
+
+    let url = ep.link_embed;
+    if (_currentServer === 'english1') {
+        const imdbId = movie?.imdb?.id || movie?.imdb_id;
+        if (imdbId) {
+            const isSingle = movie?.type === 'single';
+            const season = movie?.tmdb?.season || 1;
+            const episode = parseInt(ep.name.replace(/\D/g, '')) || 1;
+            url = isSingle
+                ? `https://vidsrc.to/embed/movie/${imdbId}`
+                : `https://vidsrc.to/embed/tv/${imdbId}/${season}/${episode}`;
+        } else {
+            showToast('Không có mã IMDb ⚠️', 'Phim này không có thông tin IMDb để tải phụ đề tiếng Anh.', 'fa-triangle-exclamation');
+            _currentServer = 'vietsub';
+            const serverContainer = document.getElementById('modal-servers');
+            if (serverContainer) {
+                serverContainer.querySelectorAll('.server-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.server === 'vietsub');
+                });
+            }
+        }
+    } else if (_currentServer === 'english2') {
+        const tmdbId = movie?.tmdb?.id || movie?.tmdb_id || movie?.imdb?.id || movie?.imdb_id;
+        if (tmdbId) {
+            const isSingle = movie?.type === 'single';
+            const season = movie?.tmdb?.season || 1;
+            const episode = parseInt(ep.name.replace(/\D/g, '')) || 1;
+            url = isSingle
+                ? `https://embed.su/embed/movie/${tmdbId}`
+                : `https://embed.su/embed/tv/${tmdbId}/${season}/${episode}`;
+        } else {
+            showToast('Không có mã TMDB/IMDb ⚠️', 'Phim này không có thông tin TMDB để tải Server dự phòng.', 'fa-triangle-exclamation');
+            _currentServer = 'vietsub';
+            const serverContainer = document.getElementById('modal-servers');
+            if (serverContainer) {
+                serverContainer.querySelectorAll('.server-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.server === 'vietsub');
+                });
+            }
+        }
+    }
+
+    playInModal(url);
     // Save to history
     if (movie) {
         STORAGE.addHistory({
@@ -1243,6 +1335,8 @@ function playInModal(url) {
     // Hiện các nút điều khiển video khi video bắt đầu được phát
     document.getElementById('modal-light-btn').style.display = 'inline-flex';
     document.getElementById('modal-theater-btn').style.display = 'inline-flex';
+
+    document.getElementById('modal').classList.add('is-playing');
 }
 
 function closeModal() {
@@ -1255,6 +1349,8 @@ function closeModal() {
     if (_modalAbort) try { _modalAbort.abort(); } catch {}
     _currentModalSlug = null;
     _currentModalMovie = null;
+
+    modal.classList.remove('is-playing');
 
     // Tắt các class rạp chiếu, tắt đèn
     document.body.classList.remove('theater-light-off');
