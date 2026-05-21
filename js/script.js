@@ -15,6 +15,7 @@ const API = {
     genre:     "https://ophim1.com/v1/api/the-loai/",
     country:   "https://ophim1.com/v1/api/quoc-gia/",
     year:      "https://ophim1.com/v1/api/nam/",
+    list:      "https://ophim1.com/v1/api/danh-sach",
 };
 
 // ══════════════════════════════════════════════════════════
@@ -259,8 +260,98 @@ function initSearch() {
     const empty = document.getElementById('search-empty');
     const kw = document.getElementById('search-keyword');
     const closeB = document.getElementById('search-close');
+    const suggestionsDiv = document.getElementById('search-suggestions');
     let open = false;
     let searchType = 'all';
+
+    // Từ điển dịch thuật tên diễn viên Việt -> Anh (TMDB/OPhim index)
+    const ACTOR_MAP = {
+        "thành long": "Jackie Chan",
+        "châu tinh trì": "Stephen Chow",
+        "chân tử đan": "Donnie Yen",
+        "lý liên kiệt": "Jet Li",
+        "lưu đức hoa": "Andy Lau",
+        "cổ thiên lạc": "Louis Koo",
+        "ngô kinh": "Wu Jing",
+        "châu nhuận phát": "Chow Yun Fat",
+        "dương tử quỳnh": "Michelle Yeoh",
+        "chương tử di": "Zhang Ziyi",
+        "triệu lộ tư": "Zhao Lusi",
+        "tiêu chiến": "Xiao Zhan",
+        "vương nhất bác": "Wang Yibo",
+        "dương mịch": "Yang Mi",
+        "triệu lệ dĩnh": "Zhao Liying",
+        "địch lệ nhiệt ba": "Dilraba",
+        "lưu diệc phi": "Liu Yifei",
+        "cúc tịnh y": "Ju Jingyi",
+        "bạch lộc": "Bai Lu",
+        "dương dương": "Yang Yang",
+        "hứa khải": "Xu Kai",
+        "trương lăng hách": "Zhang Linghe",
+        "ngô lỗi": "Wu Lei",
+        "ngu thư hân": "Esther Yu",
+        "đặng luân": "Deng Lun",
+        "nhậm gia luân": "Allen Ren",
+        "thành nghị": "Cheng Yi",
+        "lý hiện": "Li Xian",
+        "tom cruise": "Tom Cruise",
+        "robert downey jr": "Robert Downey Jr.",
+        "leonardo dicaprio": "Leonardo DiCaprio",
+        "brad pitt": "Brad Pitt",
+        "scarlett johansson": "Scarlett Johansson",
+        "chris evans": "Chris Evans",
+        "chris hemsworth": "Chris Hemsworth",
+        "dwayne johnson": "Dwayne Johnson",
+        "johnny depp": "Johnny Depp",
+        "keanu reeves": "Keanu Reeves",
+        "jason statham": "Jason Statham",
+        "vin diesel": "Vin Diesel",
+        "will smith": "Will Smith",
+        "angelina jolie": "Angelina Jolie",
+        "emma watson": "Emma Watson",
+        "cillian murphy": "Cillian Murphy",
+        "christian bale": "Christian Bale",
+        "ryan reynolds": "Ryan Reynolds",
+        "hugh jackman": "Hugh Jackman",
+        "tom holland": "Tom Holland",
+        "zendaya": "Zendaya"
+    };
+
+    // Danh sách diễn viên nổi bật gợi ý
+    const POPULAR_ACTORS = [
+        { vi: "Thành Long", en: "Jackie Chan" },
+        { vi: "Châu Tinh Trì", en: "Stephen Chow" },
+        { vi: "Chân Tử Đan", en: "Donnie Yen" },
+        { vi: "Lý Liên Kiệt", en: "Jet Li" },
+        { vi: "Lưu Đức Hoa", en: "Andy Lau" },
+        { vi: "Triệu Lộ Tư", en: "Zhao Lusi" },
+        { vi: "Tiêu Chiến", en: "Xiao Zhan" },
+        { vi: "Vương Nhất Bác", en: "Wang Yibo" },
+        { vi: "Dương Mịch", en: "Yang Mi" },
+        { vi: "Triệu Lệ Dĩnh", en: "Zhao Liying" },
+        { vi: "Lưu Diệc Phi", en: "Liu Yifei" },
+        { vi: "Jason Statham", en: "Jason Statham" },
+        { vi: "Tom Cruise", en: "Tom Cruise" }
+    ];
+
+    const renderActorSuggestions = () => {
+        if (searchType !== 'actor' || !suggestionsDiv) {
+            if (suggestionsDiv) suggestionsDiv.hidden = true;
+            return;
+        }
+        suggestionsDiv.hidden = false;
+        suggestionsDiv.innerHTML = `
+            <div class="search-overlay__suggestions-title"><i class="fas fa-fire-flame-curved" style="color:var(--red)"></i> Khám phá diễn viên nổi bật:</div>
+            ${POPULAR_ACTORS.map(a => `<button class="actor-tag" data-actor-vi="${a.vi}" type="button"><i class="fas fa-user-circle"></i> ${a.vi}</button>`).join('')}
+        `;
+        suggestionsDiv.querySelectorAll('.actor-tag').forEach(btn => {
+            btn.addEventListener('click', () => {
+                input.value = btn.dataset.actorVi;
+                doSearch(btn.dataset.actorVi);
+                input.focus();
+            });
+        });
+    };
 
     const tabs = overlay.querySelectorAll('.search-tab');
     tabs.forEach(tab => {
@@ -268,6 +359,12 @@ function initSearch() {
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             searchType = tab.dataset.searchType;
+            if (searchType === 'actor') {
+                overlay.hidden = false;
+                renderActorSuggestions();
+            } else {
+                if (suggestionsDiv) suggestionsDiv.hidden = true;
+            }
             doSearch(input.value.trim());
         });
     });
@@ -280,6 +377,7 @@ function initSearch() {
         input.value = '';
         tabs.forEach((t, i) => t.classList.toggle('active', i === 0));
         searchType = 'all';
+        if (suggestionsDiv) suggestionsDiv.hidden = true;
     };
 
     btn.addEventListener('click', toggle);
@@ -287,12 +385,29 @@ function initSearch() {
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !overlay.hidden) closeSearch(); });
 
     const doSearch = debounce(async q => {
-        if (q.length < 2) { overlay.hidden = true; return; }
+        if (q.length < 2) {
+            if (searchType === 'actor') {
+                overlay.hidden = false;
+                kw.textContent = 'Khám phá phim theo diễn viên';
+                grid.innerHTML = '';
+                empty.hidden = true;
+                renderActorSuggestions();
+                return;
+            }
+            overlay.hidden = true;
+            if (suggestionsDiv) suggestionsDiv.hidden = true;
+            return;
+        }
         overlay.hidden = false;
         
         let label = q;
-        if (searchType === 'actor') label = `Diễn viên "${q}"`;
-        else if (searchType === 'year') label = `Năm "${q}"`;
+        if (searchType === 'actor') {
+            label = `Diễn viên "${q}"`;
+            renderActorSuggestions();
+        } else {
+            if (suggestionsDiv) suggestionsDiv.hidden = true;
+            if (searchType === 'year') label = `Năm "${q}"`;
+        }
         kw.textContent = label;
         
         empty.hidden = true;
@@ -306,7 +421,18 @@ function initSearch() {
         }
 
         try {
-            const d = await apiFetch(`${API.search}?keyword=${encodeURIComponent(q)}&limit=24`);
+            let url;
+            if (searchType === 'year') {
+                url = `${API.list}?year=${q}&limit=24`;
+            } else if (searchType === 'actor') {
+                const cleanQ = q.toLowerCase().trim();
+                const apiQ = ACTOR_MAP[cleanQ] || q;
+                url = `${API.search}?keyword=${encodeURIComponent(apiQ)}&limit=24`;
+            } else {
+                url = `${API.search}?keyword=${encodeURIComponent(q)}&limit=24`;
+            }
+
+            const d = await apiFetch(url);
             const items = d.data?.items || d.items || [];
             if (!items.length) {
                 grid.innerHTML = '';
@@ -321,7 +447,8 @@ function initSearch() {
                 c.onclick = () => { closeSearch(); openModal(m.slug); };
                 grid.appendChild(c);
             });
-        } catch {
+        } catch (err) {
+            console.error('doSearch err:', err);
             grid.innerHTML = '';
             empty.hidden = false;
             empty.innerHTML = `<i class="fas fa-exclamation-circle"></i><p>Đã xảy ra lỗi khi tìm kiếm.</p>`;
@@ -699,7 +826,7 @@ function getBrowseUrl(page) {
     if (browseType === 'type') return `${API[browseSlug]}?page=${page}&limit=${BROWSE_SIZE}`;
     if (browseType === 'genre') return `${API.genre}${browseSlug}?page=${page}&limit=${BROWSE_SIZE}`;
     if (browseType === 'country') return `${API.country}${browseSlug}?page=${page}&limit=${BROWSE_SIZE}`;
-    if (browseType === 'year') return `${API.search}?keyword=${browseSlug}&page=${page}&limit=${BROWSE_SIZE}`;
+    if (browseType === 'year') return `${API.list}?year=${browseSlug}&page=${page}&limit=${BROWSE_SIZE}`;
     return '';
 }
 
