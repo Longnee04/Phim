@@ -998,7 +998,58 @@ function triggerRandomMovieSuggestion(movies) {
 function initModal() {
     document.getElementById('modal-close').addEventListener('click', closeModal);
     document.getElementById('modal-backdrop').addEventListener('click', closeModal);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('modal').getAttribute('aria-hidden') === 'false') closeModal(); });
+    document.addEventListener('keydown', e => {
+        const modal = document.getElementById('modal');
+        if (!modal || modal.getAttribute('aria-hidden') === 'true') return;
+
+        if (e.key === 'Escape') {
+            closeModal();
+            return;
+        }
+
+        // Tránh kích hoạt phím tắt khi người dùng đang gõ ghi chú hoặc tìm kiếm
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
+            return;
+        }
+
+        const key = e.key.toLowerCase();
+        if (key === 'f') {
+            const iframe = document.querySelector('#modal-hero iframe');
+            if (iframe) {
+                e.preventDefault();
+                if (!document.fullscreenElement) {
+                    if (iframe.requestFullscreen) {
+                        iframe.requestFullscreen();
+                    } else if (iframe.webkitRequestFullscreen) {
+                        iframe.webkitRequestFullscreen();
+                    } else if (iframe.mozRequestFullScreen) {
+                        iframe.mozRequestFullScreen();
+                    } else if (iframe.msRequestFullscreen) {
+                        iframe.msRequestFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                }
+            }
+        } else if (key === 'n') {
+            if (modal.classList.contains('is-playing')) {
+                const nextBtn = document.getElementById('modal-next-bottom-btn');
+                if (nextBtn && nextBtn.style.display !== 'none') {
+                    e.preventDefault();
+                    nextBtn.click();
+                }
+            }
+        }
+    });
 
     // Nút Tắt đèn (Theater Light Mode)
     const lightBtn = document.getElementById('modal-light-btn');
