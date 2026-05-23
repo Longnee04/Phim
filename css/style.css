@@ -663,6 +663,30 @@ a{text-decoration:none;color:inherit;}
 .modal__desc{font-size:.92rem;line-height:1.7;color:var(--t1);}
 .modal__tags p{font-size:.85rem;color:var(--t3);margin-bottom:8px;line-height:1.5;}
 .modal__label{color:var(--t2);}
+.modal__episodes-section {
+  margin-bottom: 28px;
+}
+.modal__episodes-tip {
+  font-size: 0.78rem;
+  color: var(--t3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+.modal__episodes-tip i {
+  color: var(--red);
+}
+.modal__episodes-tip b {
+  color: var(--red);
+  background: rgba(229, 9, 20, 0.15);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+}
 .modal__episodes-header-row{
   display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
   margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:8px;
