@@ -28,7 +28,6 @@ let _modalReqId = 0, _modalAbort = null;
 const sliderState = {};
 let _currentModalSlug = null, _currentModalMovie = null;
 let _currentEpisode = null, _currentEpisodesList = [];
-let _nextPopupTimer = null;
 
 let browseType = null, browseSlug = null, browsePage = 1, browseTotalPages = 1;
 const BROWSE_SIZE = 24;
@@ -1160,30 +1159,6 @@ function initModal() {
         });
     }
 
-    // Nút Chạy thử thông báo báo hiệu tập mới
-    const testBtn = document.getElementById('test-popup-btn');
-    if (testBtn) {
-        testBtn.addEventListener('click', () => {
-            const popup = document.getElementById('player-next-popup');
-            if (popup) {
-                const nextEp = getNextEpisode();
-                const epTextEl = document.getElementById('player-next-popup-ep');
-                if (epTextEl) {
-                    epTextEl.textContent = nextEp ? `Tập ${nextEp.name}` : "Tập tiếp theo (Hết phim)";
-                }
-                
-                // Show the popup
-                popup.style.display = 'block';
-                
-                // Trigger a simulated toast
-                showToast(
-                    'Trình giả lập phím tắt 🧪',
-                    'Đang chạy thử nghiệm giao diện báo hiệu tập mới!',
-                    'fa-flask'
-                );
-            }
-        });
-    }
 }
 
 // Tô màu sao phụ trợ
@@ -1395,63 +1370,6 @@ function renderEpisodes(eps, movie) {
     });
 }
 
-function setupNextEpisodePopupTimer(movie, ep) {
-    clearTimeout(_nextPopupTimer);
-    const popup = document.getElementById('player-next-popup');
-    if (popup) popup.style.display = 'none';
-
-    if (!movie || !ep || !_currentEpisodesList || _currentEpisodesList.length <= 1) return;
-
-    const nextEp = getNextEpisode();
-    if (!nextEp) return;
-
-    const epTextEl = document.getElementById('player-next-popup-ep');
-    if (epTextEl) epTextEl.textContent = `Tập ${nextEp.name}`;
-
-    const btn = document.getElementById('player-next-popup-btn');
-    if (btn) {
-        btn.onclick = () => {
-            if (popup) popup.style.display = 'none';
-            const nextBtn = document.getElementById('modal-next-bottom-btn');
-            if (nextBtn) nextBtn.click();
-        };
-    }
-
-    const closeBtn = document.getElementById('player-next-popup-close');
-    if (closeBtn) {
-        closeBtn.onclick = () => {
-            if (popup) popup.style.display = 'none';
-            clearTimeout(_nextPopupTimer);
-        };
-    }
-
-    let durationSeconds = null;
-    const timeStr = movie.time || '';
-    const match = timeStr.match(/(\d+)\s*(phút|phut|m|min)/i);
-    if (match) {
-        durationSeconds = parseInt(match[1]) * 60;
-    } else {
-        const isSeries = movie.type === 'series' || movie.type === 'hoat-hinh' || _currentEpisodesList.length > 1;
-        durationSeconds = isSeries ? 24 * 60 : 90 * 60;
-    }
-
-    let triggerSecs = durationSeconds * 0.90;
-    const remainingSecs = durationSeconds - triggerSecs;
-    if (remainingSecs > 180) {
-        triggerSecs = durationSeconds - 180;
-    } else if (remainingSecs < 60) {
-        triggerSecs = durationSeconds - 60;
-    }
-
-    if (triggerSecs < 10) triggerSecs = 10;
-
-    _nextPopupTimer = setTimeout(() => {
-        if (popup && document.getElementById('modal').getAttribute('aria-hidden') === 'false' && document.getElementById('modal').classList.contains('is-playing')) {
-            popup.style.display = 'block';
-        }
-    }, triggerSecs * 1000);
-}
-
 function playEpisode(ep, movie) {
     _currentEpisode = ep;
     if (movie) _currentModalMovie = movie;
@@ -1459,10 +1377,6 @@ function playEpisode(ep, movie) {
     const url = ep.link_embed;
     playInModal(url);
     updateNextEpisodeButton();
-
-    if (movie || _currentModalMovie) {
-        setupNextEpisodePopupTimer(movie || _currentModalMovie, ep);
-    }
 
     // Lưu tiến trình xem dở (tập nào)
     const slug = (movie && movie.slug) || _currentModalSlug;
@@ -1527,10 +1441,6 @@ function closeModal() {
     modal.classList.remove('is-playing');
     const playerBar = document.getElementById('modal-player-bar');
     if (playerBar) playerBar.style.display = 'none';
-
-    clearTimeout(_nextPopupTimer);
-    const popup = document.getElementById('player-next-popup');
-    if (popup) popup.style.display = 'none';
 
     // Tắt các class rạp chiếu, tắt đèn
     document.body.classList.remove('theater-light-off');
