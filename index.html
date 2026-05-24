@@ -368,6 +368,14 @@
                         <button class="btn-circle" id="modal-theater-btn" type="button" title="Chế độ rạp chiếu (Rộng hơn)" style="display:none;"><i class="fas fa-expand"></i></button>
                     </div>
                 </div>
+
+                <!-- Báo hiệu tập mới khi xem gần hết tập -->
+                <div class="player-next-popup" id="player-next-popup" style="display: none;">
+                    <button class="player-next-popup__close" id="player-next-popup-close" type="button" aria-label="Đóng">&times;</button>
+                    <div class="player-next-popup__title">Tập tiếp theo</div>
+                    <div class="player-next-popup__ep" id="player-next-popup-ep">Tập --</div>
+                    <button class="player-next-popup__btn" id="player-next-popup-btn" type="button">Xem ngay</button>
+                </div>
             </div>
             <!-- Thanh điều khiển phát phim (nằm ngay dưới video) -->
             <div class="modal__player-bar" id="modal-player-bar" style="display:none;">
