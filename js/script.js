@@ -998,6 +998,21 @@ function triggerRandomMovieSuggestion(movies) {
 function initModal() {
     document.getElementById('modal-close').addEventListener('click', closeModal);
     document.getElementById('modal-backdrop').addEventListener('click', closeModal);
+
+    // Tự động khôi phục tiêu điểm (focus) cho trang chính khi chuột di chuyển ra ngoài trình phát nhúng (iframe)
+    // Giúp các phím tắt N và F luôn hoạt động mượt mà mà không bị kẹt tiêu điểm bên trong iframe
+    const modalEl = document.getElementById('modal');
+    if (modalEl) {
+        const recoverFocus = () => {
+            if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
+                window.focus();
+                modalEl.focus();
+            }
+        };
+        modalEl.addEventListener('mouseenter', recoverFocus);
+        modalEl.addEventListener('mousemove', recoverFocus);
+    }
+
     document.addEventListener('keydown', e => {
         const modal = document.getElementById('modal');
         if (!modal || modal.getAttribute('aria-hidden') === 'true') return;
@@ -1377,6 +1392,12 @@ function playEpisode(ep, movie) {
     const url = ep.link_embed;
     playInModal(url);
     updateNextEpisodeButton();
+
+    const modalEl = document.getElementById('modal');
+    if (modalEl) {
+        window.focus();
+        modalEl.focus();
+    }
 
     // Lưu tiến trình xem dở (tập nào)
     const slug = (movie && movie.slug) || _currentModalSlug;
