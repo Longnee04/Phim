@@ -417,7 +417,10 @@
                 <div class="modal__episodes-section" id="modal-episodes-section">
                     <div class="modal__episodes-header-row">
                         <h3 class="modal__episodes-title">Các tập</h3>
-                        <span class="modal__episodes-tip"><i class="fas fa-keyboard"></i> Nhấn phím <b>N</b> để chuyển tập | Phím <b>F</b> để xem toàn màn hình</span>
+                        <div class="modal__episodes-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <span class="modal__episodes-tip"><i class="fas fa-keyboard"></i> Nhấn <b>N</b> chuyển tập | <b>F</b> toàn màn hình</span>
+                            <span class="modal__episodes-tip modal__episodes-tip--test" id="test-popup-btn" style="cursor: pointer; background: rgba(229, 9, 20, 0.1); border-color: rgba(229, 9, 20, 0.3); color: var(--red);"><i class="fas fa-flask"></i> Chạy thử thông báo</span>
+                        </div>
                     </div>
                     <div class="modal__episodes-list" id="modal-episodes-list"></div>
                 </div>

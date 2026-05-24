@@ -1159,6 +1159,31 @@ function initModal() {
             }
         });
     }
+
+    // Nút Chạy thử thông báo báo hiệu tập mới
+    const testBtn = document.getElementById('test-popup-btn');
+    if (testBtn) {
+        testBtn.addEventListener('click', () => {
+            const popup = document.getElementById('player-next-popup');
+            if (popup) {
+                const nextEp = getNextEpisode();
+                const epTextEl = document.getElementById('player-next-popup-ep');
+                if (epTextEl) {
+                    epTextEl.textContent = nextEp ? `Tập ${nextEp.name}` : "Tập tiếp theo (Hết phim)";
+                }
+                
+                // Show the popup
+                popup.style.display = 'block';
+                
+                // Trigger a simulated toast
+                showToast(
+                    'Trình giả lập phím tắt 🧪',
+                    'Đang chạy thử nghiệm giao diện báo hiệu tập mới!',
+                    'fa-flask'
+                );
+            }
+        });
+    }
 }
 
 // Tô màu sao phụ trợ

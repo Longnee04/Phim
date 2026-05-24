@@ -1214,3 +1214,14 @@ body.theater-light-off .modal__hero iframe {
   }
 }
 
+.modal__episodes-tip--test:hover {
+  background: rgba(229, 9, 20, 0.22) !important;
+  color: var(--white) !important;
+  border-color: rgba(229, 9, 20, 0.5) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.15);
+}
+.modal__episodes-tip--test:active {
+  transform: translateY(0);
+}
+
