@@ -1714,7 +1714,11 @@ const VIPPlayer = {
         }
 
         // Hide VIP UI container
-        if (this.container) this.container.style.display = 'none';
+        if (this.container) {
+            this.container.style.display = 'none';
+            this.container.classList.remove('pseudo-fullscreen');
+        }
+        document.body.classList.remove('vip-pseudo-fs-active');
 
         // Remove active classes
         const modal = document.getElementById('modal');
@@ -2338,32 +2342,79 @@ const VIPPlayer = {
         this.resetAutoHide();
     },
 
-    // Request fullscreen on container element
+    // Request fullscreen on container element with iOS iPhone Safari and restrictive webview fallbacks
     toggleFullscreen() {
-        if (!this.container) return;
+        if (!this.container || !this.video) return;
+
+        // 1. Kiểm tra nếu là thiết bị iOS (iPhone/iPad không hỗ trợ Fullscreen API chuẩn trên DOM Element)
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         
-        if (!document.fullscreenElement) {
-            if (this.container.requestFullscreen) {
-                this.container.requestFullscreen();
-            } else if (this.container.webkitRequestFullscreen) {
-                this.container.webkitRequestFullscreen();
-            } else if (this.container.mozRequestFullScreen) {
-                this.container.mozRequestFullScreen();
-            } else if (this.container.msRequestFullscreen) {
-                this.container.msRequestFullscreen();
+        if (isIOS && this.video.webkitEnterFullscreen) {
+            // iOS iPhone/Safari bắt buộc dùng webkitEnterFullscreen trực tiếp trên video element
+            try {
+                this.video.webkitEnterFullscreen();
+            } catch (err) {
+                console.error('iOS fullscreen failed:', err);
+                this.fallbackToPseudoFullscreen();
+            }
+            this.resetAutoHide();
+            return;
+        }
+
+        // 2. Với các trình duyệt hỗ trợ chuẩn Fullscreen API trên DOM Element (Android, Chrome, PC)
+        const doc = document;
+        const isFullscreen = doc.fullscreenElement || 
+                             doc.webkitFullscreenElement || 
+                             doc.mozFullScreenElement || 
+                             doc.msFullscreenElement;
+
+        if (!isFullscreen) {
+            const requestFS = this.container.requestFullscreen || 
+                              this.container.webkitRequestFullscreen || 
+                              this.container.mozRequestFullScreen || 
+                              this.container.msRequestFullscreen;
+            if (requestFS) {
+                requestFS.call(this.container).catch(err => {
+                    console.error('Fullscreen request failed:', err);
+                    // Nếu lỗi (do webview chặn chẳng hạn), dùng giả lập toàn màn hình CSS
+                    this.fallbackToPseudoFullscreen();
+                });
+            } else if (this.video.webkitEnterFullscreen) {
+                this.video.webkitEnterFullscreen();
+            } else {
+                this.fallbackToPseudoFullscreen();
             }
         } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
-            } else if (document.mozCancelFullScreen) {
-                document.mozCancelFullScreen();
-            } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
+            const exitFS = doc.exitFullscreen || 
+                           doc.webkitExitFullscreen || 
+                           doc.mozCancelFullScreen || 
+                           doc.msExitFullscreen;
+            if (exitFS) {
+                exitFS.call(doc).catch(err => console.error('Exit fullscreen failed:', err));
+            } else {
+                this.fallbackToPseudoFullscreen();
             }
         }
         this.resetAutoHide();
+    },
+
+    // Giả lập chế độ toàn màn hình bằng CSS khi trình duyệt/webview chặn Fullscreen API gốc (Facebook, Zalo, in-app)
+    fallbackToPseudoFullscreen() {
+        if (!this.container) return;
+        const isPseudo = this.container.classList.toggle('pseudo-fullscreen');
+        document.body.classList.toggle('vip-pseudo-fs-active', isPseudo);
+        
+        // Cập nhật biểu tượng nút Fullscreen tương ứng
+        const fsIcon = document.querySelector('#vip-btn-fullscreen i');
+        if (fsIcon) {
+            fsIcon.className = isPseudo ? 'fas fa-compress' : 'fas fa-expand';
+        }
+
+        showToast(
+            isPseudo ? 'Toàn màn hình 📱' : 'Chế độ thường 📺',
+            isPseudo ? 'Đã giả lập chế độ toàn màn hình tối ưu cho thiết bị của bạn!' : 'Đã quay lại chế độ thường.',
+            isPseudo ? 'fa-expand' : 'fa-compress'
+        );
     },
 
     // Picture-in-Picture mode toggle

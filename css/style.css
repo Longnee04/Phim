@@ -1787,3 +1787,18 @@ body.theater-light-off .modal__hero iframe {
   }
 }
 
+/* CSS Pseudo Fullscreen for fallback (iOS / restrictive webviews) */
+.vip-player.pseudo-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 999999 !important;
+  background: #000 !important;
+}
+
+body.vip-pseudo-fs-active {
+  overflow: hidden !important;
+}
+
