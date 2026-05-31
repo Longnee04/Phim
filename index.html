@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
 </head>
 <body>
 
@@ -368,6 +369,61 @@
                         <button class="btn-circle" id="modal-theater-btn" type="button" title="Chế độ rạp chiếu (Rộng hơn)" style="display:none;"><i class="fas fa-expand"></i></button>
                     </div>
                 </div>
+                <!-- VIP HLS Player -->
+                <div id="vip-player-container" class="vip-player" style="display:none;">
+                    <video id="vip-video" playsinline preload="metadata"></video>
+                    <div class="vip-tap-zone vip-tap-left" id="vip-tap-left">
+                        <div class="vip-tap-feedback">
+                            <div class="vip-tap-ripple"></div>
+                            <div class="vip-tap-icon"><i class="fas fa-backward"></i><span>10s</span></div>
+                        </div>
+                    </div>
+                    <div class="vip-tap-zone vip-tap-right" id="vip-tap-right">
+                        <div class="vip-tap-feedback">
+                            <div class="vip-tap-ripple"></div>
+                            <div class="vip-tap-icon"><i class="fas fa-forward"></i><span>10s</span></div>
+                        </div>
+                    </div>
+                    <div class="vip-center-indicator" id="vip-center-indicator" style="display:none;"><i class="fas fa-play"></i></div>
+                    <div class="vip-loading" id="vip-loading" style="display:none;"><div class="vip-spinner"></div></div>
+                    <div class="vip-seek-osd" id="vip-seek-osd" style="display:none;"><span id="vip-seek-osd-text">+10s</span></div>
+                    <div class="vip-volume-osd" id="vip-volume-osd" style="display:none;">
+                        <i class="fas fa-volume-up" id="vip-volume-osd-icon"></i>
+                        <div class="vip-volume-osd-bar"><div class="vip-volume-osd-fill" id="vip-volume-osd-fill"></div></div>
+                        <span id="vip-volume-osd-text">100%</span>
+                    </div>
+                    <div class="vip-speed-menu" id="vip-speed-menu" style="display:none;">
+                        <div class="vip-speed-title">Tốc độ phát</div>
+                        <button data-speed="0.25">0.25x</button><button data-speed="0.5">0.5x</button>
+                        <button data-speed="0.75">0.75x</button><button data-speed="1" class="active">1x</button>
+                        <button data-speed="1.25">1.25x</button><button data-speed="1.5">1.5x</button>
+                        <button data-speed="1.75">1.75x</button><button data-speed="2">2x</button>
+                    </div>
+                    <div class="vip-controls" id="vip-controls">
+                        <div class="vip-progress" id="vip-progress">
+                            <div class="vip-progress-buffered" id="vip-progress-buffered"></div>
+                            <div class="vip-progress-played" id="vip-progress-played"></div>
+                            <div class="vip-progress-handle" id="vip-progress-handle"></div>
+                            <div class="vip-progress-tooltip" id="vip-progress-tooltip">00:00</div>
+                        </div>
+                        <div class="vip-controls-row">
+                            <div class="vip-controls-left">
+                                <button class="vip-btn focusable" id="vip-btn-play" type="button" title="Phát/Tạm dừng"><i class="fas fa-play"></i></button>
+                                <button class="vip-btn focusable" id="vip-btn-next" type="button" title="Tập tiếp" style="display:none;"><i class="fas fa-forward-step"></i></button>
+                                <div class="vip-volume-wrap">
+                                    <button class="vip-btn focusable" id="vip-btn-mute" type="button" title="Tắt tiếng"><i class="fas fa-volume-up"></i></button>
+                                    <input type="range" class="vip-volume-slider focusable" id="vip-volume-slider" min="0" max="1" step="0.05" value="1">
+                                </div>
+                                <span class="vip-time" id="vip-time-display">00:00 / 00:00</span>
+                            </div>
+                            <div class="vip-controls-right">
+                                <button class="vip-btn focusable" id="vip-btn-speed" type="button" title="Tốc độ">1x</button>
+                                <button class="vip-btn focusable" id="vip-btn-pip" type="button" title="PiP"><i class="fas fa-clone"></i></button>
+                                <button class="vip-btn focusable" id="vip-btn-fullscreen" type="button" title="Toàn màn hình"><i class="fas fa-expand"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <!-- Thanh điều khiển phát phim (nằm ngay dưới video) -->
             <div class="modal__player-bar" id="modal-player-bar" style="display:none;">
@@ -378,6 +434,14 @@
                 <button class="player-bar__next-btn" id="modal-next-bottom-btn" type="button">
                     <span>Tập tiếp theo</span> <i class="fas fa-forward-step"></i>
                 </button>
+            </div>
+            <!-- VIP Server Selector -->
+            <div class="vip-server-bar" id="vip-server-bar" style="display:none;">
+                <span class="vip-server-label"><i class="fas fa-server"></i> Nguồn phát:</span>
+                <div class="vip-server-btns">
+                    <button class="vip-server-btn active" data-server="vip" type="button"><i class="fas fa-bolt"></i> VIP Player</button>
+                    <button class="vip-server-btn" data-server="iframe" type="button"><i class="fas fa-globe"></i> Dự phòng</button>
+                </div>
             </div>
             <div class="modal__body">
                 <div class="modal__meta-row">

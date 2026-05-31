@@ -179,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initBrowse();
     initSidebar();
     initTouchSwipe();
+    if (typeof VIPPlayer !== 'undefined') VIPPlayer.init();
     loadAll();
 });
 
@@ -1028,6 +1029,13 @@ function initModal() {
             return;
         }
 
+        // VIP Player keyboard & Smart TV controls
+        if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
+            if (VIPPlayer.handleKeyDown(e)) {
+                return;
+            }
+        }
+
         const key = e.key.toLowerCase();
         if (key === 'f') {
             const iframe = document.querySelector('#modal-hero iframe');
@@ -1244,6 +1252,13 @@ async function openModal(slug, autoPlay = false) {
     _currentEpisodesList = [];
     modal.classList.remove('is-playing');
 
+    // Reset VIP player state
+    if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
+        VIPPlayer.deactivate();
+    }
+    const serverBar = document.getElementById('vip-server-bar');
+    if (serverBar) serverBar.style.display = 'none';
+
     heroImg.style.backgroundImage = ''; heroImg.style.opacity = '';
     hero.querySelectorAll('iframe').forEach(f => f.remove());
     const grad = hero.querySelector('.modal__hero-gradient'); if (grad) grad.style.opacity = '';
@@ -1389,8 +1404,20 @@ function playEpisode(ep, movie) {
     _currentEpisode = ep;
     if (movie) _currentModalMovie = movie;
 
-    const url = ep.link_embed;
-    playInModal(url);
+    const m3u8 = ep.link_m3u8;
+    const embed = ep.link_embed;
+
+    if (m3u8 && typeof VIPPlayer !== 'undefined') {
+        const hero = document.getElementById('modal-hero');
+        if (hero) hero.querySelectorAll('iframe').forEach(f => f.remove());
+        VIPPlayer.load(m3u8, embed);
+        VIPPlayer._updateNextButton();
+    } else {
+        if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
+            VIPPlayer.deactivate();
+        }
+        playInModal(embed);
+    }
     updateNextEpisodeButton();
 
     const modalEl = document.getElementById('modal');
@@ -1448,6 +1475,12 @@ function playInModal(url) {
 }
 
 function closeModal() {
+    if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
+        VIPPlayer.deactivate();
+    }
+    const serverBar = document.getElementById('vip-server-bar');
+    if (serverBar) serverBar.style.display = 'none';
+
     const modal = document.getElementById('modal'), hero = document.getElementById('modal-hero');
     hero.querySelectorAll('iframe').forEach(f => f.remove());
     document.getElementById('modal-hero-img').style.opacity = '';
@@ -1491,3 +1524,1104 @@ function updateAllMyListButtons(slug, added) {
         btn.innerHTML = `<i class="fas fa-${added ? 'check' : 'plus'}"></i>`;
     });
 }
+
+// ══════════════════════════════════════════════════════════
+//  VIP CUSTOM HLS VIDEO PLAYER
+// ══════════════════════════════════════════════════════════
+const VIPPlayer = {
+    // State
+    hls: null,
+    video: null,
+    container: null,
+    isActive: false,
+    currentM3u8: null,
+    currentEmbed: null,
+    currentServer: 'vip', // 'vip' or 'iframe'
+    controlsTimeout: null,
+    isSeeking: false,
+    _lastVolume: 1,
+    _tapTimers: { left: 0, right: 0 },
+    _tapCounts: { left: 0, right: 0 },
+    _tapFeedbackTimeouts: { left: null, right: null },
+    _singleTapTimeout: null,
+    _saveInterval: null,
+    _seekOSDTimeout: null,
+    _volumeOSDTimeout: null,
+    _centerIndicatorTimeout: null,
+    _tvFocusActive: false,
+
+    // Initialize - call once on DOMContentLoaded
+    init() {
+        this.video = document.getElementById('vip-video');
+        this.container = document.getElementById('vip-player-container');
+        if (!this.video || !this.container) return;
+
+        this._setupVideoEvents();
+        this._setupControls();
+        this._setupProgress();
+        this._setupDoubleTap();
+        this._setupSpeedMenu();
+        this._setupServerSwitcher();
+    },
+
+    // Load HLS source
+    load(m3u8Url, embedUrl) {
+        this.currentM3u8 = m3u8Url;
+        this.currentEmbed = embedUrl;
+        this.currentServer = 'vip';
+
+        // Update server switcher buttons immediately
+        const serverBtns = document.querySelectorAll('.vip-server-btn');
+        serverBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-server') === 'vip');
+        });
+
+        // Clean up previous HLS instance
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+        }
+
+        // Show loading spinner
+        const loading = document.getElementById('vip-loading');
+        if (loading) loading.style.display = 'flex';
+
+        // Reset speed button display
+        const speedBtn = document.getElementById('vip-btn-speed');
+        if (speedBtn) speedBtn.textContent = '1x';
+
+        // If Hls.js is supported, load and play
+        if (Hls.isSupported()) {
+            this.hls = new Hls({
+                maxMaxBufferLength: 30,
+                enableWorker: true,
+                lowLatencyMode: true
+            });
+            this.hls.loadSource(m3u8Url);
+            this.hls.attachMedia(this.video);
+
+            this.hls.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                    console.warn('Fatal HLS error, falling back to iframe:', data.type);
+                    this.fallbackToIframe();
+                }
+            });
+        } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Safari/iOS native HLS
+            this.video.src = m3u8Url;
+        } else {
+            console.warn('HLS not supported on this browser, falling back to iframe.');
+            this.fallbackToIframe();
+            return;
+        }
+
+        this.activate();
+    },
+
+    // Fallback to backup embed iframe player
+    fallbackToIframe() {
+        this.deactivate();
+        this.currentServer = 'iframe';
+        const serverBtns = document.querySelectorAll('.vip-server-btn');
+        serverBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-server') === 'iframe');
+        });
+        playInModal(this.currentEmbed);
+    },
+
+    // Activate VIP player UI
+    activate() {
+        this.isActive = true;
+        this.container.style.display = '';
+
+        // Hide billboard/modal hero background elements
+        const heroImg = document.getElementById('modal-hero-img');
+        const heroGrad = document.querySelector('#modal-hero .modal__hero-gradient');
+        if (heroImg) heroImg.style.opacity = '0';
+        if (heroGrad) heroGrad.style.opacity = '0';
+
+        // Add active classes to modal
+        const modal = document.getElementById('modal');
+        if (modal) {
+            modal.classList.add('vip-active');
+            modal.classList.add('is-playing');
+        }
+
+        // Remove any backup iframes
+        const hero = document.getElementById('modal-hero');
+        if (hero) {
+            hero.querySelectorAll('iframe').forEach(f => f.remove());
+        }
+
+        // Show the server selection bar
+        const serverBar = document.getElementById('vip-server-bar');
+        if (serverBar) serverBar.style.display = 'flex';
+
+        // Show the speed menu and hide it by default
+        const speedMenu = document.getElementById('vip-speed-menu');
+        if (speedMenu) speedMenu.style.display = 'none';
+
+        // Show controls initially, then autohide
+        this.showControls();
+        this.resetAutoHide();
+
+        // Start progress save interval (every 5 seconds)
+        if (this._saveInterval) clearInterval(this._saveInterval);
+        this._saveInterval = setInterval(() => this._saveTimeProgress(), 5000);
+
+        // Hide light/theater buttons as custom player handles all controls
+        const lightBtn = document.getElementById('modal-light-btn');
+        const theaterBtn = document.getElementById('modal-theater-btn');
+        if (lightBtn) lightBtn.style.display = 'none';
+        if (theaterBtn) theaterBtn.style.display = 'none';
+
+        // Play the video
+        this.video.play().catch(e => {
+            console.log('Autoplay blocked or interrupted:', e);
+            this._showCenterIndicator('play');
+        });
+    },
+
+    // Deactivate and cleanup VIP player
+    deactivate() {
+        this.isActive = false;
+
+        // Clear timeouts and intervals
+        if (this._saveInterval) {
+            clearInterval(this._saveInterval);
+            this._saveInterval = null;
+        }
+        if (this.controlsTimeout) {
+            clearTimeout(this.controlsTimeout);
+            this.controlsTimeout = null;
+        }
+
+        // Save last progress time
+        this._saveTimeProgress();
+
+        // Pause and reset video
+        if (this.video) {
+            this.video.pause();
+            this.video.src = '';
+            this.video.removeAttribute('src');
+            this.video.load();
+        }
+
+        // Destroy HLS instance
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+        }
+
+        // Hide VIP UI container
+        if (this.container) this.container.style.display = 'none';
+
+        // Remove active classes
+        const modal = document.getElementById('modal');
+        if (modal) {
+            modal.classList.remove('vip-active');
+        }
+
+        // Blur any TV focus elements
+        if (this._tvFocusActive) {
+            this.getFocusables().forEach(el => {
+                el.classList.remove('tv-focus');
+                el.blur();
+            });
+            this._tvFocusActive = false;
+        }
+    },
+
+    // Set up standard HTML5 video event listeners
+    _setupVideoEvents() {
+        if (!this.video) return;
+
+        this.video.addEventListener('play', () => {
+            const playIcon = document.querySelector('#vip-btn-play i');
+            if (playIcon) playIcon.className = 'fas fa-pause';
+            this._showCenterIndicator('play');
+            this.resetAutoHide();
+        });
+
+        this.video.addEventListener('pause', () => {
+            const playIcon = document.querySelector('#vip-btn-play i');
+            if (playIcon) playIcon.className = 'fas fa-play';
+            this._showCenterIndicator('pause');
+            this.showControls();
+        });
+
+        this.video.addEventListener('timeupdate', () => {
+            this._updateProgress();
+        });
+
+        this.video.addEventListener('progress', () => {
+            this._updateBuffered();
+        });
+
+        this.video.addEventListener('loadedmetadata', () => {
+            // Restore playback position if saved
+            this._restoreTimeProgress();
+            this._updateProgress();
+            this._updateNextButton();
+
+            const loading = document.getElementById('vip-loading');
+            if (loading) loading.style.display = 'none';
+        });
+
+        this.video.addEventListener('waiting', () => {
+            const loading = document.getElementById('vip-loading');
+            if (loading) loading.style.display = 'flex';
+        });
+
+        this.video.addEventListener('playing', () => {
+            const loading = document.getElementById('vip-loading');
+            if (loading) loading.style.display = 'none';
+        });
+
+        this.video.addEventListener('ended', () => {
+            this._onEnded();
+        });
+
+        this.video.addEventListener('volumechange', () => {
+            const muteIcon = document.querySelector('#vip-btn-mute i');
+            const volSlider = document.getElementById('vip-volume-slider');
+            
+            if (this.video.muted || this.video.volume === 0) {
+                if (muteIcon) muteIcon.className = 'fas fa-volume-mute';
+                if (volSlider) volSlider.value = 0;
+            } else {
+                if (muteIcon) {
+                    if (this.video.volume < 0.4) muteIcon.className = 'fas fa-volume-down';
+                    else muteIcon.className = 'fas fa-volume-up';
+                }
+                if (volSlider) volSlider.value = this.video.volume;
+            }
+        });
+    },
+
+    // Set up general mouse and touch control bar events
+    _setupControls() {
+        const playBtn = document.getElementById('vip-btn-play');
+        const muteBtn = document.getElementById('vip-btn-mute');
+        const fsBtn = document.getElementById('vip-btn-fullscreen');
+        const pipBtn = document.getElementById('vip-btn-pip');
+        const nextBtn = document.getElementById('vip-btn-next');
+        const volSlider = document.getElementById('vip-volume-slider');
+
+        if (playBtn) playBtn.addEventListener('click', () => this.togglePlay());
+        if (muteBtn) muteBtn.addEventListener('click', () => this.toggleMute());
+        if (fsBtn) fsBtn.addEventListener('click', () => this.toggleFullscreen());
+        
+        if (pipBtn) {
+            pipBtn.addEventListener('click', () => this.togglePiP());
+            if (!document.pictureInPictureEnabled) pipBtn.style.display = 'none';
+        }
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
+                if (nextBottomBtn && nextBottomBtn.style.display !== 'none') {
+                    nextBottomBtn.click();
+                }
+            });
+        }
+
+        if (volSlider) {
+            volSlider.addEventListener('input', (e) => {
+                this.setVolume(parseFloat(e.target.value));
+            });
+        }
+
+        // Show/hide controls on mouse hover / touch movement
+        this.container.addEventListener('mousemove', () => {
+            this.showControls();
+            this.resetAutoHide();
+        });
+
+        this.container.addEventListener('mouseleave', () => {
+            if (!this.video.paused) {
+                this.hideControls();
+            }
+        });
+
+        // Touch events for mobile to show controls
+        this.container.addEventListener('touchstart', () => {
+            this.showControls();
+            this.resetAutoHide();
+        }, { passive: true });
+    },
+
+    // Set up floating time tooltip and scrubbing logic
+    _setupProgress() {
+        const progress = document.getElementById('vip-progress');
+        const tooltip = document.getElementById('vip-progress-tooltip');
+        if (!progress) return;
+
+        const seekTo = (e) => {
+            if (!this.video || !this.video.duration) return;
+            const rect = progress.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let percent = (clientX - rect.left) / rect.width;
+            percent = Math.max(0, Math.min(1, percent));
+            this.video.currentTime = percent * this.video.duration;
+            this._updateProgress();
+        };
+
+        const onMouseMove = (e) => {
+            if (this.isSeeking) {
+                seekTo(e);
+            }
+            if (this.video && this.video.duration && tooltip) {
+                const rect = progress.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                let percent = (clientX - rect.left) / rect.width;
+                percent = Math.max(0, Math.min(1, percent));
+                
+                tooltip.style.left = `${percent * 100}%`;
+                tooltip.textContent = this._formatTime(percent * this.video.duration);
+                tooltip.classList.add('show');
+            }
+        };
+
+        progress.addEventListener('mousedown', (e) => {
+            this.isSeeking = true;
+            seekTo(e);
+            this.showControls();
+            this.resetAutoHide();
+        });
+
+        progress.addEventListener('mousemove', onMouseMove);
+        
+        progress.addEventListener('mouseleave', () => {
+            if (tooltip) tooltip.classList.remove('show');
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (this.isSeeking) {
+                this.isSeeking = false;
+                this.resetAutoHide();
+            }
+        });
+
+        // Touch support for progress bar
+        progress.addEventListener('touchstart', (e) => {
+            this.isSeeking = true;
+            seekTo(e);
+            this.showControls();
+            this.resetAutoHide();
+        }, { passive: true });
+
+        progress.addEventListener('touchmove', (e) => {
+            if (this.isSeeking) seekTo(e);
+        }, { passive: true });
+
+        progress.addEventListener('touchend', () => {
+            this.isSeeking = false;
+            this.resetAutoHide();
+        });
+    },
+
+    // Set up YouTube-style double-tap gestures
+    _setupDoubleTap() {
+        const leftZone = document.getElementById('vip-tap-left');
+        const rightZone = document.getElementById('vip-tap-right');
+        if (!leftZone || !rightZone) return;
+
+        const handleTap = (zone, direction) => {
+            const now = Date.now();
+            const lastTap = this._tapTimers[direction];
+            this._tapTimers[direction] = now;
+
+            if (now - lastTap < 300) {
+                // Double tap or subsequent multi-taps
+                this._tapCounts[direction]++;
+                
+                if (this._singleTapTimeout) {
+                    clearTimeout(this._singleTapTimeout);
+                    this._singleTapTimeout = null;
+                }
+
+                this.executeDoubleTapSeek(direction);
+            } else {
+                // First tap
+                this._tapCounts[direction] = 1;
+                this._singleTapTimeout = setTimeout(() => {
+                    // Single tap: toggle controls bar visibility
+                    this.toggleControls();
+                    this._singleTapTimeout = null;
+                }, 280);
+            }
+        };
+
+        leftZone.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleTap(leftZone, 'left');
+        });
+
+        rightZone.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleTap(rightZone, 'right');
+        });
+    },
+
+    executeDoubleTapSeek(direction) {
+        const tapCount = this._tapCounts[direction];
+        const sign = direction === 'left' ? -1 : 1;
+        const delta = sign * 10;
+
+        // Perform seek
+        this.seek(delta);
+
+        // Ripple and pop feedback
+        const zone = document.getElementById(`vip-tap-${direction}`);
+        if (zone) {
+            zone.classList.remove('active');
+            void zone.offsetWidth; // force reflow
+            zone.classList.add('active');
+            
+            const spanText = zone.querySelector('.vip-tap-feedback span');
+            if (spanText) {
+                spanText.textContent = `${(tapCount - 1) * 10}s`;
+            }
+
+            if (this._tapFeedbackTimeouts[direction]) {
+                clearTimeout(this._tapFeedbackTimeouts[direction]);
+            }
+            this._tapFeedbackTimeouts[direction] = setTimeout(() => {
+                zone.classList.remove('active');
+            }, 600);
+        }
+    },
+
+    // Set up video speed menus
+    _setupSpeedMenu() {
+        const speedBtn = document.getElementById('vip-btn-speed');
+        const speedMenu = document.getElementById('vip-speed-menu');
+        if (!speedBtn || !speedMenu) return;
+
+        speedBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = speedMenu.style.display === 'flex';
+            speedMenu.style.display = isOpen ? 'none' : 'flex';
+            this.resetAutoHide();
+        });
+
+        speedMenu.querySelectorAll('button[data-speed]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const speed = parseFloat(btn.getAttribute('data-speed'));
+                if (this.video) {
+                    this.video.playbackRate = speed;
+                    speedBtn.textContent = speed === 1 ? '1x' : `${speed}x`;
+                    
+                    speedMenu.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                }
+                speedMenu.style.display = 'none';
+                this.resetAutoHide();
+                
+                showToast(
+                    'Tốc độ phát ⚡',
+                    `Đã đổi tốc độ phát thành <b>${speed}x</b>.`,
+                    'fa-gauge-high'
+                );
+            });
+        });
+
+        document.addEventListener('click', () => {
+            speedMenu.style.display = 'none';
+        });
+    },
+
+    // Set up source server buttons switching
+    _setupServerSwitcher() {
+        const btns = document.querySelectorAll('.vip-server-btn');
+        btns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetServer = btn.getAttribute('data-server');
+                if (targetServer === this.currentServer) return;
+
+                btns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                if (targetServer === 'iframe') {
+                    // Fall back to backup iframe
+                    this.deactivate();
+                    this.currentServer = 'iframe';
+                    playInModal(this.currentEmbed);
+                } else if (targetServer === 'vip') {
+                    // Remove backup iframe and load VIP player m3u8
+                    const hero = document.getElementById('modal-hero');
+                    if (hero) hero.querySelectorAll('iframe').forEach(f => f.remove());
+                    this.load(this.currentM3u8, this.currentEmbed);
+                }
+            });
+        });
+    },
+
+    // Keyboard & D-pad key event processor (called from main keydown handler)
+    handleKeyDown(e) {
+        const k = e.key;
+
+        // Smart TV Remote D-pad spatial navigation
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) {
+            const controls = document.getElementById('vip-controls');
+            
+            // If controls are hidden, show controls first and don't navigate
+            if (controls && controls.classList.contains('hidden')) {
+                e.preventDefault();
+                this.showControls();
+                this.resetAutoHide();
+                return true;
+            }
+
+            // ArrowLeft / ArrowRight seeking on progress bar, OR spatial focus navigation
+            if (document.activeElement && document.activeElement.id === 'vip-progress') {
+                if (k === 'ArrowLeft') {
+                    e.preventDefault();
+                    this.seek(-10);
+                    return true;
+                } else if (k === 'ArrowRight') {
+                    e.preventDefault();
+                    this.seek(10);
+                    return true;
+                }
+            }
+
+            // Spatial navigation
+            e.preventDefault();
+            const direction = k.replace('Arrow', '').toLowerCase();
+            this.navigateFocus(direction);
+            this.resetAutoHide();
+            return true;
+        }
+
+        // Enter key action
+        if (k === 'Enter') {
+            const activeEl = document.activeElement;
+            const focusables = this.getFocusables();
+            
+            // If controls are hidden, show them and play/pause
+            const controls = document.getElementById('vip-controls');
+            if (controls && controls.classList.contains('hidden')) {
+                e.preventDefault();
+                this.showControls();
+                this.resetAutoHide();
+                this.togglePlay();
+                return true;
+            }
+
+            // If an element inside player is focused, let browser activate it natively
+            if (activeEl && focusables.includes(activeEl)) {
+                // native click activation by browser (let event bubble or trigger click)
+                return false;
+            }
+
+            e.preventDefault();
+            this.togglePlay();
+            return true;
+        }
+
+        // Standard hotkeys
+        if (k === ' ') {
+            e.preventDefault();
+            this.togglePlay();
+            return true;
+        }
+        if (k === 'm' || k === 'M') {
+            this.toggleMute();
+            return true;
+        }
+        if (k === 'f' || k === 'F') {
+            e.preventDefault();
+            this.toggleFullscreen();
+            return true;
+        }
+        if (k === 'ArrowLeft') {
+            e.preventDefault();
+            this.seek(-10);
+            return true;
+        }
+        if (k === 'ArrowRight') {
+            e.preventDefault();
+            this.seek(10);
+            return true;
+        }
+        if (k === 'ArrowUp') {
+            e.preventDefault();
+            this.setVolume(Math.min(1, this.video.volume + 0.1));
+            return true;
+        }
+        if (k === 'ArrowDown') {
+            e.preventDefault();
+            this.setVolume(Math.max(0, this.video.volume - 0.1));
+            return true;
+        }
+        if (k === '>' || k === '.') {
+            e.preventDefault();
+            this.changeSpeed(1);
+            return true;
+        }
+        if (k === '<' || k === ',') {
+            e.preventDefault();
+            this.changeSpeed(-1);
+            return true;
+        }
+
+        return false;
+    },
+
+    // Get all currently visible and focusable items for spatial navigation
+    getFocusables() {
+        const els = [];
+        const playBtn = document.getElementById('vip-btn-play');
+        const nextBtn = document.getElementById('vip-btn-next');
+        const muteBtn = document.getElementById('vip-btn-mute');
+        const volSlider = document.getElementById('vip-volume-slider');
+        const speedBtn = document.getElementById('vip-btn-speed');
+        const pipBtn = document.getElementById('vip-btn-pip');
+        const fsBtn = document.getElementById('vip-btn-fullscreen');
+        const progress = document.getElementById('vip-progress');
+        const serverBtns = Array.from(document.querySelectorAll('#vip-server-bar .vip-server-btn'));
+
+        if (playBtn) els.push(playBtn);
+        if (nextBtn && nextBtn.style.display !== 'none') els.push(nextBtn);
+        if (muteBtn) els.push(muteBtn);
+        if (volSlider && volSlider.style.display !== 'none' && window.innerWidth > 600) els.push(volSlider);
+        if (progress) els.push(progress);
+        if (speedBtn) els.push(speedBtn);
+        if (pipBtn && pipBtn.style.display !== 'none') els.push(pipBtn);
+        if (fsBtn) els.push(fsBtn);
+        
+        serverBtns.forEach(btn => els.push(btn));
+        
+        return els;
+    },
+
+    // Navigate focus between elements spatially for TV Remote
+    navigateFocus(direction) {
+        const focusables = this.getFocusables();
+        if (focusables.length === 0) return;
+
+        const current = document.activeElement;
+        let currentIndex = focusables.indexOf(current);
+
+        if (currentIndex === -1) {
+            // Nothing is focused, select play button first
+            focusables[0].focus();
+            focusables[0].classList.add('tv-focus');
+            this._tvFocusActive = true;
+            return;
+        }
+
+        // Remove highlight from old element
+        focusables[currentIndex].classList.remove('tv-focus');
+
+        let nextIndex = currentIndex;
+        const isServerBtn = (el) => el.classList.contains('vip-server-btn');
+
+        if (direction === 'left') {
+            if (currentIndex > 0) {
+                // Don't cross bounds from servers back to controls unless using arrow keys up/down
+                if (isServerBtn(focusables[currentIndex]) && !isServerBtn(focusables[currentIndex - 1])) {
+                    // stay on current
+                } else {
+                    nextIndex = currentIndex - 1;
+                }
+            }
+        } else if (direction === 'right') {
+            if (currentIndex < focusables.length - 1) {
+                if (!isServerBtn(focusables[currentIndex]) && isServerBtn(focusables[currentIndex + 1])) {
+                    // stay on current
+                } else {
+                    nextIndex = currentIndex + 1;
+                }
+            }
+        } else if (direction === 'up') {
+            // controls -> server selection bar
+            const serverIndex = focusables.findIndex(isServerBtn);
+            if (serverIndex !== -1 && !isServerBtn(focusables[currentIndex])) {
+                nextIndex = serverIndex;
+            }
+        } else if (direction === 'down') {
+            // server selection bar -> controls
+            if (isServerBtn(focusables[currentIndex])) {
+                nextIndex = 0; // Jump to Play button
+            }
+        }
+
+        const nextEl = focusables[nextIndex];
+        if (nextEl) {
+            nextEl.focus();
+            nextEl.classList.add('tv-focus');
+            this._tvFocusActive = true;
+        }
+    },
+
+    // Play or pause the video
+    togglePlay() {
+        if (!this.video) return;
+        if (this.video.paused) {
+            this.video.play().catch(err => console.log(err));
+        } else {
+            this.video.pause();
+        }
+        this.resetAutoHide();
+    },
+
+    // Skip forward or backward by delta seconds
+    seek(delta) {
+        if (!this.video || !this.video.duration) return;
+        let targetTime = this.video.currentTime + delta;
+        targetTime = Math.max(0, Math.min(this.video.duration, targetTime));
+        this.video.currentTime = targetTime;
+
+        const label = delta > 0 ? `+${delta}s` : `${delta}s`;
+        this._showOSD('seek', label);
+        this._updateProgress();
+    },
+
+    // Mute or unmute the video
+    toggleMute() {
+        if (!this.video) return;
+        if (this.video.muted) {
+            this.video.muted = false;
+            this.video.volume = this._lastVolume || 1;
+        } else {
+            this._lastVolume = this.video.volume;
+            this.video.muted = true;
+            this.video.volume = 0;
+        }
+        this._showOSD('volume', `${Math.round(this.video.volume * 100)}%`);
+        this.resetAutoHide();
+    },
+
+    // Set precise volume value
+    setVolume(value) {
+        if (!this.video) return;
+        this.video.volume = value;
+        this.video.muted = (value === 0);
+        this._showOSD('volume', `${Math.round(value * 100)}%`);
+        this.resetAutoHide();
+    },
+
+    // Cycle or change speed
+    changeSpeed(direction) {
+        if (!this.video) return;
+        const speeds = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+        const currentSpeed = this.video.playbackRate;
+        let index = speeds.indexOf(currentSpeed);
+        if (index === -1) index = 3; // default to 1x
+
+        index = index + direction;
+        if (index >= 0 && index < speeds.length) {
+            const nextSpeed = speeds[index];
+            this.video.playbackRate = nextSpeed;
+            
+            const speedBtn = document.getElementById('vip-btn-speed');
+            if (speedBtn) speedBtn.textContent = nextSpeed === 1 ? '1x' : `${nextSpeed}x`;
+            
+            const speedMenu = document.getElementById('vip-speed-menu');
+            if (speedMenu) {
+                speedMenu.querySelectorAll('button').forEach(b => {
+                    const s = parseFloat(b.getAttribute('data-speed'));
+                    b.classList.toggle('active', s === nextSpeed);
+                });
+            }
+
+            showToast(
+                'Tốc độ phát ⚡',
+                `Đã đổi tốc độ phát thành <b>${nextSpeed}x</b>.`,
+                'fa-gauge-high'
+            );
+        }
+        this.resetAutoHide();
+    },
+
+    // Request fullscreen on container element
+    toggleFullscreen() {
+        if (!this.container) return;
+        
+        if (!document.fullscreenElement) {
+            if (this.container.requestFullscreen) {
+                this.container.requestFullscreen();
+            } else if (this.container.webkitRequestFullscreen) {
+                this.container.webkitRequestFullscreen();
+            } else if (this.container.mozRequestFullScreen) {
+                this.container.mozRequestFullScreen();
+            } else if (this.container.msRequestFullscreen) {
+                this.container.msRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+        this.resetAutoHide();
+    },
+
+    // Picture-in-Picture mode toggle
+    togglePiP() {
+        if (!this.video) return;
+        
+        try {
+            if (document.pictureInPictureElement) {
+                document.exitPictureInPicture();
+            } else if (document.pictureInPictureEnabled) {
+                this.video.requestPictureInPicture();
+            }
+        } catch (e) {
+            console.error('PiP error:', e);
+        }
+        this.resetAutoHide();
+    },
+
+    // Reveal custom player controls bar
+    showControls() {
+        const controls = document.getElementById('vip-controls');
+        if (controls) {
+            controls.classList.remove('hidden');
+            this.container.classList.remove('controls-hidden');
+        }
+    },
+
+    // Hide custom player controls bar
+    hideControls() {
+        const controls = document.getElementById('vip-controls');
+        if (controls) {
+            controls.classList.add('hidden');
+            this.container.classList.add('controls-hidden');
+        }
+        const speedMenu = document.getElementById('vip-speed-menu');
+        if (speedMenu) speedMenu.style.display = 'none';
+
+        if (this._tvFocusActive) {
+            this.getFocusables().forEach(el => {
+                el.classList.remove('tv-focus');
+                el.blur();
+            });
+            this._tvFocusActive = false;
+        }
+    },
+
+    // Hide or show controls bar based on current visibility state
+    toggleControls() {
+        const controls = document.getElementById('vip-controls');
+        if (controls && !controls.classList.contains('hidden')) {
+            this.hideControls();
+        } else {
+            this.showControls();
+            this.resetAutoHide();
+        }
+    },
+
+    // Reset controls auto-hide timer (3 seconds)
+    resetAutoHide() {
+        if (this.controlsTimeout) clearTimeout(this.controlsTimeout);
+        if (this.video && this.video.paused) return; // don't hide controls if video is paused
+
+        this.controlsTimeout = setTimeout(() => {
+            this.hideControls();
+        }, 3000);
+    },
+
+    // Update played progress indicators
+    _updateProgress() {
+        if (!this.video || this.isSeeking) return;
+
+        const played = document.getElementById('vip-progress-played');
+        const handle = document.getElementById('vip-progress-handle');
+        const timeDisplay = document.getElementById('vip-time-display');
+
+        const curTime = this.video.currentTime || 0;
+        const duration = this.video.duration || 0;
+
+        if (duration) {
+            const percent = (curTime / duration) * 100;
+            if (played) played.style.width = `${percent}%`;
+            if (handle) handle.style.left = `${percent}%`;
+            if (timeDisplay) {
+                timeDisplay.textContent = `${this._formatTime(curTime)} / ${this._formatTime(duration)}`;
+            }
+        } else {
+            if (timeDisplay) {
+                timeDisplay.textContent = `${this._formatTime(curTime)} / 00:00`;
+            }
+        }
+    },
+
+    // Update buffered progress indicators
+    _updateBuffered() {
+        if (!this.video || !this.video.duration) return;
+        const buffered = document.getElementById('vip-progress-buffered');
+        if (!buffered) return;
+
+        const duration = this.video.duration;
+        const b = this.video.buffered;
+        if (b.length > 0) {
+            const end = b.end(b.length - 1);
+            buffered.style.width = `${(end / duration) * 100}%`;
+        }
+    },
+
+    // Format time in seconds to HH:MM:SS or MM:SS
+    _formatTime(seconds) {
+        if (isNaN(seconds)) return '00:00';
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+
+        const pad = (n) => String(n).padStart(2, '0');
+
+        if (h > 0) {
+            return `${h}:${pad(m)}:${pad(s)}`;
+        }
+        return `${pad(m)}:${pad(s)}`;
+    },
+
+    // Display a high-end HUD overlay on top of player (Volume/Seek)
+    _showOSD(type, text, duration = 800) {
+        const seekOSD = document.getElementById('vip-seek-osd');
+        const volOSD = document.getElementById('vip-volume-osd');
+
+        if (type === 'seek' && seekOSD) {
+            const osdText = document.getElementById('vip-seek-osd-text');
+            if (osdText) osdText.textContent = text;
+            
+            seekOSD.style.display = 'flex';
+            seekOSD.style.opacity = '1';
+            seekOSD.style.transform = 'translateX(-50%) scale(1)';
+            
+            if (this._seekOSDTimeout) clearTimeout(this._seekOSDTimeout);
+            this._seekOSDTimeout = setTimeout(() => {
+                seekOSD.style.opacity = '0';
+                seekOSD.style.transform = 'translateX(-50%) scale(0.9)';
+                setTimeout(() => { seekOSD.style.display = 'none'; }, 200);
+            }, duration);
+        } else if (type === 'volume' && volOSD) {
+            const fill = document.getElementById('vip-volume-osd-fill');
+            const percentText = volOSD.querySelector('#vip-volume-osd-text');
+            const icon = document.getElementById('vip-volume-osd-icon');
+            
+            if (fill) fill.style.width = `${Math.round(this.video.volume * 100)}%`;
+            if (percentText) percentText.textContent = `${Math.round(this.video.volume * 100)}%`;
+            
+            if (icon) {
+                if (this.video.volume === 0 || this.video.muted) {
+                    icon.className = 'fas fa-volume-mute';
+                } else if (this.video.volume < 0.4) {
+                    icon.className = 'fas fa-volume-down';
+                } else {
+                    icon.className = 'fas fa-volume-up';
+                }
+            }
+            
+            volOSD.style.display = 'flex';
+            volOSD.style.opacity = '1';
+            volOSD.style.transform = 'translateX(-50%) scale(1)';
+            
+            if (this._volumeOSDTimeout) clearTimeout(this._volumeOSDTimeout);
+            this._volumeOSDTimeout = setTimeout(() => {
+                volOSD.style.opacity = '0';
+                volOSD.style.transform = 'translateX(-50%) scale(0.9)';
+                setTimeout(() => { volOSD.style.display = 'none'; }, 200);
+            }, duration);
+        }
+    },
+
+    // Animate a large play/pause graphic in center (OSD feedback)
+    _showCenterIndicator(action) {
+        const ind = document.getElementById('vip-center-indicator');
+        if (!ind) return;
+
+        ind.style.display = 'flex';
+        ind.className = 'vip-center-indicator';
+        
+        const icon = ind.querySelector('i');
+        if (icon) {
+            icon.className = action === 'play' ? 'fas fa-play' : 'fas fa-pause';
+        }
+
+        void ind.offsetWidth; // force reflow
+        ind.classList.add('animate-in');
+
+        if (this._centerIndicatorTimeout) clearTimeout(this._centerIndicatorTimeout);
+        this._centerIndicatorTimeout = setTimeout(() => {
+            ind.classList.remove('animate-in');
+            ind.style.display = 'none';
+        }, 500);
+    },
+
+    // Event listener when video finishes
+    _onEnded() {
+        this._saveTimeProgress();
+        const nextBtn = document.getElementById('vip-btn-next');
+        if (nextBtn && nextBtn.style.display !== 'none') {
+            nextBtn.click();
+        } else {
+            this.showControls();
+        }
+    },
+
+    // Save exact position progress
+    _saveTimeProgress() {
+        if (!this.video || !this.isActive) return;
+        const slug = _currentModalSlug;
+        if (!slug || !this.video.currentTime) return;
+        
+        try {
+            const data = JSON.parse(localStorage.getItem('longphim_vip_time_progress')) || {};
+            const epSlug = _currentEpisode ? _currentEpisode.slug : 'default';
+            if (!data[slug]) data[slug] = {};
+            data[slug][epSlug] = {
+                time: this.video.currentTime,
+                duration: this.video.duration || 0,
+                updatedAt: Date.now()
+            };
+            localStorage.setItem('longphim_vip_time_progress', JSON.stringify(data));
+        } catch (e) {
+            console.error('Failed to save time progress:', e);
+        }
+    },
+
+    // Restore exact position progress
+    _restoreTimeProgress() {
+        if (!this.video) return;
+        const slug = _currentModalSlug;
+        if (!slug) return;
+        
+        try {
+            const data = JSON.parse(localStorage.getItem('longphim_vip_time_progress')) || {};
+            const epSlug = _currentEpisode ? _currentEpisode.slug : 'default';
+            const saved = data[slug]?.[epSlug];
+            if (saved && typeof saved.time === 'number') {
+                if (saved.duration && saved.time / saved.duration < 0.95) {
+                    this.video.currentTime = saved.time;
+                    showToast(
+                        'Tiếp tục xem ⏳',
+                        `Đang phát tiếp từ <b>${this._formatTime(saved.time)}</b>.`,
+                        'fa-clock'
+                    );
+                }
+            }
+        } catch (e) {
+            console.error('Failed to restore time progress:', e);
+        }
+    },
+
+    // Update VIP player next episode button visibility
+    _updateNextButton() {
+        const nextBtn = document.getElementById('vip-btn-next');
+        if (!nextBtn) return;
+
+        const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
+        const hasNext = !!(nextBottomBtn && nextBottomBtn.style.display !== 'none');
+        nextBtn.style.display = hasNext ? 'flex' : 'none';
+    }
+};
