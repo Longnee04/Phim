@@ -181,6 +181,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initTouchSwipe();
     if (typeof VIPPlayer !== 'undefined') VIPPlayer.init();
     loadAll();
+    
+    // Check for episode updates in your favorite movies in background shortly after load
+    if (typeof LPSubscriptions !== 'undefined') {
+        setTimeout(() => LPSubscriptions.checkNewEpisodes(), 3000);
+    }
 });
 
 // ══════════════════════════════════════════════════════════
@@ -1297,6 +1302,18 @@ async function openModal(slug, autoPlay = false) {
         _currentModalMovie = m;
         _currentEpisodesList = eps;
 
+        // Auto-initialize latest episode tracking if the movie is in My List
+        if (STORAGE.isInMyList(slug) && eps.length > 0) {
+            try {
+                const tracked = JSON.parse(localStorage.getItem('longphim_tracked_episodes')) || {};
+                const latestEpName = eps[eps.length - 1].name;
+                if (!tracked[slug]) {
+                    tracked[slug] = latestEpName;
+                    localStorage.setItem('longphim_tracked_episodes', JSON.stringify(tracked));
+                }
+            } catch (e) {}
+        }
+
 
 
         heroImg.style.backgroundImage = `url("${img(m.poster_url||m.thumb_url)}")`;
@@ -1320,6 +1337,16 @@ async function openModal(slug, autoPlay = false) {
             const added = STORAGE.toggleMyList(_currentModalMovie);
             myListBtn.classList.toggle('in-list', added);
             myListBtn.innerHTML = `<i class="fas fa-${added ? 'check' : 'plus'}"></i>`;
+            
+            // If added to My List, immediately initialize latest episode tracking
+            if (added && _currentEpisodesList.length > 0) {
+                try {
+                    const tracked = JSON.parse(localStorage.getItem('longphim_tracked_episodes')) || {};
+                    tracked[_currentModalSlug] = _currentEpisodesList[_currentEpisodesList.length - 1].name;
+                    localStorage.setItem('longphim_tracked_episodes', JSON.stringify(tracked));
+                } catch (e) {}
+            }
+            
             // Also update card buttons in background
             updateAllMyListButtons(_currentModalMovie.slug, added);
             
@@ -1695,6 +1722,7 @@ const VIPPlayer = {
             clearTimeout(this.controlsTimeout);
             this.controlsTimeout = null;
         }
+        this._removeNextEpisodeCountdown();
 
         // Save last progress time
         this._saveTimeProgress();
@@ -2612,11 +2640,111 @@ const VIPPlayer = {
     // Event listener when video finishes
     _onEnded() {
         this._saveTimeProgress();
-        const nextBtn = document.getElementById('vip-btn-next');
-        if (nextBtn && nextBtn.style.display !== 'none') {
-            nextBtn.click();
+        const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
+        const nextEp = getNextEpisode();
+        if (nextEp && nextBottomBtn && nextBottomBtn.style.display !== 'none') {
+            this._showNextEpisodeCountdown(nextEp);
         } else {
             this.showControls();
+        }
+    },
+
+    _showNextEpisodeCountdown(nextEp) {
+        this._removeNextEpisodeCountdown();
+
+        const playerContainer = document.getElementById('vip-player-container');
+        if (!playerContainer) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'vip-next-ep-countdown-overlay';
+        overlay.className = 'vip-next-ep-overlay';
+        
+        overlay.innerHTML = `
+            <div class="vip-next-ep-content">
+                <div class="vip-next-ep-title">Tập tiếp theo: Tập ${nextEp.name}</div>
+                <div class="vip-next-ep-timer">
+                    <svg class="vip-timer-svg" viewBox="0 0 36 36">
+                        <path class="vip-timer-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path id="vip-timer-progress-bar" class="vip-timer-progress" stroke-dasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                    <div id="vip-timer-countdown-number" class="vip-timer-number">5</div>
+                </div>
+                <div class="vip-next-ep-buttons">
+                    <button class="vip-btn-next-play focusable" id="vip-btn-next-now"><i class="fas fa-play"></i> Phát ngay</button>
+                    <button class="vip-btn-next-cancel focusable" id="vip-btn-next-cancel">Hủy</button>
+                </div>
+            </div>
+        `;
+
+        playerContainer.appendChild(overlay);
+
+        // Setup spatial navigation focus
+        if (this.isTvMode) {
+            setTimeout(() => {
+                const nowBtn = document.getElementById('vip-btn-next-now');
+                if (nowBtn) nowBtn.focus();
+            }, 100);
+        }
+
+        let timeLeft = 5;
+        const numberDiv = document.getElementById('vip-timer-countdown-number');
+        const progressBar = document.getElementById('vip-timer-progress-bar');
+        
+        const updateTimer = () => {
+            if (numberDiv) numberDiv.textContent = timeLeft;
+            if (progressBar) {
+                const dash = (timeLeft / 5) * 100;
+                progressBar.setAttribute('stroke-dasharray', `${dash}, 100`);
+            }
+        };
+
+        updateTimer();
+
+        this._nextEpTimerInterval = setInterval(() => {
+            timeLeft--;
+            if (timeLeft <= 0) {
+                clearInterval(this._nextEpTimerInterval);
+                overlay.remove();
+                this._playNextEpisode(nextEp);
+            } else {
+                updateTimer();
+            }
+        }, 1000);
+
+        // Bind button actions
+        const playNowBtn = document.getElementById('vip-btn-next-now');
+        const cancelBtn = document.getElementById('vip-btn-next-cancel');
+
+        if (playNowBtn) {
+            playNowBtn.addEventListener('click', () => {
+                clearInterval(this._nextEpTimerInterval);
+                overlay.remove();
+                this._playNextEpisode(nextEp);
+            });
+        }
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                clearInterval(this._nextEpTimerInterval);
+                overlay.remove();
+                this.showControls();
+            });
+        }
+    },
+
+    _removeNextEpisodeCountdown() {
+        if (this._nextEpTimerInterval) {
+            clearInterval(this._nextEpTimerInterval);
+            this._nextEpTimerInterval = null;
+        }
+        const overlay = document.getElementById('vip-next-ep-countdown-overlay');
+        if (overlay) overlay.remove();
+    },
+
+    _playNextEpisode(nextEp) {
+        const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
+        if (nextBottomBtn && nextBottomBtn.style.display !== 'none') {
+            nextBottomBtn.click();
         }
     },
 
@@ -2674,5 +2802,85 @@ const VIPPlayer = {
         const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
         const hasNext = !!(nextBottomBtn && nextBottomBtn.style.display !== 'none');
         nextBtn.style.display = hasNext ? 'flex' : 'none';
+    }
+};
+
+// ══════════════════════════════════════════════════════════
+//  EPISODE RELEASE REMINDERS (THEO DÕI LỊCH CHIẾU PHIM YÊU THÍCH)
+// ══════════════════════════════════════════════════════════
+const LPSubscriptions = {
+    KEY: 'longphim_tracked_episodes',
+
+    getTracked() {
+        try {
+            return JSON.parse(localStorage.getItem(this.KEY)) || {};
+        } catch (e) {
+            return {};
+        }
+    },
+
+    saveTracked(dict) {
+        localStorage.setItem(this.KEY, JSON.stringify(dict));
+    },
+
+    async checkNewEpisodes() {
+        const myList = STORAGE.getMyList() || [];
+        if (myList.length === 0) return;
+
+        try {
+            const res = await fetch('https://ophim1.com/danh-sach/phim-moi-cap-nhat?page=1');
+            if (!res.ok) return;
+            const data = await res.json();
+            const items = data.items || [];
+            if (!items.length) return;
+
+            let tracked = this.getTracked();
+            let changed = false;
+
+            for (const fav of myList) {
+                // Find if the favorite movie is in the recently updated list on page 1
+                const matched = items.find(item => item.slug === fav.slug);
+                if (matched) {
+                    // Fetch details to get the exact latest episode name
+                    const detailRes = await fetch(`https://ophim1.com/phim/${fav.slug}`);
+                    if (!detailRes.ok) continue;
+                    const detailData = await detailRes.json();
+                    
+                    const movieData = detailData.movie;
+                    const episodes = detailData.episodes || [];
+                    const epsList = episodes[0]?.server_data || [];
+                    if (epsList.length > 0) {
+                        const newEpName = epsList[epsList.length - 1].name;
+                        
+                        // If not tracked yet, initialize it so we don't alert old episodes
+                        if (!tracked[fav.slug]) {
+                            tracked[fav.slug] = newEpName;
+                            changed = true;
+                            continue;
+                        }
+
+                        // If there is a new episode!
+                        if (newEpName && newEpName !== tracked[fav.slug]) {
+                            showToast(
+                                '🔔 Tập Mới Phim Yêu Thích!',
+                                `Phim bạn thích <b>${movieData.name}</b> vừa cập nhật <b>${newEpName}</b>! Xem ngay!`,
+                                'fa-bell',
+                                () => { openModal(movieData.slug, true); }
+                            );
+                            
+                            // Save new progress
+                            tracked[fav.slug] = newEpName;
+                            changed = true;
+                        }
+                    }
+                }
+            }
+
+            if (changed) {
+                this.saveTracked(tracked);
+            }
+        } catch (err) {
+            console.error('LPSubscriptions error:', err);
+        }
     }
 };

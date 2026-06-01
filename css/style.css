@@ -1802,3 +1802,173 @@ body.vip-pseudo-fs-active {
   overflow: hidden !important;
 }
 
+/* ==========================================================================
+   NEXT EPISODE COUNTDOWN OVERLAY
+   ========================================================================== */
+.vip-next-ep-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: vipFadeIn 0.3s ease;
+}
+
+.vip-next-ep-content {
+  background: rgba(20, 20, 20, 0.75);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 35px 30px;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  max-width: 380px;
+  width: 85%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(229, 9, 20, 0.1);
+  text-align: center;
+  transform: scale(0.95);
+  animation: vipOverlayPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.vip-next-ep-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.vip-next-ep-timer {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vip-timer-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 0 10px rgba(229, 9, 20, 0.6));
+}
+
+.vip-timer-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 3;
+}
+
+.vip-timer-progress {
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.25s linear;
+}
+
+.vip-timer-number {
+  position: absolute;
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--white);
+  text-shadow: 0 0 15px rgba(229, 9, 20, 0.8), 0 2px 4px rgba(0, 0, 0, 0.8);
+  font-family: 'Outfit', 'Inter', sans-serif;
+}
+
+.vip-next-ep-buttons {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  justify-content: center;
+}
+
+.vip-btn-next-play {
+  background: var(--red);
+  color: var(--white);
+  border: none;
+  padding: 11px 26px;
+  border-radius: 25px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 4px 18px rgba(229, 9, 20, 0.4);
+}
+
+.vip-btn-next-play:hover {
+  background: #ff1f2f;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(229, 9, 20, 0.6);
+}
+
+.vip-btn-next-play:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.vip-btn-next-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--t2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 11px 26px;
+  border-radius: 25px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.vip-btn-next-cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--white);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.vip-btn-next-cancel:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.vip-btn-next-play.focusable.tv-focus,
+.vip-btn-next-cancel.focusable.tv-focus {
+  border-radius: 25px !important;
+  background: var(--red) !important;
+  color: var(--white) !important;
+}
+
+.vip-btn-next-cancel.focusable.tv-focus {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+@keyframes vipFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes vipOverlayPop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+
