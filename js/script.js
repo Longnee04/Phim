@@ -2643,7 +2643,7 @@ const VIPPlayer = {
         const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
         const nextEp = getNextEpisode();
         if (nextEp && nextBottomBtn && nextBottomBtn.style.display !== 'none') {
-            this._showNextEpisodeCountdown(nextEp);
+            this._playNextEpisode(nextEp);
         } else {
             this.showControls();
         }
