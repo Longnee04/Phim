@@ -1158,6 +1158,70 @@ function initModal() {
         });
     }
 
+    // Tự động chuyển tập cho Iframe
+    initIframeAutoNext();
+}
+
+function initIframeAutoNext() {
+    window.addEventListener('message', event => {
+        let data = event.data;
+        if (!data) return;
+
+        // Thử giải mã nếu là chuỗi JSON
+        if (typeof data === 'string') {
+            try {
+                data = JSON.parse(data);
+            } catch (e) {
+                // Nếu là chuỗi trơn, kiểm tra các trạng thái kết thúc phổ biến
+                const str = data.toLowerCase();
+                if (str === 'ended' || str === 'complete' || str === 'finish' || str === 'player_ended') {
+                    triggerIframeNextEpisode();
+                    return;
+                }
+            }
+        }
+
+        // Kiểm tra đối tượng dữ liệu
+        if (data && typeof data === 'object') {
+            const eventName = (data.event || data.type || data.action || data.method || data.msg || '') + '';
+            const lowerEvent = eventName.toLowerCase();
+            
+            if (
+                lowerEvent === 'ended' || 
+                lowerEvent === 'complete' || 
+                lowerEvent === 'finish' || 
+                lowerEvent === 'oncomplete' || 
+                lowerEvent === 'onended' || 
+                lowerEvent === 'player_ended' ||
+                data.status === 'ended' ||
+                data.status === 'complete' ||
+                (data.action === 'playerState' && data.value === 'ended')
+            ) {
+                triggerIframeNextEpisode();
+            }
+        }
+    });
+}
+
+function triggerIframeNextEpisode() {
+    const modal = document.getElementById('modal');
+    if (!modal || modal.getAttribute('aria-hidden') === 'true') return;
+
+    // Tránh tự động chuyển tập trùng lặp nếu trình phát VIP đang hoạt động
+    if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) return;
+
+    const nextEp = getNextEpisode();
+    const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
+    if (nextEp && nextBottomBtn && nextBottomBtn.style.display !== 'none') {
+        showToast(
+            'Tự động chuyển tập ⏭️',
+            `Đang tự động chuyển sang <b>Tập ${nextEp.name}</b> sau giây lát...`,
+            'fa-forward'
+        );
+        setTimeout(() => {
+            nextBottomBtn.click();
+        }, 1500);
+    }
 }
 
 // Tô màu sao phụ trợ
@@ -2634,7 +2698,7 @@ const VIPPlayer = {
         const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
         const nextEp = getNextEpisode();
         if (nextEp && nextBottomBtn && nextBottomBtn.style.display !== 'none') {
-            this._playNextEpisode(nextEp);
+            this._showNextEpisodeCountdown(nextEp);
         } else {
             this.showControls();
         }
