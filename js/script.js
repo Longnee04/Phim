@@ -67,7 +67,6 @@ const STORAGE = {
     HISTORY_KEY: 'longphim_history',
     MYLIST_KEY: 'longphim_mylist',
     RATINGS_KEY: 'longphim_ratings',
-    NOTES_KEY: 'longphim_notes',
     PROGRESS_KEY: 'longphim_progress',
     MAX_HISTORY: 20,
 
@@ -138,20 +137,7 @@ const STORAGE = {
         this._set(this.RATINGS_KEY, list);
     },
 
-    // ---- Notes ----
-    getNotes() { return this._get(this.NOTES_KEY); },
-    getNote(slug) {
-        const list = this.getNotes();
-        const found = list.find(n => n.slug === slug);
-        return found ? found.note : '';
-    },
-    saveNote(slug, note) {
-        let list = this.getNotes().filter(n => n.slug !== slug);
-        if (note.trim() !== '') {
-            list.push({ slug, note: note.trim(), time: Date.now() });
-        }
-        this._set(this.NOTES_KEY, list);
-    },
+
 
     // ---- Watch Progress ----
     getProgress(slug) {
@@ -1028,7 +1014,7 @@ function initModal() {
             return;
         }
 
-        // Tránh kích hoạt phím tắt khi người dùng đang gõ ghi chú hoặc tìm kiếm
+        // Tránh kích hoạt phím tắt khi người dùng đang gõ tìm kiếm hoặc trong các input khác
         const activeEl = document.activeElement;
         if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
             return;
@@ -1114,22 +1100,7 @@ function initModal() {
         });
     }
 
-    // Nút Lưu ghi chú cá nhân
-    const saveNotesBtn = document.getElementById('modal-save-notes-btn');
-    if (saveNotesBtn) {
-        saveNotesBtn.addEventListener('click', () => {
-            if (!_currentModalSlug) return;
-            const input = document.getElementById('modal-notes-input');
-            const noteText = input ? input.value : '';
-            STORAGE.saveNote(_currentModalSlug, noteText);
-            
-            showToast(
-                'Lưu thành công! 📝',
-                'Ghi chú cá nhân của bạn đã được ghi nhớ thành công.',
-                'fa-circle-check'
-            );
-        });
-    }
+
 
     // Sự kiện tương tác đánh giá sao (Star Rating)
     const starsContainer = document.getElementById('modal-stars');
@@ -1287,12 +1258,9 @@ async function openModal(slug, autoPlay = false) {
     const removeHistoryBtn = document.getElementById('modal-remove-history-btn');
     if (removeHistoryBtn) removeHistoryBtn.style.display = 'none';
 
-    // Đọc rating & note của người dùng từ localStorage
+    // Đọc rating của người dùng từ localStorage
     const savedRating = STORAGE.getRating(slug);
     highlightStars(savedRating);
-    const savedNote = STORAGE.getNote(slug);
-    const noteInput = document.getElementById('modal-notes-input');
-    if (noteInput) noteInput.value = savedNote;
 
     try {
         const d = await apiFetch(API.detail + slug, { signal: _modalAbort.signal });
@@ -1434,7 +1402,30 @@ function playEpisode(ep, movie) {
     const m3u8 = ep.link_m3u8;
     const embed = ep.link_embed;
 
-    if (m3u8 && typeof VIPPlayer !== 'undefined') {
+    if (embed) {
+        if (typeof VIPPlayer !== 'undefined') {
+            VIPPlayer.currentM3u8 = m3u8;
+            VIPPlayer.currentEmbed = embed;
+            VIPPlayer.currentServer = 'iframe';
+            
+            // Hiển thị thanh nguồn phát nếu có đầy đủ cả 2 nguồn
+            const serverBar = document.getElementById('vip-server-bar');
+            if (serverBar) {
+                serverBar.style.display = (m3u8 && embed) ? 'flex' : 'none';
+            }
+            
+            // Cập nhật trạng thái active cho nút nguồn phát mặc định (iframe)
+            const serverBtns = document.querySelectorAll('.vip-server-btn');
+            serverBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-server') === 'iframe');
+            });
+
+            if (VIPPlayer.isActive) {
+                VIPPlayer.deactivate();
+            }
+        }
+        playInModal(embed);
+    } else if (m3u8 && typeof VIPPlayer !== 'undefined') {
         const hero = document.getElementById('modal-hero');
         if (hero) hero.querySelectorAll('iframe').forEach(f => f.remove());
         VIPPlayer.load(m3u8, embed);
