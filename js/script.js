@@ -52,11 +52,82 @@ const TYPE_NAMES = { series:'Phim Bộ', movies:'Phim Lẻ', 'hoat-hinh':'Hoạt
 // Helpers
 const img = p => p ? (p.startsWith('http') ? p : IMG_CDN + p) : '';
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+// Check if a movie contains adult content
+function isAdultMovie(m) {
+    if (!m) return false;
+    
+    const forbiddenSubstrings = [
+        '18+', '18plus', '18 plus', 'erotic', 'hentai', 'tình dục', 'tinh duc', 'cảnh nóng', 'canh nong',
+        'không che', 'khong che', 'uncensored', 'censored', 'nude', 'echi', 'ecchi', 'phim người lớn', 'phim nguoi lon',
+        'bạo dâm', 'bao dam', 'cuồng dâm', 'cuong dam', 'nứng', 'loạn luân', 'loan luan', 'sếch', 'phim sex',
+        'kich duc', 'kích dục', 'thú dâm', 'thu dam', 'dâm đãng', 'dam dang'
+    ];
+
+    const forbiddenWholeWords = ['sex', 'jav'];
+
+    const fieldsToSearch = [
+        m.name,
+        m.origin_name,
+        m.slug,
+        m.content
+    ].filter(Boolean).map(s => s.toLowerCase());
+
+    for (const field of fieldsToSearch) {
+        for (const sub of forbiddenSubstrings) {
+            if (field.includes(sub)) {
+                return true;
+            }
+        }
+        for (const word of forbiddenWholeWords) {
+            const regex = new RegExp(`(^|[^a-zA-Z0-9])${word}([^a-zA-Z0-9]|$)`, 'i');
+            if (regex.test(field)) {
+                return true;
+            }
+        }
+    }
+
+    if (m.category && Array.isArray(m.category)) {
+        for (const cat of m.category) {
+            const catName = (cat.name || '').toLowerCase();
+            const catSlug = (cat.slug || '').toLowerCase();
+            for (const sub of forbiddenSubstrings) {
+                if (catName.includes(sub) || catSlug.includes(sub)) {
+                    return true;
+                }
+            }
+            for (const word of forbiddenWholeWords) {
+                if (catName === word || catSlug === word) {
+                    return true;
+                }
+            }
+            if (catSlug === '18' || catSlug === 'tinh-duc' || catSlug === 'phim-18' || catSlug === 'adult') {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 async function apiFetch(url, opts = {}) {
     const k = opts.signal ? null : url;
     if (k && _cache.has(k)) return _cache.get(k);
     const r = await fetch(url, opts); if (!r.ok) throw new Error(r.status);
-    const d = await r.json(); if (k) _cache.set(k, d); return d;
+    let d = await r.json();
+    
+    // Filter out adult movies from any returned lists
+    if (d) {
+        if (d.items && Array.isArray(d.items)) {
+            d.items = d.items.filter(m => !isAdultMovie(m));
+        }
+        if (d.data && d.data.items && Array.isArray(d.data.items)) {
+            d.data.items = d.data.items.filter(m => !isAdultMovie(m));
+        }
+    }
+
+    if (k) _cache.set(k, d); 
+    return d;
 }
 function normalizeList(raw) { return raw.items || raw.data?.items || []; }
 
@@ -74,8 +145,9 @@ const STORAGE = {
     _set(key, arr) { localStorage.setItem(key, JSON.stringify(arr)); },
 
     // ---- History ----
-    getHistory() { return this._get(this.HISTORY_KEY); },
+    getHistory() { return this._get(this.HISTORY_KEY).filter(m => !isAdultMovie(m)); },
     addHistory(movie) {
+        if (isAdultMovie(movie)) return;
         let list = this.getHistory();
         // Remove existing if present (move to front)
         list = list.filter(m => m.slug !== movie.slug);
@@ -96,9 +168,10 @@ const STORAGE = {
     },
 
     // ---- My List ----
-    getMyList() { return this._get(this.MYLIST_KEY); },
+    getMyList() { return this._get(this.MYLIST_KEY).filter(m => !isAdultMovie(m)); },
     isInMyList(slug) { return this.getMyList().some(m => m.slug === slug); },
     toggleMyList(movie) {
+        if (isAdultMovie(movie)) return false;
         let list = this.getMyList();
         const idx = list.findIndex(m => m.slug === movie.slug);
         if (idx !== -1) {
@@ -1330,6 +1403,18 @@ async function openModal(slug, autoPlay = false) {
         const d = await apiFetch(API.detail + slug, { signal: _modalAbort.signal });
         if (reqId !== _modalReqId) return;
         const m = d.movie || {}, eps = d.episodes?.[0]?.server_data || [];
+
+        // Check if the movie is an adult movie
+        if (isAdultMovie(m)) {
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+            showToast(
+                'Nội dung bị hạn chế 🚫',
+                `Phim <b>${m.name || 'này'}</b> không khả dụng do chính sách hạn chế nội dung 18+.`,
+                'fa-ban'
+            );
+            return;
+        }
 
         _currentModalMovie = m;
         _currentEpisodesList = eps;
