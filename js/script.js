@@ -39,7 +39,7 @@ const GENRE_NAMES = {
     'vo-thuat':'Võ Thuật','vien-tuong':'Viễn Tưởng','phieu-luu':'Phiêu Lưu','khoa-hoc':'Khoa Học',
     'kinh-di':'Kinh Dị','am-nhac':'Âm Nhạc','than-thoai':'Thần Thoại','tai-lieu':'Tài Liệu',
     'gia-dinh':'Gia Đình','chinh-kich':'Chính Kịch','bi-an':'Bí Ẩn','hoc-duong':'Học Đường',
-    'kinh-dien':'Kinh Điển'
+    'kinh-dien':'Kinh Điển','chuyen-the':'Chuyển Thể','anime':'Anime','dam-my':'Đam Mỹ','gia-tuong':'Giả Tưởng'
 };
 const COUNTRY_NAMES = {
     'trung-quoc':'Trung Quốc','han-quoc':'Hàn Quốc','nhat-ban':'Nhật Bản','thai-lan':'Thái Lan',
@@ -61,7 +61,9 @@ function isAdultMovie(m) {
         '18+', '18plus', '18 plus', 'erotic', 'hentai', 'tình dục', 'tinh duc', 'cảnh nóng', 'canh nong',
         'không che', 'khong che', 'uncensored', 'censored', 'nude', 'echi', 'ecchi', 'phim người lớn', 'phim nguoi lon',
         'bạo dâm', 'bao dam', 'cuồng dâm', 'cuong dam', 'nứng', 'loạn luân', 'loan luan', 'sếch', 'phim sex',
-        'kich duc', 'kích dục', 'thú dâm', 'thu dam', 'dâm đãng', 'dam dang'
+        'kich duc', 'kích dục', 'thú dâm', 'thu dam', 'dâm đãng', 'dam dang',
+        'đam mỹ 18+', 'dam my 18+', 'bách hợp 18+', 'bach hop 18+', 'đồng tính 18+', 'dong tinh 18+',
+        'gay 18+', 'lesbian 18+', 'bl 18+', 'gl 18+'
     ];
 
     const forbiddenWholeWords = ['sex', 'jav'];
@@ -795,12 +797,25 @@ function initBrowse() {
     });
 
     // Pager
+    // Pager
+    const firstBtn = document.getElementById('browse-first');
+    if (firstBtn) {
+        firstBtn.addEventListener('click', () => {
+            if (browsePage > 1) { browsePage = 1; loadBrowsePage(); }
+        });
+    }
     document.getElementById('browse-prev').addEventListener('click', () => {
         if (browsePage > 1) { browsePage--; loadBrowsePage(); }
     });
     document.getElementById('browse-next').addEventListener('click', () => {
         if (browsePage < browseTotalPages) { browsePage++; loadBrowsePage(); }
     });
+    const lastBtn = document.getElementById('browse-last');
+    if (lastBtn) {
+        lastBtn.addEventListener('click', () => {
+            if (browsePage < browseTotalPages) { browsePage = browseTotalPages; loadBrowsePage(); }
+        });
+    }
 
     // Sort
     document.getElementById('browse-sort').addEventListener('change', () => sortBrowse());
@@ -914,12 +929,16 @@ function getBrowseUrl(page) {
 
 async function loadBrowsePage() {
     const grid = document.getElementById('browse-grid');
+    const firstBtn = document.getElementById('browse-first');
     const prevBtn = document.getElementById('browse-prev');
     const nextBtn = document.getElementById('browse-next');
+    const lastBtn = document.getElementById('browse-last');
     const indicator = document.getElementById('browse-page-indicator');
 
     grid.innerHTML = Array(BROWSE_SIZE).fill('<div class="search-skeleton"></div>').join('');
+    if (firstBtn) firstBtn.disabled = true;
     prevBtn.disabled = true; nextBtn.disabled = true;
+    if (lastBtn) lastBtn.disabled = true;
 
     try {
         const url = getBrowseUrl(browsePage);
@@ -938,7 +957,10 @@ async function loadBrowsePage() {
 
         renderBrowseGrid(items);
         renderBrowsePager(browsePage, totalPages);
-        prevBtn.disabled = browsePage <= 1; nextBtn.disabled = browsePage >= totalPages;
+        if (firstBtn) firstBtn.disabled = browsePage <= 1;
+        prevBtn.disabled = browsePage <= 1;
+        nextBtn.disabled = browsePage >= totalPages;
+        if (lastBtn) lastBtn.disabled = browsePage >= totalPages;
     } catch (err) {
         console.error('loadBrowsePage:', err);
         grid.innerHTML = '<p style="color:var(--t3);text-align:center;padding:40px;">Lỗi khi tải.</p>';
