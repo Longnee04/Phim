@@ -238,8 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initBrowse();
     initSidebar();
     initTouchSwipe();
-    initThemeToggle();
-    initQualitySelector();
     if (typeof VIPPlayer !== 'undefined') VIPPlayer.init();
     loadAll();
     
@@ -256,128 +254,6 @@ function initNav() {
     window.addEventListener('scroll', () => {
         document.getElementById('nav').classList.toggle('nav--solid', scrollY > 50);
     });
-}
-
-// ══════════════════════════════════════════════════════════
-//  THEME TOGGLE (Light / Dark)
-// ══════════════════════════════════════════════════════════
-function initThemeToggle() {
-    const btn = document.getElementById('theme-toggle-btn');
-    if (!btn) return;
-
-    const applyTheme = (isLight) => {
-        document.body.classList.toggle('theme-light', isLight);
-        btn.innerHTML = isLight
-            ? '<i class="fas fa-moon"></i>'
-            : '<i class="fas fa-sun"></i>';
-        btn.title = isLight
-            ? 'Chuyển sang giao diện Tối'
-            : 'Chuyển sang giao diện Sáng';
-        localStorage.setItem('lp-theme', isLight ? 'light' : 'dark');
-    };
-
-    const saved = localStorage.getItem('lp-theme');
-    if (saved === 'light') {
-        applyTheme(true);
-    } else if (saved === 'dark') {
-        applyTheme(false);
-    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
-        applyTheme(true);
-    }
-
-    btn.addEventListener('click', () => {
-        applyTheme(!document.body.classList.contains('theme-light'));
-    });
-}
-
-// ══════════════════════════════════════════════════════════
-//  QUALITY SELECTOR (HLS Level Switching)
-// ══════════════════════════════════════════════════════════
-function initQualitySelector() {
-    const qualityBtn = document.getElementById('vip-btn-quality');
-    const qualityMenu = document.getElementById('vip-quality-menu');
-    const qualityList = document.getElementById('vip-quality-list');
-    if (!qualityBtn || !qualityMenu || !qualityList) return;
-
-    // Toggle quality menu
-    qualityBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isOpen = qualityMenu.style.display !== 'none';
-        qualityMenu.style.display = isOpen ? 'none' : 'block';
-    });
-
-    // Close menu when clicking elsewhere
-    document.addEventListener('click', (e) => {
-        if (!qualityBtn.contains(e.target) && !qualityMenu.contains(e.target)) {
-            qualityMenu.style.display = 'none';
-        }
-    });
-
-    // Make quality menu builder globally available for HLS manifest event
-    window._buildQualityMenu = function(hls) {
-        if (!hls || !hls.levels || hls.levels.length === 0) return;
-
-        const levels = hls.levels;
-        let html = '<button class="vip-quality-option active" data-level="-1">Tự động</button>';
-
-        // Sort levels by height descending (highest quality first)
-        const sorted = levels
-            .map((l, i) => ({ index: i, height: l.height, bitrate: l.bitrate }))
-            .filter(l => l.height > 0)
-            .sort((a, b) => b.height - a.height);
-
-        sorted.forEach(level => {
-            let label = level.height + 'p';
-            let badge = '';
-            if (level.height >= 1080) {
-                badge = '<span class="quality-badge">FHD</span>';
-            } else if (level.height >= 720) {
-                badge = '<span class="quality-badge">HD</span>';
-            }
-            html += `<button class="vip-quality-option" data-level="${level.index}">${label}${badge}</button>`;
-        });
-
-        qualityList.innerHTML = html;
-
-        // Add click handlers
-        qualityList.querySelectorAll('.vip-quality-option').forEach(opt => {
-            opt.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const levelIdx = parseInt(opt.getAttribute('data-level'));
-                
-                // Update active state
-                qualityList.querySelectorAll('.vip-quality-option').forEach(o => o.classList.remove('active'));
-                opt.classList.add('active');
-
-                // Set HLS level
-                if (hls) {
-                    hls.currentLevel = levelIdx; // -1 = auto
-                }
-
-                // Update button label
-                if (levelIdx === -1) {
-                    qualityBtn.innerHTML = '<i class="fas fa-cog"></i>';
-                } else {
-                    const h = levels[levelIdx]?.height;
-                    qualityBtn.innerHTML = `<i class="fas fa-cog"></i><span style="font-size:0.65rem;margin-left:2px;font-weight:700;">${h}p</span>`;
-                }
-
-                qualityMenu.style.display = 'none';
-            });
-        });
-
-        // Auto-select highest quality (1080p if available)
-        const best1080 = sorted.find(l => l.height >= 1080);
-        if (best1080) {
-            hls.currentLevel = best1080.index;
-            const bestBtn = qualityList.querySelector(`[data-level="${best1080.index}"]`);
-            if (bestBtn) {
-                qualityList.querySelectorAll('.vip-quality-option').forEach(o => o.classList.remove('active'));
-                bestBtn.classList.add('active');
-                qualityBtn.innerHTML = `<i class="fas fa-cog"></i><span style="font-size:0.65rem;margin-left:2px;font-weight:700;">1080p</span>`;
-            }
-        }
-    };
 }
 
 // ══════════════════════════════════════════════════════════
@@ -414,9 +290,6 @@ function initSidebar() {
     });
     sidebar.querySelectorAll('[data-action="mylist"]').forEach(el => {
         el.addEventListener('click', e => { e.preventDefault(); openMyListPage(); closeSidebar(); });
-    });
-    sidebar.querySelectorAll('[data-section="live-tv"]').forEach(el => {
-        el.addEventListener('click', e => { e.preventDefault(); openLiveTVPage(); closeSidebar(); setActiveNav(document.getElementById('link-livetv')); });
     });
 
     // Accordion toggle
@@ -913,10 +786,6 @@ function initBrowse() {
     document.querySelectorAll('#nav-menu [data-action="mylist"]').forEach(el => {
         el.addEventListener('click', e => { e.preventDefault(); openMyListPage(); setActiveNav(el); });
     });
-    // Live TV link in nav
-    document.querySelectorAll('#nav-menu [data-section="live-tv"]').forEach(el => {
-        el.addEventListener('click', e => { e.preventDefault(); openLiveTVPage(); setActiveNav(el); });
-    });
 
     // Logo click → home
     document.getElementById('nav-logo').addEventListener('click', () => {
@@ -961,8 +830,6 @@ function clearActiveNav() {
 function showHome() {
     document.getElementById('home-view').style.display = '';
     document.getElementById('browse').hidden = true;
-    const tvView = document.getElementById('live-tv-view');
-    if (tvView) tvView.hidden = true;
     browseType = null;
     renderHistoryRow();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -972,8 +839,6 @@ function openBrowse(type, slug) {
     browseType = type; browseSlug = slug; browsePage = 1;
     document.getElementById('home-view').style.display = 'none';
     document.getElementById('browse').hidden = false;
-    const tvView = document.getElementById('live-tv-view');
-    if (tvView) tvView.hidden = true;
     document.getElementById('browse-sort').value = 'default';
 
     let title = slug;
@@ -997,8 +862,6 @@ function openBrowse(type, slug) {
 function openMyListPage() {
     document.getElementById('home-view').style.display = 'none';
     document.getElementById('browse').hidden = false;
-    const tvView = document.getElementById('live-tv-view');
-    if (tvView) tvView.hidden = true;
     document.getElementById('browse-title').textContent = 'Danh sách của tôi';
     document.getElementById('browse-hero-bg').style.backgroundImage = '';
 
@@ -1858,7 +1721,6 @@ const VIPPlayer = {
     video: null,
     container: null,
     isActive: false,
-    isLive: false,
     currentM3u8: null,
     currentEmbed: null,
     currentServer: 'vip', // 'vip' or 'iframe'
@@ -1890,36 +1752,10 @@ const VIPPlayer = {
     },
 
     // Load HLS source
-    load(m3u8Url, embedUrl, isLive = false) {
-        this.isLive = isLive;
+    load(m3u8Url, embedUrl) {
         this.currentM3u8 = m3u8Url;
         this.currentEmbed = embedUrl;
         this.currentServer = 'vip';
-
-        // Hide backup TV button by default
-        const backupBtn = document.getElementById('vip-btn-backup-tv');
-        if (backupBtn) {
-            backupBtn.style.display = 'none';
-        }
-
-        // Show/hide live-specific controls
-        const progress = document.getElementById('vip-progress');
-        const nextBtn = document.getElementById('vip-btn-next');
-        const speedBtn = document.getElementById('vip-btn-speed');
-        const serverBar = document.getElementById('vip-server-bar');
-        const playerBar = document.getElementById('modal-player-bar');
-
-        if (this.isLive) {
-            if (progress) progress.style.display = 'none';
-            if (nextBtn) nextBtn.style.display = 'none';
-            if (speedBtn) speedBtn.style.display = 'none';
-            if (serverBar) serverBar.style.display = 'none';
-            if (playerBar) playerBar.style.display = 'none';
-        } else {
-            if (progress) progress.style.display = '';
-            if (speedBtn) speedBtn.style.display = '';
-            if (serverBar && embedUrl) serverBar.style.display = 'flex';
-        }
 
         // Update server switcher buttons immediately
         const serverBtns = document.querySelectorAll('.vip-server-btn');
@@ -1938,6 +1774,7 @@ const VIPPlayer = {
         if (loading) loading.style.display = 'flex';
 
         // Reset speed button display
+        const speedBtn = document.getElementById('vip-btn-speed');
         if (speedBtn) speedBtn.textContent = '1x';
 
         // If Hls.js is supported, load and play
@@ -1949,12 +1786,6 @@ const VIPPlayer = {
             });
             this.hls.loadSource(m3u8Url);
             this.hls.attachMedia(this.video);
-
-            this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                if (typeof window._buildQualityMenu === 'function') {
-                    window._buildQualityMenu(this.hls);
-                }
-            });
 
             this.hls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
@@ -1996,19 +1827,11 @@ const VIPPlayer = {
         if (heroImg) heroImg.style.opacity = '0';
         if (heroGrad) heroGrad.style.opacity = '0';
 
-        // Add active classes to modal and show it
+        // Add active classes to modal
         const modal = document.getElementById('modal');
         if (modal) {
-            modal.setAttribute('aria-hidden', 'false');
             modal.classList.add('vip-active');
             modal.classList.add('is-playing');
-        }
-        document.body.style.overflow = 'hidden';
-
-        // Hide movie metadata panels if viewing live TV
-        if (this.isLive) {
-            const modalBody = document.querySelector('.modal__body');
-            if (modalBody) modalBody.style.display = 'none';
         }
 
         // Remove any backup iframes
@@ -2017,16 +1840,9 @@ const VIPPlayer = {
             hero.querySelectorAll('iframe').forEach(f => f.remove());
         }
 
-        // Show the server selection bar (only if not live TV)
+        // Show the server selection bar
         const serverBar = document.getElementById('vip-server-bar');
-        if (serverBar) serverBar.style.display = this.isLive ? 'none' : 'flex';
-
-        // Configure control views based on Live HLS or normal movie
-        const progress = document.getElementById('vip-progress');
-        if (progress) progress.style.display = this.isLive ? 'none' : '';
-
-        const speedBtn = document.getElementById('vip-btn-speed');
-        if (speedBtn) speedBtn.style.display = this.isLive ? 'none' : '';
+        if (serverBar) serverBar.style.display = 'flex';
 
         // Show the speed menu and hide it by default
         const speedMenu = document.getElementById('vip-speed-menu');
@@ -2036,18 +1852,9 @@ const VIPPlayer = {
         this.showControls();
         this.resetAutoHide();
 
-        // Start progress save interval (every 5 seconds) if not live TV
+        // Start progress save interval (every 5 seconds)
         if (this._saveInterval) clearInterval(this._saveInterval);
-        if (!this.isLive) {
-            this._saveInterval = setInterval(() => this._saveTimeProgress(), 5000);
-        } else {
-            this._saveInterval = null;
-            // Update time display to blinking red live indicator
-            const timeDisplay = document.getElementById('vip-time-display');
-            if (timeDisplay) {
-                timeDisplay.innerHTML = `<span class="live-dot" style="display:inline-block; width:8px; height:8px; background:#e50914; border-radius:50%; margin-right:6px; box-shadow: 0 0 6px #e50914; animation: pulse 1s infinite;"></span> TRỰC TIẾP`;
-            }
-        }
+        this._saveInterval = setInterval(() => this._saveTimeProgress(), 5000);
 
         // Hide light/theater buttons as custom player handles all controls
         const lightBtn = document.getElementById('modal-light-btn');
@@ -2077,10 +1884,8 @@ const VIPPlayer = {
         }
         this._removeNextEpisodeCountdown();
 
-        // Save last progress time (only if not live TV)
-        if (!this.isLive) {
-            this._saveTimeProgress();
-        }
+        // Save last progress time
+        this._saveTimeProgress();
 
         // Pause and reset video
         if (this.video) {
@@ -2102,25 +1907,6 @@ const VIPPlayer = {
             this.container.classList.remove('pseudo-fullscreen');
         }
         document.body.classList.remove('vip-pseudo-fs-active');
-
-        // Restore custom styling elements
-        const progress = document.getElementById('vip-progress');
-        if (progress) progress.style.display = '';
-
-        const speedBtn = document.getElementById('vip-btn-speed');
-        if (speedBtn) speedBtn.style.display = '';
-
-        const backupBtn = document.getElementById('vip-btn-backup-tv');
-        if (backupBtn) backupBtn.style.display = 'none';
-
-        const modalTitle = document.getElementById('vip-modal-title');
-        if (modalTitle) modalTitle.textContent = '';
-
-        // Restore modal body display if it was hidden
-        const modalBody = document.querySelector('.modal__body');
-        if (modalBody) modalBody.style.display = '';
-
-        this.isLive = false;
 
         // Remove active classes
         const modal = document.getElementById('modal');
@@ -2264,7 +2050,6 @@ const VIPPlayer = {
         if (!progress) return;
 
         const seekTo = (e) => {
-            if (this.isLive) return;
             if (!this.video || !this.video.duration) return;
             const rect = progress.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -2275,7 +2060,6 @@ const VIPPlayer = {
         };
 
         const onMouseMove = (e) => {
-            if (this.isLive) return;
             if (this.isSeeking) {
                 seekTo(e);
             }
@@ -2292,7 +2076,6 @@ const VIPPlayer = {
         };
 
         progress.addEventListener('mousedown', (e) => {
-            if (this.isLive) return;
             this.isSeeking = true;
             seekTo(e);
             this.showControls();
@@ -2314,7 +2097,6 @@ const VIPPlayer = {
 
         // Touch support for progress bar
         progress.addEventListener('touchstart', (e) => {
-            if (this.isLive) return;
             this.isSeeking = true;
             seekTo(e);
             this.showControls();
@@ -2322,7 +2104,6 @@ const VIPPlayer = {
         }, { passive: true });
 
         progress.addEventListener('touchmove', (e) => {
-            if (this.isLive) return;
             if (this.isSeeking) seekTo(e);
         }, { passive: true });
 
@@ -2339,10 +2120,6 @@ const VIPPlayer = {
         if (!leftZone || !rightZone) return;
 
         const handleTap = (zone, direction) => {
-            if (this.isLive) {
-                this.toggleControls();
-                return;
-            }
             const now = Date.now();
             const lastTap = this._tapTimers[direction];
             this._tapTimers[direction] = now;
@@ -2607,6 +2384,9 @@ const VIPPlayer = {
         if (speedBtn) els.push(speedBtn);
         if (pipBtn && pipBtn.style.display !== 'none') els.push(pipBtn);
         if (fsBtn) els.push(fsBtn);
+        
+        serverBtns.forEach(btn => els.push(btn));
+        
         return els;
     },
 
@@ -2662,7 +2442,6 @@ const VIPPlayer = {
             }
         }
 
-        // Apply new focus
         const nextEl = focusables[nextIndex];
         if (nextEl) {
             nextEl.focus();
@@ -2684,7 +2463,6 @@ const VIPPlayer = {
 
     // Skip forward or backward by delta seconds
     seek(delta) {
-        if (this.isLive) return;
         if (!this.video || !this.video.duration) return;
         let targetTime = this.video.currentTime + delta;
         targetTime = Math.max(0, Math.min(this.video.duration, targetTime));
@@ -2752,10 +2530,11 @@ const VIPPlayer = {
         this.resetAutoHide();
     },
 
-    // Toggle fullscreen mode
+    // Request fullscreen on container element with iOS iPhone Safari and restrictive webview fallbacks
     toggleFullscreen() {
-        if (!this.container) return;
+        if (!this.container || !this.video) return;
 
+        // 1. Kiểm tra nếu là thiết bị iOS (iPhone/iPad không hỗ trợ Fullscreen API chuẩn trên DOM Element)
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         
         if (isIOS && this.video.webkitEnterFullscreen) {
@@ -2899,13 +2678,6 @@ const VIPPlayer = {
         const handle = document.getElementById('vip-progress-handle');
         const timeDisplay = document.getElementById('vip-time-display');
 
-        if (this.isLive) {
-            if (timeDisplay) timeDisplay.innerHTML = '<span class="live-dot" style="display:inline-block; width:8px; height:8px; background:#e50914; border-radius:50%; margin-right:6px; box-shadow:0 0 8px #e50914; animation:pulse-glow 1.5s infinite;"></span>TRỰC TIẾP';
-            if (played) played.style.width = '100%';
-            if (handle) handle.style.left = '100%';
-            return;
-        }
-
         const curTime = this.video.currentTime || 0;
         const duration = this.video.duration || 0;
 
@@ -2925,7 +2697,6 @@ const VIPPlayer = {
 
     // Update buffered progress indicators
     _updateBuffered() {
-        if (this.isLive) return;
         if (!this.video || !this.video.duration) return;
         const buffered = document.getElementById('vip-progress-buffered');
         if (!buffered) return;
@@ -3272,696 +3043,4 @@ const LPSubscriptions = {
             console.error('LPSubscriptions error:', err);
         }
     }
-};
-
-// ══════════════════════════════════════════════════════════
-//  LIVE TV & SPORTS
-// ══════════════════════════════════════════════════════════
-const WORLD_CUP_MATCHES = [
-    {
-        homeTeam: 'Argentina',
-        homeFlag: '🇦🇷',
-        awayTeam: 'Algérie',
-        awayFlag: '🇩🇿',
-        time: 'Trực tiếp - 45\'',
-        group: 'Bảng J - World Cup',
-        channel: 'VTV3 / VTV Cần Thơ',
-        m3u8: 'https://live.fptplay53.net/live/media/vtv3/live247-hls-avc/index.m3u8',
-        link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html',
-        status: 'Trực tiếp'
-    },
-    {
-        homeTeam: 'Áo',
-        homeFlag: '🇦🇹',
-        awayTeam: 'Jordan',
-        awayFlag: '🇯🇴',
-        time: '11:00 - Hôm Nay',
-        group: 'Bảng J - World Cup',
-        channel: 'VTV5 / TV360',
-        m3u8: 'https://live.a.fptplay53.net/live/media/vtv5/live247-hls-avc/index.m3u8',
-        link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv5-5.html',
-        status: 'Sắp diễn ra'
-    },
-    {
-        homeTeam: 'Bồ Đào Nha',
-        homeFlag: '🇵🇹',
-        awayTeam: 'CHDC Congo',
-        awayFlag: '🇨🇩',
-        time: '00:00 - Ngày Mai',
-        group: 'Bảng K - World Cup',
-        channel: 'VTV3 / TV360',
-        m3u8: 'https://live.fptplay53.net/live/media/vtv3/live247-hls-avc/index.m3u8',
-        link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html',
-        status: 'Sắp diễn ra'
-    },
-    {
-        homeTeam: 'Anh',
-        homeFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-        awayTeam: 'Croatia',
-        awayFlag: '🇭🇷',
-        time: '03:00 - Ngày Mai',
-        group: 'Bảng L - World Cup',
-        channel: 'VTV5 / TV360',
-        m3u8: 'https://live.a.fptplay53.net/live/media/vtv5/live247-hls-avc/index.m3u8',
-        link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv5-5.html',
-        status: 'Sắp diễn ra'
-    },
-    {
-        homeTeam: 'Ghana',
-        homeFlag: '🇬🇭',
-        awayTeam: 'Panama',
-        awayFlag: '🇵🇦',
-        time: '06:00 - Ngày Mai',
-        group: 'Bảng L - World Cup',
-        channel: 'VTV3 / VTV Cần Thơ',
-        m3u8: 'https://live.fptplay53.net/live/media/vtv3/live247-hls-avc/index.m3u8',
-        link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html',
-        status: 'Sắp diễn ra'
-    },
-    {
-        homeTeam: 'Uzbekistan',
-        homeFlag: '🇺🇿',
-        awayTeam: 'Colombia',
-        awayFlag: '🇨🇴',
-        time: '09:00 - Ngày Mai',
-        group: 'Bảng K - World Cup',
-        channel: 'VTV5 / TV360',
-        m3u8: 'https://live.a.fptplay53.net/live/media/vtv5/live247-hls-avc/index.m3u8',
-        link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv5-5.html',
-        status: 'Sắp diễn ra'
-    }
-];
-
-function renderWorldCupMatches() {
-    const container = document.getElementById('world-cup-matches');
-    if (!container) return;
-    
-    container.innerHTML = WORLD_CUP_MATCHES.map((match, idx) => {
-        const statusBadge = match.status === 'Trực tiếp' 
-            ? `<span class="live-badge-card" style="background: var(--red); color: white; font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; animation: pulse 1.5s infinite; display: inline-flex; align-items: center; gap: 4px;"><span style="display:inline-block; width:5px; height:5px; background:white; border-radius:50%;"></span>LIVE</span>`
-            : `<span style="background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 10px; color: var(--t2); font-weight: 600;">${match.status}</span>`;
-
-        const isLive = match.status === 'Trực tiếp';
-        const buttonsHtml = isLive 
-            ? `
-                <button class="match-btn" onclick="playMatchLive(${idx})" style="flex: 1; background: var(--red); border: none; color: white; font-size: 0.85rem; font-weight: 700; padding: 10px 14px; border-radius: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 15px rgba(229,9,20,0.3); transition: all 0.2s ease;">
-                    <i class="fas fa-play"></i> Xem trực tiếp
-                </button>
-                <button class="match-btn-fallback" onclick="window.open('${match.link}', '_blank')" style="flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: var(--t2); font-size: 0.85rem; font-weight: 600; padding: 10px 14px; border-radius: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
-                    <i class="fas fa-external-link-alt"></i> VTV Go backup
-                </button>
-            `
-            : `
-                <button class="match-btn-fallback" onclick="window.open('${match.link}', '_blank')" style="width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: var(--t2); font-size: 0.85rem; font-weight: 600; padding: 10px 14px; border-radius: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
-                    <i class="fas fa-external-link-alt"></i> Xem trên ${match.channel.includes('TV360') ? 'TV360' : 'VTV Go'}
-                </button>
-            `;
-
-        return `
-            <div class="match-card" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px; transition: all 0.25s ease; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; font-size: 0.8rem; color: var(--t3);">
-                    <span>${match.group}</span>
-                    ${statusBadge}
-                </div>
-                <div style="display: flex; align-items: center; justify-content: space-between; margin: 20px 0;">
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-size: 2.2rem; margin-bottom: 8px;">${match.homeFlag}</div>
-                        <div style="font-size: 0.95rem; font-weight: 700; color: var(--white);">${match.homeTeam}</div>
-                    </div>
-                    <div style="font-size: 0.85rem; font-weight: 800; color: var(--red); background: rgba(229,9,20,0.1); padding: 4px 12px; border-radius: 12px; border: 1px solid rgba(229,9,20,0.2);">VS</div>
-                    <div style="text-align: center; flex: 1;">
-                        <div style="font-size: 2.2rem; margin-bottom: 8px;">${match.awayFlag}</div>
-                        <div style="font-size: 0.95rem; font-weight: 700; color: var(--white);">${match.awayTeam}</div>
-                    </div>
-                </div>
-                <div style="text-align: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 14px; display: flex; flex-direction: column; gap: 8px;">
-                    <div style="font-size: 0.9rem; font-weight: 700; color: var(--t2); margin-bottom: 2px;"><i class="far fa-clock" style="margin-right: 6px;"></i>${match.time}</div>
-                    <div style="font-size: 0.8rem; color: var(--t3); margin-bottom: 6px;">Phát sóng: <b>${match.channel}</b></div>
-                    <div style="display: flex; gap: 10px; width: 100%;">
-                        ${buttonsHtml}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function openLiveTVPage() {
-    document.getElementById('home-view').style.display = 'none';
-    document.getElementById('browse').hidden = true;
-    
-    const tvView = document.getElementById('live-tv-view');
-    if (tvView) {
-        tvView.hidden = false;
-    }
-    
-    renderWorldCupMatches();
-    if (typeof renderTVChannels === 'function') {
-        renderTVChannels('all');
-    }
-    if (typeof setupTVTabs === 'function') {
-        setupTVTabs();
-    }
-    const fullSchedule = document.getElementById('full-schedule-section');
-    if (fullSchedule) {
-        fullSchedule.style.display = 'none';
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-window.openTVChannel = function(channelId) {
-    // Look up channel from the single source of truth
-    const channel = TV_CHANNELS_DATA.find(ch => ch.key === channelId);
-    if (!channel || !channel.m3u8) {
-        if (channel && channel.fallback) window.open(channel.fallback, '_blank');
-        return;
-    }
-    
-    VIPPlayer.load(channel.m3u8, null, true);
-    
-    const modalTitle = document.getElementById('vip-modal-title');
-    if (modalTitle) {
-        modalTitle.textContent = `Đang phát: ${channel.name} (Trực Tiếp)`;
-    }
-    
-    let backupBtn = document.getElementById('vip-btn-backup-tv');
-    if (!backupBtn) {
-        const controlsRight = document.querySelector('.vip-controls-right');
-        if (controlsRight) {
-            backupBtn = document.createElement('button');
-            backupBtn.id = 'vip-btn-backup-tv';
-            backupBtn.className = 'vip-control-btn';
-            backupBtn.title = 'Xem Link Dự Phòng';
-            backupBtn.innerHTML = '<i class="fas fa-external-link-alt" style="color:#ffd700;"></i>';
-            backupBtn.style.marginRight = '12px';
-            controlsRight.insertBefore(backupBtn, controlsRight.firstChild);
-        }
-    }
-    if (backupBtn) {
-        backupBtn.style.display = 'inline-flex';
-        backupBtn.onclick = (e) => {
-            e.stopPropagation();
-            window.open(channel.fallback, '_blank');
-        };
-    }
-};
-
-window.playMatchLive = function(matchIndex) {
-    const match = WORLD_CUP_MATCHES[matchIndex];
-    if (!match) return;
-    
-    VIPPlayer.load(match.m3u8, null, true);
-    
-    const modalTitle = document.getElementById('vip-modal-title');
-    if (modalTitle) {
-        modalTitle.textContent = `Trực tiếp World Cup: ${match.homeTeam} vs ${match.awayTeam}`;
-    }
-    
-    let backupBtn = document.getElementById('vip-btn-backup-tv');
-    if (!backupBtn) {
-        const controlsRight = document.querySelector('.vip-controls-right');
-        if (controlsRight) {
-            backupBtn = document.createElement('button');
-            backupBtn.id = 'vip-btn-backup-tv';
-            backupBtn.className = 'vip-control-btn';
-            backupBtn.title = 'Xem Link Dự Phòng';
-            backupBtn.innerHTML = '<i class="fas fa-external-link-alt" style="color:#ffd700;"></i>';
-            backupBtn.style.marginRight = '12px';
-            controlsRight.insertBefore(backupBtn, controlsRight.firstChild);
-        }
-    }
-    if (backupBtn) {
-        backupBtn.style.display = 'inline-flex';
-        backupBtn.onclick = (e) => {
-            e.stopPropagation();
-            window.open(match.link, '_blank');
-        };
-    }
-};
-
-// ══════════════════════════════════════════════════════════
-//  FULL WORLD CUP TOURNAMENT SCHEDULE DATA
-// ══════════════════════════════════════════════════════════
-const FULL_WORLD_CUP_SCHEDULE = [
-    // Group Stage - Lượt trận 1
-    { date: '18/06', time: '18:00', round: 'Vòng Bảng - Lượt 1', group: 'Bảng A', home: 'Qatar 🇶🇦', away: 'Ecuador 🇪🇨', channel: 'VTV2', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv2-2.html' },
-    { date: '18/06', time: '21:00', round: 'Vòng Bảng - Lượt 1', group: 'Bảng A', home: 'Senegal 🇸🇳', away: 'Hà Lan 🇳🇱', channel: 'VTV5', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv5-5.html' },
-    { date: '19/06', time: '00:00', round: 'Vòng Bảng - Lượt 1', group: 'Bảng B', home: 'Anh 🏴󠁧󠁢󠁥󠁮󠁧󠁿', away: 'Iran 🇮🇷', channel: 'VTV3', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html' },
-    { date: '19/06', time: '03:00', round: 'Vòng Bảng - Lượt 1', group: 'Bảng B', home: 'Mỹ 🇺🇸', away: 'Xứ Wales 🏴󠁧󠁢󠁷󠁬󠁳󠁿', channel: 'VTV2', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv2-2.html' },
-    { date: '19/06', time: '18:00', round: 'Vòng Bảng - Lượt 1', group: 'Bảng C', home: 'Argentina 🇦🇷', away: 'Saudi Arabia 🇸🇦', channel: 'VTV5', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv5-5.html' },
-    { date: '19/06', time: '21:00', round: 'Vòng Bảng - Lượt 1', group: 'Bảng C', home: 'Mexico 🇲🇽', away: 'Ba Lan 🇵🇱', channel: 'VTV2', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv2-2.html' },
-    
-    // Group Stage - Lượt trận 2
-    { date: '20/06', time: '18:00', round: 'Vòng Bảng - Lượt 2', group: 'Bảng A', home: 'Qatar 🇶🇦', away: 'Senegal 🇸🇳', channel: 'VTV5', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv5-5.html' },
-    { date: '20/06', time: '21:00', round: 'Vòng Bảng - Lượt 2', group: 'Bảng A', home: 'Hà Lan 🇳🇱', away: 'Ecuador 🇪🇨', channel: 'VTV3', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html' },
-    { date: '21/06', time: '00:00', round: 'Vòng Bảng - Lượt 2', group: 'Bảng B', home: 'Xứ Wales 🏴󠁧󠁢󠁷󠁬󠁳󠁿', away: 'Iran 🇮🇷', channel: 'VTV2', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv2-2.html' },
-    { date: '21/06', time: '03:00', round: 'Vòng Bảng - Lượt 2', group: 'Bảng B', home: 'Anh 🏴󠁧󠁢󠁥󠁮󠁧󠁿', away: 'Mỹ 🇺🇸', channel: 'VTV3', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html' },
-    
-    // Play-offs (Round of 16)
-    { date: '28/06', time: '22:00', round: 'Vòng 16 Đội', group: 'Trận 49', home: 'Nhất Bảng A', away: 'Nhì Bảng B', channel: 'VTV2 / VTV Cần Thơ', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv-c%E1%BB%A5n-th%C6%A1-6.html' },
-    { date: '29/06', time: '02:00', round: 'Vòng 16 Đội', group: 'Trận 50', home: 'Nhất Bảng C', away: 'Nhì Bảng D', channel: 'VTV3', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html' },
-    { date: '29/06', time: '22:00', round: 'Vòng 16 Đội', group: 'Trận 51', home: 'Nhất Bảng D', away: 'Nhì Bảng C', channel: 'VTV2', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv2-2.html' },
-    { date: '30/06', time: '02:00', round: 'Vòng 16 Đội', group: 'Trận 52', home: 'Nhất Bảng B', away: 'Nhì Bảng A', channel: 'VTV3', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html' },
-    
-    // Quarter-finals
-    { date: '02/07', time: '22:00', round: 'Vòng Tứ Kết', group: 'Tứ Kết 1', home: 'Thắng Trận 49', away: 'Thắng Trận 50', channel: 'VTV2 / VTV Cần Thơ', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv-c%E1%BB%A5n-th%C6%A1-6.html' },
-    { date: '03/07', time: '02:00', round: 'Vòng Tứ Kết', group: 'Tứ Kết 2', home: 'Thắng Trận 53', away: 'Thắng Trận 54', channel: 'VTV3', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html' },
-    { date: '03/07', time: '22:00', round: 'Vòng Tứ Kết', group: 'Tứ Kết 3', home: 'Thắng Trận 51', away: 'Thắng Trận 52', channel: 'VTV2 / VTV Cần Thơ', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv-c%E1%BB%A5n-th%C6%A1-6.html' },
-    { date: '04/07', time: '02:00', round: 'Vòng Tứ Kết', group: 'Tứ Kết 4', home: 'Thắng Trận 55', away: 'Thắng Trận 56', channel: 'VTV3', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html' },
-    
-    // Semi-finals
-    { date: '06/07', time: '02:00', round: 'Vòng Bán Kết', group: 'Bán Kết 1', home: 'Thắng Tứ Kết 1', away: 'Thắng Tứ Kết 2', channel: 'VTV3', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html' },
-    { date: '07/07', time: '02:00', round: 'Vòng Bán Kết', group: 'Bán Kết 2', home: 'Thắng Tứ Kết 3', away: 'Thắng Tứ Kết 4', channel: 'VTV3', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html' },
-    
-    // Final
-    { date: '10/07', time: '02:00', round: 'Chung Kết', group: 'Chung Kết', home: 'Thắng Bán Kết 1', away: 'Thắng Bán Kết 2', channel: 'VTV3 / VTV Cần Thơ', link: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html' }
-];
-
-// ══════════════════════════════════════════════════════════
-//  TV CHANNELS DATA (EXPANDED LIST)
-// ══════════════════════════════════════════════════════════
-const TV_CHANNELS_DATA = [
-    {
-        key: 'vtv1',
-        name: 'VTV1 HD',
-        category: 'national',
-        logoText: 'VTV1',
-        logoBg: 'linear-gradient(135deg, #e50914, #b20710)',
-        logoShadow: 'rgba(229,9,20,0.3)',
-        description: 'Kênh Thời sự - Chính trị',
-        provider: 'Truyền hình Quốc gia VTV1',
-        m3u8: 'https://live.fptplay53.net/live/media/vtv1/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv1-1.html'
-    },
-    {
-        key: 'vtv2',
-        name: 'VTV2 HD',
-        category: 'national',
-        logoText: 'VTV2',
-        logoBg: 'linear-gradient(135deg, #0072bc, #00558f)',
-        logoShadow: 'rgba(0,114,188,0.3)',
-        description: 'Kênh Khoa học - Giáo dục',
-        provider: 'Truyền hình Quốc gia VTV2',
-        m3u8: 'https://live.fptplay53.net/live/media/vtv2/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv2-2.html'
-    },
-    {
-        key: 'vtv3',
-        name: 'VTV3 HD',
-        category: 'national',
-        logoText: 'VTV3',
-        logoBg: 'linear-gradient(135deg, #39b54a, #2b8c38)',
-        logoShadow: 'rgba(57,181,74,0.3)',
-        description: 'Kênh Giải trí tổng hợp',
-        provider: 'Truyền hình Quốc gia VTV3',
-        m3u8: 'https://live.fptplay53.net/live/media/vtv3/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv3-3.html'
-    },
-    {
-        key: 'vtv5',
-        name: 'VTV5 HD',
-        category: 'national',
-        logoText: 'VTV5',
-        logoBg: 'linear-gradient(135deg, #f7941d, #c27214)',
-        logoShadow: 'rgba(247,148,29,0.3)',
-        description: 'Kênh Truyền hình dân tộc',
-        provider: 'Truyền hình Quốc gia VTV5',
-        m3u8: 'https://live.a.fptplay53.net/live/media/vtv5/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv5-5.html'
-    },
-    {
-        key: 'vtv8',
-        name: 'VTV8 HD',
-        category: 'national',
-        logoText: 'VTV8',
-        logoBg: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
-        logoShadow: 'rgba(139,92,246,0.3)',
-        description: 'Kênh Miền Trung - Tây Nguyên',
-        provider: 'Truyền hình Quốc gia VTV8',
-        m3u8: 'https://live.fptplay53.net/live/media/vtv8/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv8-8.html'
-    },
-    {
-        key: 'vtv9',
-        name: 'VTV9 HD',
-        category: 'national',
-        logoText: 'VTV9',
-        logoBg: 'linear-gradient(135deg, #06b6d4, #0891b2)',
-        logoShadow: 'rgba(6,182,212,0.3)',
-        description: 'Kênh Truyền hình Nam Bộ',
-        provider: 'Truyền hình Quốc gia VTV9',
-        m3u8: 'https://live.fptplay53.net/live/media/vtv9/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv9-9.html'
-    },
-    {
-        key: 'vtv-can-tho',
-        name: 'VTV Cần Thơ',
-        category: 'local',
-        logoText: 'VTV Cần Thơ',
-        logoBg: 'linear-gradient(135deg, #ec1c24, #b90d13)',
-        logoShadow: 'rgba(236,28,36,0.3)',
-        description: 'Kênh Tây Nam Bộ (VTV6 cũ)',
-        provider: 'Truyền hình Quốc gia VTV Cần Thơ',
-        m3u8: 'https://live.fptplay53.net/live/media/vtv6/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv-c%E1%BB%A5n-th%C6%A1-6.html'
-    },
-    {
-        key: 'htv7',
-        name: 'HTV7 HD',
-        category: 'entertainment',
-        logoText: 'HTV7',
-        logoBg: 'linear-gradient(135deg, #ff007f, #99004c)',
-        logoShadow: 'rgba(255,0,127,0.3)',
-        description: 'Kênh Giải trí & Phim truyện',
-        provider: 'Đài Truyền hình TP.HCM (HTV)',
-        m3u8: 'http://103.199.161.85/ip/2/hls/htv7/index.m3u8',
-        fallback: 'https://hplus.com.vn/xem-kenh-htv7-hd-256.html'
-    },
-    {
-        key: 'htv9',
-        name: 'HTV9 HD',
-        category: 'entertainment',
-        logoText: 'HTV9',
-        logoBg: 'linear-gradient(135deg, #ff5722, #bf360c)',
-        logoShadow: 'rgba(255,87,34,0.3)',
-        description: 'Kênh Tin tức & Tổng hợp',
-        provider: 'Đài Truyền hình TP.HCM (HTV)',
-        m3u8: 'http://103.199.161.85/ip/2/hls/htv9/index.m3u8',
-        fallback: 'https://hplus.com.vn/xem-kenh-htv9-hd-257.html'
-    },
-    {
-        key: 'vtc3',
-        name: 'VTC3 HD',
-        category: 'sports',
-        logoText: 'VTC3',
-        logoBg: 'linear-gradient(135deg, #10b981, #047857)',
-        logoShadow: 'rgba(16,185,129,0.3)',
-        description: 'Kênh Văn hóa - Thể thao VTC',
-        provider: 'Đài Truyền hình Kỹ thuật số VTC',
-        m3u8: 'https://live.fptplay53.net/live/media/vtc3/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtc.gov.vn/kenh/vtc3'
-    },
-    {
-        key: 'tv360',
-        name: 'TV360 Viettel',
-        category: 'sports',
-        logoText: 'TV360',
-        logoBg: 'linear-gradient(135deg, #182a4c, #13203a)',
-        logoShadow: 'rgba(32,224,255,0.15)',
-        description: 'Cổng truyền hình thể thao Viettel',
-        provider: 'Phát trực tiếp bản quyền bóng đá',
-        m3u8: null,
-        fallback: 'http://tv360.vn/'
-    },
-    {
-        key: 'vtv4',
-        name: 'VTV4 HD',
-        category: 'national',
-        logoText: 'VTV4',
-        logoBg: 'linear-gradient(135deg, #d946ef, #a21caf)',
-        logoShadow: 'rgba(217,70,239,0.3)',
-        description: 'Kênh Phục vụ Kiều bào',
-        provider: 'Truyền hình Quốc gia VTV4',
-        m3u8: 'https://live.fptplay53.net/live/media/vtv4/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv4-4.html'
-    },
-    {
-        key: 'vtv7',
-        name: 'VTV7 HD',
-        category: 'entertainment',
-        logoText: 'VTV7',
-        logoBg: 'linear-gradient(135deg, #f59e0b, #d97706)',
-        logoShadow: 'rgba(245,158,11,0.3)',
-        description: 'Kênh Thiếu nhi & Giáo dục',
-        provider: 'Truyền hình Quốc gia VTV7',
-        m3u8: 'https://live.fptplay53.net/live/media/vtv7/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtvgo.vn/xem-truc-tuyen-kenh-vtv7-359.html'
-    },
-    {
-        key: 'thvl1',
-        name: 'THVL1 HD',
-        category: 'entertainment',
-        logoText: 'THVL1',
-        logoBg: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-        logoShadow: 'rgba(37,99,235,0.3)',
-        description: 'Kênh Giải trí tổng hợp Vĩnh Long',
-        provider: 'Đài PT-TH Vĩnh Long',
-        m3u8: 'https://live.fptplay53.net/live/media/thvl1/live247-hls-avc/index.m3u8',
-        fallback: 'https://www.thvl.vn/live/thvl1-hd/'
-    },
-    {
-        key: 'thvl2',
-        name: 'THVL2 HD',
-        category: 'entertainment',
-        logoText: 'THVL2',
-        logoBg: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
-        logoShadow: 'rgba(14,165,233,0.3)',
-        description: 'Kênh Phim truyện Vĩnh Long',
-        provider: 'Đài PT-TH Vĩnh Long',
-        m3u8: 'https://live.fptplay53.net/live/media/thvl2/live247-hls-avc/index.m3u8',
-        fallback: 'https://www.thvl.vn/live/thvl2-hd/'
-    },
-    {
-        key: 'vtc1',
-        name: 'VTC1 HD',
-        category: 'national',
-        logoText: 'VTC1',
-        logoBg: 'linear-gradient(135deg, #dc2626, #991b1b)',
-        logoShadow: 'rgba(220,38,38,0.3)',
-        description: 'Kênh Tin tức & Thời sự VTC',
-        provider: 'Đài Truyền hình Kỹ thuật số VTC',
-        m3u8: 'https://live.fptplay53.net/live/media/vtc1/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtc.gov.vn/kenh/vtc1'
-    },
-    {
-        key: 'vtc14',
-        name: 'VTC14 HD',
-        category: 'national',
-        logoText: 'VTC14',
-        logoBg: 'linear-gradient(135deg, #ea580c, #c2410c)',
-        logoShadow: 'rgba(234,88,12,0.3)',
-        description: 'Kênh Thời tiết & Đời sống',
-        provider: 'Đài Truyền hình Kỹ thuật số VTC',
-        m3u8: 'https://live.fptplay53.net/live/media/vtc14/live247-hls-avc/index.m3u8',
-        fallback: 'https://vtc.gov.vn/kenh/vtc14'
-    },
-    {
-        key: 'htv-the-thao',
-        name: 'HTV Thể Thao',
-        category: 'sports',
-        logoText: 'HTV TT',
-        logoBg: 'linear-gradient(135deg, #16a34a, #15803d)',
-        logoShadow: 'rgba(22,163,74,0.3)',
-        description: 'Kênh Thể thao TP.HCM',
-        provider: 'Đài Truyền hình TP.HCM',
-        m3u8: null,
-        fallback: 'https://hplus.com.vn/xem-kenh-htv-the-thao-277.html'
-    },
-    {
-        key: 'on-sports',
-        name: 'On Sports',
-        category: 'sports',
-        logoText: 'ON',
-        logoBg: 'linear-gradient(135deg, #f97316, #ea580c)',
-        logoShadow: 'rgba(249,115,22,0.3)',
-        description: 'Kênh Thể thao trực tuyến',
-        provider: 'Truyền hình thể thao On Sports',
-        m3u8: null,
-        fallback: 'https://onsportstv.com/'
-    },
-    {
-        key: 'k-plus',
-        name: 'K+ PM',
-        category: 'sports',
-        logoText: 'K+',
-        logoBg: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-        logoShadow: 'rgba(124,58,237,0.3)',
-        description: 'Kênh Thể thao cao cấp K+',
-        provider: 'Truyền hình K+ Vietnam',
-        m3u8: null,
-        fallback: 'https://kplus.vn/'
-    },
-    {
-        key: 'fpt-play',
-        name: 'FPT Play',
-        category: 'sports',
-        logoText: 'FPT',
-        logoBg: 'linear-gradient(135deg, #e11d48, #be123c)',
-        logoShadow: 'rgba(225,29,72,0.3)',
-        description: 'Nền tảng xem thể thao trực tuyến',
-        provider: 'FPT Telecom',
-        m3u8: null,
-        fallback: 'https://fptplay.vn/xem-truyen-hinh'
-    },
-    {
-        key: 'sctv',
-        name: 'SCTV HD',
-        category: 'entertainment',
-        logoText: 'SCTV',
-        logoBg: 'linear-gradient(135deg, #0d9488, #0f766e)',
-        logoShadow: 'rgba(13,148,136,0.3)',
-        description: 'Kênh Truyền hình cáp SCTV',
-        provider: 'Truyền hình cáp Saigontourist',
-        m3u8: null,
-        fallback: 'https://www.sctv.com.vn/'
-    },
-    {
-        key: 'bibi',
-        name: 'BiBi TV',
-        category: 'entertainment',
-        logoText: 'BiBi',
-        logoBg: 'linear-gradient(135deg, #ec4899, #db2777)',
-        logoShadow: 'rgba(236,72,153,0.3)',
-        description: 'Kênh Thiếu nhi & Hoạt hình',
-        provider: 'Truyền hình BiBi (SCTV22)',
-        m3u8: null,
-        fallback: 'https://www.sctv.com.vn/kenh-truyen-hinh/sctv22-bibi'
-    },
-    {
-        key: 'antv',
-        name: 'ANTV HD',
-        category: 'national',
-        logoText: 'ANTV',
-        logoBg: 'linear-gradient(135deg, #b91c1c, #991b1b)',
-        logoShadow: 'rgba(185,28,28,0.3)',
-        description: 'Kênh Truyền hình Công an Nhân dân',
-        provider: 'An ninh TV',
-        m3u8: 'https://live.fptplay53.net/live/media/antv/live247-hls-avc/index.m3u8',
-        fallback: 'https://antv.gov.vn/xem-truc-tuyen.html'
-    },
-    {
-        key: 'quochoi',
-        name: 'Truyền hình Quốc hội',
-        category: 'national',
-        logoText: 'QH',
-        logoBg: 'linear-gradient(135deg, #ca8a04, #a16207)',
-        logoShadow: 'rgba(202,138,4,0.3)',
-        description: 'Kênh Truyền hình Quốc hội Việt Nam',
-        provider: 'Truyền hình Quốc hội',
-        m3u8: 'https://live.fptplay53.net/live/media/truyenhinhquochoi/live247-hls-avc/index.m3u8',
-        fallback: 'https://quochoitv.vn/livetv'
-    },
-    {
-        key: 'htv-phim',
-        name: 'HTV Phim',
-        category: 'entertainment',
-        logoText: 'HTV Phim',
-        logoBg: 'linear-gradient(135deg, #9333ea, #7e22ce)',
-        logoShadow: 'rgba(147,51,234,0.3)',
-        description: 'Kênh Phim truyện HTV',
-        provider: 'Đài Truyền hình TP.HCM',
-        m3u8: null,
-        fallback: 'https://hplus.com.vn/xem-kenh-htv-phim-hd-371.html'
-    },
-    {
-        key: 'vnews',
-        name: 'VNEWS HD',
-        category: 'national',
-        logoText: 'VNEWS',
-        logoBg: 'linear-gradient(135deg, #1e40af, #1e3a8a)',
-        logoShadow: 'rgba(30,64,175,0.3)',
-        description: 'Kênh Thông tấn xã Việt Nam',
-        provider: 'TTXVN (VTV)',
-        m3u8: 'https://live.fptplay53.net/live/media/vnews/live247-hls-avc/index.m3u8',
-        fallback: 'https://vnews.gov.vn/video-truc-tuyen.htm'
-    }
-];
-
-// ══════════════════════════════════════════════════════════
-//  DYNAMIC SCHEDULE & TV CHANNELS RENDER METHODS
-// ══════════════════════════════════════════════════════════
-window.toggleFullSchedule = function() {
-    const section = document.getElementById('full-schedule-section');
-    const btn = document.getElementById('btn-toggle-full-schedule');
-    if (!section || !btn) return;
-    
-    const isHidden = section.style.display === 'none' || section.style.display === '';
-    if (isHidden) {
-        window.renderFullSchedule();
-        section.style.display = 'block';
-        btn.innerHTML = '<i class="far fa-calendar-times"></i> Thu gọn lịch thi đấu';
-        btn.style.background = 'rgba(229,9,20,0.15)';
-        btn.style.borderColor = 'rgba(229,9,20,0.3)';
-        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-        section.style.display = 'none';
-        btn.innerHTML = '<i class="far fa-calendar-alt"></i> Xem toàn bộ lịch thi đấu';
-        btn.style.background = '';
-        btn.style.borderColor = '';
-    }
-};
-
-window.renderFullSchedule = function() {
-    const container = document.getElementById('full-schedule-table-body');
-    if (!container) return;
-    
-    container.innerHTML = FULL_WORLD_CUP_SCHEDULE.map(item => `
-        <tr class="schedule-row" style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: all 0.2s ease;">
-            <td style="padding: 14px 16px; font-weight: 700; color: var(--red);">${item.date}</td>
-            <td style="padding: 14px 16px; color: var(--t2); font-family: monospace;">${item.time}</td>
-            <td style="padding: 14px 16px; font-size: 0.82rem; font-weight: 600;"><span style="background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; color: var(--t3);">${item.round}</span></td>
-            <td style="padding: 14px 16px; color: var(--t4); font-size: 0.85rem;">${item.group}</td>
-            <td style="padding: 14px 16px; font-weight: 700; color: var(--white); text-align: right; width: 25%;">${item.home}</td>
-            <td style="padding: 14px 16px; font-weight: 800; color: var(--red); text-align: center; width: 6%; background: rgba(229,9,20,0.04);">VS</td>
-            <td style="padding: 14px 16px; font-weight: 700; color: var(--white); text-align: left; width: 25%;">${item.away}</td>
-            <td style="padding: 14px 16px; font-size: 0.82rem; color: var(--t2); font-weight: 600;">${item.channel}</td>
-            <td style="padding: 14px 16px; text-align: right;">
-                <button onclick="window.open('${item.link}', '_blank')" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: var(--t2); font-size: 0.75rem; font-weight: 600; padding: 6px 12px; border-radius: 12px; cursor: pointer; transition: all 0.2s ease;">
-                    <i class="fas fa-external-link-alt" style="font-size:0.7rem;"></i> Xem kênh
-                </button>
-            </td>
-        </tr>
-    `).join('');
-};
-
-window.renderTVChannels = function(categoryFilter = 'all') {
-    const container = document.getElementById('tv-channels-grid');
-    if (!container) return;
-    
-    const filtered = categoryFilter === 'all' 
-        ? TV_CHANNELS_DATA 
-        : TV_CHANNELS_DATA.filter(ch => ch.category === categoryFilter);
-        
-    container.innerHTML = filtered.map(channel => {
-        const logoBorderColor = channel.logoShadow ? `box-shadow: 0 4px 15px ${channel.logoShadow};` : '';
-        const clickHandler = channel.m3u8 
-            ? `openTVChannel('${channel.key}')` 
-            : `window.open('${channel.fallback}', '_blank')`;
-            
-        const liveLabel = channel.m3u8 
-            ? `<span style="font-size: 0.75rem; background: rgba(229,9,20,0.15); border: 1px solid rgba(229,9,20,0.3); color: var(--red); padding: 2px 8px; border-radius: 10px; font-weight: 700;"><i class="fas fa-play" style="font-size:0.65rem; margin-right:4px;"></i>Phát trên Web</span>`
-            : `<span style="font-size: 0.75rem; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: var(--t3); padding: 2px 8px; border-radius: 10px; font-weight: 700;"><i class="fas fa-external-link-alt" style="font-size:0.65rem; margin-right:4px;"></i>Liên kết ngoài</span>`;
-            
-        return `
-            <div class="tv-card" onclick="${clickHandler}" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.25s ease; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
-                <div class="tv-logo-box" style="height: 60px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                    <span style="font-size: 2.2rem; font-weight: 900; color: #fff; background: ${channel.logoBg}; padding: 4px 18px; border-radius: 6px; ${logoBorderColor} font-family: 'Inter', sans-serif;">${channel.logoText}</span>
-                </div>
-                <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--white); margin: 0 0 6px 0;">${channel.name}</h3>
-                <p style="font-size: 0.8rem; color: var(--t3); margin: 0 0 12px 0;">${channel.description}</p>
-                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                    ${liveLabel}
-                </div>
-                <button class="btn-xem-tv" onclick="event.stopPropagation(); window.open('${channel.fallback}', '_blank')" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: var(--t2); font-size: 0.85rem; font-weight: 600; padding: 8px 18px; border-radius: 20px; width: 100%; transition: all 0.2s ease; cursor: pointer;">
-                    <i class="fas fa-external-link-alt" style="margin-right: 6px;"></i> Xem kênh chính thức
-                </button>
-            </div>
-        `;
-    }).join('');
-};
-
-window.setupTVTabs = function() {
-    const tabContainer = document.getElementById('tv-category-tabs');
-    if (!tabContainer) return;
-    
-    const tabs = tabContainer.querySelectorAll('.tv-tab-btn');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            
-            const category = tab.getAttribute('data-category');
-            window.renderTVChannels(category);
-        });
-    });
 };
