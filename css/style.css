@@ -1630,58 +1630,7 @@ body.theater-light-off .modal__hero iframe {
   font-size: 0.75rem;
 }
 
-/* Server Selector Bar */
-.vip-server-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
 
-.vip-server-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--t2);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.vip-server-btns {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.vip-server-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--t2);
-  padding: 7px 16px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--fast);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.vip-server-btn:hover {
-  border-color: var(--t2);
-  color: var(--white);
-}
-
-.vip-server-btn.active {
-  background: var(--red);
-  border-color: var(--red);
-  color: var(--white);
-  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.3);
-}
 
 /* Smart TV focus state with glowing red outline */
 .focusable.tv-focus {

@@ -1194,7 +1194,6 @@ function initModal() {
     }
 
 
-
     // Sự kiện tương tác đánh giá sao (Star Rating)
     const starsContainer = document.getElementById('modal-stars');
     if (starsContainer) {
@@ -1349,6 +1348,8 @@ function updateNextEpisodeButton() {
     const isPlaying = document.getElementById('modal').classList.contains('is-playing');
     const hasMultipleEps = _currentEpisodesList && _currentEpisodesList.length > 1;
     
+    const nextEp = getNextEpisode();
+    
     if (isPlaying && hasMultipleEps) {
         playerBar.style.display = 'flex';
         // Update ep info text
@@ -1356,7 +1357,6 @@ function updateNextEpisodeButton() {
             epText.textContent = `Đang phát: Tập ${_currentEpisode.name}`;
         }
         // Show/hide next button
-        const nextEp = getNextEpisode();
         if (nextBtn) {
             if (nextEp) {
                 nextBtn.style.display = 'inline-flex';
@@ -1389,8 +1389,6 @@ async function openModal(slug, autoPlay = false) {
     if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
         VIPPlayer.deactivate();
     }
-    const serverBar = document.getElementById('vip-server-bar');
-    if (serverBar) serverBar.style.display = 'none';
 
     heroImg.style.backgroundImage = ''; heroImg.style.opacity = '';
     hero.querySelectorAll('iframe').forEach(f => f.remove());
@@ -1571,39 +1569,21 @@ function playEpisode(ep, movie) {
     const m3u8 = ep.link_m3u8;
     const embed = ep.link_embed;
 
-    if (embed) {
-        if (typeof VIPPlayer !== 'undefined') {
-            VIPPlayer.currentM3u8 = m3u8;
-            VIPPlayer.currentEmbed = embed;
-            VIPPlayer.currentServer = 'iframe';
-            
-            // Hiển thị thanh nguồn phát nếu có đầy đủ cả 2 nguồn
-            const serverBar = document.getElementById('vip-server-bar');
-            if (serverBar) {
-                serverBar.style.display = (m3u8 && embed) ? 'flex' : 'none';
-            }
-            
-            // Cập nhật trạng thái active cho nút nguồn phát mặc định (iframe)
-            const serverBtns = document.querySelectorAll('.vip-server-btn');
-            serverBtns.forEach(btn => {
-                btn.classList.toggle('active', btn.getAttribute('data-server') === 'iframe');
-            });
-
-            if (VIPPlayer.isActive) {
-                VIPPlayer.deactivate();
-            }
-        }
-        playInModal(embed);
-    } else if (m3u8 && typeof VIPPlayer !== 'undefined') {
+    if (m3u8 && typeof VIPPlayer !== 'undefined') {
         const hero = document.getElementById('modal-hero');
         if (hero) hero.querySelectorAll('iframe').forEach(f => f.remove());
         VIPPlayer.load(m3u8, embed);
         VIPPlayer._updateNextButton();
-    } else {
+    } else if (embed) {
         if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
             VIPPlayer.deactivate();
         }
         playInModal(embed);
+    } else {
+        if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
+            VIPPlayer.deactivate();
+        }
+        showToast('Lỗi phát ⚠️', 'Không tìm thấy nguồn phát hợp lệ cho tập này.', 'fa-triangle-exclamation');
     }
     updateNextEpisodeButton();
 
@@ -1665,9 +1645,6 @@ function closeModal() {
     if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
         VIPPlayer.deactivate();
     }
-    const serverBar = document.getElementById('vip-server-bar');
-    if (serverBar) serverBar.style.display = 'none';
-
     const modal = document.getElementById('modal'), hero = document.getElementById('modal-hero');
     hero.querySelectorAll('iframe').forEach(f => f.remove());
     document.getElementById('modal-hero-img').style.opacity = '';
@@ -1748,7 +1725,6 @@ const VIPPlayer = {
         this._setupProgress();
         this._setupDoubleTap();
         this._setupSpeedMenu();
-        this._setupServerSwitcher();
     },
 
     // Load HLS source
@@ -1756,12 +1732,6 @@ const VIPPlayer = {
         this.currentM3u8 = m3u8Url;
         this.currentEmbed = embedUrl;
         this.currentServer = 'vip';
-
-        // Update server switcher buttons immediately
-        const serverBtns = document.querySelectorAll('.vip-server-btn');
-        serverBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.getAttribute('data-server') === 'vip');
-        });
 
         // Clean up previous HLS instance
         if (this.hls) {
@@ -1809,10 +1779,6 @@ const VIPPlayer = {
     fallbackToIframe() {
         this.deactivate();
         this.currentServer = 'iframe';
-        const serverBtns = document.querySelectorAll('.vip-server-btn');
-        serverBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.getAttribute('data-server') === 'iframe');
-        });
         playInModal(this.currentEmbed);
     },
 
@@ -1839,10 +1805,6 @@ const VIPPlayer = {
         if (hero) {
             hero.querySelectorAll('iframe').forEach(f => f.remove());
         }
-
-        // Show the server selection bar
-        const serverBar = document.getElementById('vip-server-bar');
-        if (serverBar) serverBar.style.display = 'flex';
 
         // Show the speed menu and hide it by default
         const speedMenu = document.getElementById('vip-speed-menu');
@@ -2012,7 +1974,7 @@ const VIPPlayer = {
         if (nextBtn) {
             nextBtn.addEventListener('click', () => {
                 const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
-                if (nextBottomBtn && nextBottomBtn.style.display !== 'none') {
+                if (nextBottomBtn) {
                     nextBottomBtn.click();
                 }
             });
@@ -2225,38 +2187,16 @@ const VIPPlayer = {
         });
     },
 
-    // Set up source server buttons switching
-    _setupServerSwitcher() {
-        const btns = document.querySelectorAll('.vip-server-btn');
-        btns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const targetServer = btn.getAttribute('data-server');
-                if (targetServer === this.currentServer) return;
 
-                btns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-
-                if (targetServer === 'iframe') {
-                    // Fall back to backup iframe
-                    this.deactivate();
-                    this.currentServer = 'iframe';
-                    playInModal(this.currentEmbed);
-                } else if (targetServer === 'vip') {
-                    // Remove backup iframe and load VIP player m3u8
-                    const hero = document.getElementById('modal-hero');
-                    if (hero) hero.querySelectorAll('iframe').forEach(f => f.remove());
-                    this.load(this.currentM3u8, this.currentEmbed);
-                }
-            });
-        });
-    },
 
     // Keyboard & D-pad key event processor (called from main keydown handler)
     handleKeyDown(e) {
         const k = e.key;
 
         // Smart TV Remote D-pad spatial navigation
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) {
+        const isTV = /TV|SmartTV|Tizen|Web0S|WebOS|MapGeek|Opera TV|Viera|NETTV|AppleTV|Roku|AFTB|AFTN|DLNA|HbbTV|LG Browser|LG-|Panasonic|Philips|Samsung|Sony|Toshiba|Vizio|XBox|Playstation/i.test(navigator.userAgent);
+        
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k) && (isTV || this._tvFocusActive)) {
             const controls = document.getElementById('vip-controls');
             
             // If controls are hidden, show controls first and don't navigate
@@ -2374,7 +2314,6 @@ const VIPPlayer = {
         const pipBtn = document.getElementById('vip-btn-pip');
         const fsBtn = document.getElementById('vip-btn-fullscreen');
         const progress = document.getElementById('vip-progress');
-        const serverBtns = Array.from(document.querySelectorAll('#vip-server-bar .vip-server-btn'));
 
         if (playBtn) els.push(playBtn);
         if (nextBtn && nextBtn.style.display !== 'none') els.push(nextBtn);
@@ -2384,8 +2323,6 @@ const VIPPlayer = {
         if (speedBtn) els.push(speedBtn);
         if (pipBtn && pipBtn.style.display !== 'none') els.push(pipBtn);
         if (fsBtn) els.push(fsBtn);
-        
-        serverBtns.forEach(btn => els.push(btn));
         
         return els;
     },
@@ -2410,35 +2347,14 @@ const VIPPlayer = {
         focusables[currentIndex].classList.remove('tv-focus');
 
         let nextIndex = currentIndex;
-        const isServerBtn = (el) => el.classList.contains('vip-server-btn');
 
         if (direction === 'left') {
             if (currentIndex > 0) {
-                // Don't cross bounds from servers back to controls unless using arrow keys up/down
-                if (isServerBtn(focusables[currentIndex]) && !isServerBtn(focusables[currentIndex - 1])) {
-                    // stay on current
-                } else {
-                    nextIndex = currentIndex - 1;
-                }
+                nextIndex = currentIndex - 1;
             }
         } else if (direction === 'right') {
             if (currentIndex < focusables.length - 1) {
-                if (!isServerBtn(focusables[currentIndex]) && isServerBtn(focusables[currentIndex + 1])) {
-                    // stay on current
-                } else {
-                    nextIndex = currentIndex + 1;
-                }
-            }
-        } else if (direction === 'up') {
-            // controls -> server selection bar
-            const serverIndex = focusables.findIndex(isServerBtn);
-            if (serverIndex !== -1 && !isServerBtn(focusables[currentIndex])) {
-                nextIndex = serverIndex;
-            }
-        } else if (direction === 'down') {
-            // server selection bar -> controls
-            if (isServerBtn(focusables[currentIndex])) {
-                nextIndex = 0; // Jump to Play button
+                nextIndex = currentIndex + 1;
             }
         }
 
@@ -2471,6 +2387,8 @@ const VIPPlayer = {
         const label = delta > 0 ? `+${delta}s` : `${delta}s`;
         this._showOSD('seek', label);
         this._updateProgress();
+        this.showControls();
+        this.resetAutoHide();
     },
 
     // Mute or unmute the video
@@ -2959,9 +2877,8 @@ const VIPPlayer = {
         const nextBtn = document.getElementById('vip-btn-next');
         if (!nextBtn) return;
 
-        const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
-        const hasNext = !!(nextBottomBtn && nextBottomBtn.style.display !== 'none');
-        nextBtn.style.display = hasNext ? 'flex' : 'none';
+        const nextEp = getNextEpisode();
+        nextBtn.style.display = nextEp ? 'flex' : 'none';
     }
 };
 
