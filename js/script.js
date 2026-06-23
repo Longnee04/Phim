@@ -2000,6 +2000,7 @@ const VIPPlayer = {
 
         // Touch events for mobile to show controls
         this.container.addEventListener('touchstart', () => {
+            this._lastTouchTime = Date.now();
             this.showControls();
             this.resetAutoHide();
         }, { passive: true });
@@ -2100,8 +2101,13 @@ const VIPPlayer = {
                 // First tap
                 this._tapCounts[direction] = 1;
                 this._singleTapTimeout = setTimeout(() => {
-                    // Single tap: toggle controls bar visibility
-                    this.toggleControls();
+                    // Single tap: toggle play/pause on desktop click, toggle controls on touch
+                    const isTouch = this._lastTouchTime && (Date.now() - this._lastTouchTime < 1000);
+                    if (isTouch) {
+                        this.toggleControls();
+                    } else {
+                        this.togglePlay();
+                    }
                     this._singleTapTimeout = null;
                 }, 280);
             }
