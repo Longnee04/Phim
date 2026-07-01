@@ -1772,8 +1772,38 @@ body.theater-light-off .modal__hero iframe {
   background: #000 !important;
 }
 
+/* Rotated landscape pseudo-fullscreen for portrait mobile screens */
+.vip-player.pseudo-fullscreen.rotated-landscape {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 100vh !important;
+  height: 100vw !important;
+  transform: translate(-50%, -50%) rotate(90deg) !important;
+  transform-origin: center !important;
+  z-index: 999999 !important;
+  background: #000 !important;
+}
+
+.vip-player.pseudo-fullscreen.rotated-landscape #vip-video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
 body.vip-pseudo-fs-active {
   overflow: hidden !important;
+}
+
+/* Bypass transform and animation contexts on parent modal when pseudo-fullscreen is active */
+body.vip-pseudo-fs-active .modal__dialog {
+  transform: none !important;
+  animation: none !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  min-height: 100vh !important;
 }
 
 /* ==========================================================================

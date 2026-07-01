@@ -1725,6 +1725,30 @@ const VIPPlayer = {
         this._setupProgress();
         this._setupDoubleTap();
         this._setupSpeedMenu();
+
+        // Đồng bộ hóa trạng thái nút Fullscreen khi vào/ra chế độ toàn màn hình hệ thống
+        const syncFullscreen = () => {
+            const isFS = document.fullscreenElement || 
+                         document.webkitFullscreenElement || 
+                         document.mozFullScreenElement || 
+                         document.msFullscreenElement;
+            
+            const fsIcon = document.querySelector('#vip-btn-fullscreen i');
+            if (fsIcon) {
+                fsIcon.className = isFS ? 'fas fa-compress' : 'fas fa-expand';
+            }
+
+            if (!isFS) {
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock().catch(() => {});
+                }
+            }
+        };
+
+        document.addEventListener('fullscreenchange', syncFullscreen);
+        document.addEventListener('webkitfullscreenchange', syncFullscreen);
+        document.addEventListener('mozfullscreenchange', syncFullscreen);
+        document.addEventListener('MSFullscreenChange', syncFullscreen);
     },
 
     // Load HLS source
@@ -1867,6 +1891,7 @@ const VIPPlayer = {
         if (this.container) {
             this.container.style.display = 'none';
             this.container.classList.remove('pseudo-fullscreen');
+            this._cleanupOrientationCheck();
         }
         document.body.classList.remove('vip-pseudo-fs-active');
 
@@ -2459,7 +2484,8 @@ const VIPPlayer = {
         if (!this.container || !this.video) return;
 
         // 1. Kiểm tra nếu là thiết bị iOS (iPhone/iPad không hỗ trợ Fullscreen API chuẩn trên DOM Element)
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         
         if (isIOS && this.video.webkitEnterFullscreen) {
             // iOS iPhone/Safari bắt buộc dùng webkitEnterFullscreen trực tiếp trên video element
@@ -2482,11 +2508,18 @@ const VIPPlayer = {
 
         if (!isFullscreen) {
             const requestFS = this.container.requestFullscreen || 
-                              this.container.webkitRequestFullscreen || 
-                              this.container.mozRequestFullScreen || 
-                              this.container.msRequestFullscreen;
+                               this.container.webkitRequestFullscreen || 
+                               this.container.mozRequestFullScreen || 
+                               this.container.msRequestFullscreen;
             if (requestFS) {
-                requestFS.call(this.container).catch(err => {
+                requestFS.call(this.container).then(() => {
+                    // Cố gắng khóa hướng màn hình nằm ngang trên thiết bị di động
+                    if (screen.orientation && screen.orientation.lock) {
+                        screen.orientation.lock('landscape').catch(err => {
+                            console.log('Không thể khóa hướng màn hình:', err);
+                        });
+                    }
+                }).catch(err => {
                     console.error('Fullscreen request failed:', err);
                     // Nếu lỗi (do webview chặn chẳng hạn), dùng giả lập toàn màn hình CSS
                     this.fallbackToPseudoFullscreen();
@@ -2502,7 +2535,12 @@ const VIPPlayer = {
                            doc.mozCancelFullScreen || 
                            doc.msExitFullscreen;
             if (exitFS) {
-                exitFS.call(doc).catch(err => console.error('Exit fullscreen failed:', err));
+                exitFS.call(doc).then(() => {
+                    // Mở khóa hướng màn hình
+                    if (screen.orientation && screen.orientation.unlock) {
+                        screen.orientation.unlock().catch(() => {});
+                    }
+                }).catch(err => console.error('Exit fullscreen failed:', err));
             } else {
                 this.fallbackToPseudoFullscreen();
             }
@@ -2516,6 +2554,13 @@ const VIPPlayer = {
         const isPseudo = this.container.classList.toggle('pseudo-fullscreen');
         document.body.classList.toggle('vip-pseudo-fs-active', isPseudo);
         
+        // Kích hoạt/Hủy kiểm tra và xoay màn hình tự động cho điện thoại
+        if (isPseudo) {
+            this._setupOrientationCheck();
+        } else {
+            this._cleanupOrientationCheck();
+        }
+
         // Cập nhật biểu tượng nút Fullscreen tương ứng
         const fsIcon = document.querySelector('#vip-btn-fullscreen i');
         if (fsIcon) {
@@ -2524,9 +2569,39 @@ const VIPPlayer = {
 
         showToast(
             isPseudo ? 'Toàn màn hình 📱' : 'Chế độ thường 📺',
-            isPseudo ? 'Đã giả lập chế độ toàn màn hình tối ưu cho thiết bị của bạn!' : 'Đã quay lại chế độ thường.',
+            isPseudo ? 'Đã tối ưu chế độ xoay và hiển thị toàn màn hình cho thiết bị của bạn!' : 'Đã quay lại chế độ thường.',
             isPseudo ? 'fa-expand' : 'fa-compress'
         );
+    },
+
+    // Kiểm tra và xoay ngang màn hình giả lập nếu điện thoại đang để dọc
+    _setupOrientationCheck() {
+        if (this._orientationHandler) return;
+        
+        this._orientationHandler = () => {
+            const isPortrait = window.innerHeight > window.innerWidth;
+            const isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+            if (isMobile && isPortrait) {
+                this.container.classList.add('rotated-landscape');
+            } else {
+                this.container.classList.remove('rotated-landscape');
+            }
+        };
+
+        window.addEventListener('resize', this._orientationHandler);
+        window.addEventListener('orientationchange', this._orientationHandler);
+        
+        // Gọi chạy ngay lập tức để áp dụng
+        this._orientationHandler();
+    },
+
+    _cleanupOrientationCheck() {
+        if (this._orientationHandler) {
+            window.removeEventListener('resize', this._orientationHandler);
+            window.removeEventListener('orientationchange', this._orientationHandler);
+            this.container.classList.remove('rotated-landscape');
+            this._orientationHandler = null;
+        }
     },
 
     // Picture-in-Picture mode toggle
