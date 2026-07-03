@@ -241,6 +241,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof VIPPlayer !== 'undefined') VIPPlayer.init();
     loadAll();
     
+    // Khởi tạo hệ thống định tuyến (URL đẹp cho SEO)
+    window.addEventListener('popstate', handleRouting);
+    handleRouting();
+    
     // Check for episode updates in your favorite movies in background shortly after load
     if (typeof LPSubscriptions !== 'undefined') {
         setTimeout(() => LPSubscriptions.checkNewEpisodes(), 3000);
@@ -1375,6 +1379,11 @@ async function openModal(slug, autoPlay = false) {
     const heroImg = document.getElementById('modal-hero-img');
     const hero = document.getElementById('modal-hero');
 
+    // Cập nhật URL trình duyệt cho SEO (URL đẹp)
+    if (window.location.pathname !== '/phim/' + slug) {
+        history.pushState({ slug: slug }, '', '/phim/' + slug);
+    }
+
     _modalReqId++; const reqId = _modalReqId;
     if (_modalAbort) try { _modalAbort.abort(); } catch {}
     _modalAbort = new AbortController();
@@ -1421,6 +1430,11 @@ async function openModal(slug, autoPlay = false) {
         const d = await apiFetch(API.detail + slug, { signal: _modalAbort.signal });
         if (reqId !== _modalReqId) return;
         const m = d.movie || {}, eps = d.episodes?.[0]?.server_data || [];
+
+        // Cập nhật Structured Data (Movie Schema) cho SEO
+        if (typeof setMovieSchema === 'function') {
+            setMovieSchema(m);
+        }
 
         // Check if the movie is an adult movie
         if (isAdultMovie(m)) {
@@ -1642,6 +1656,15 @@ function playInModal(url) {
 }
 
 function closeModal() {
+    // Xóa Structured Data Movie Schema khi đóng modal
+    const oldSchema = document.getElementById('movie-structured-data');
+    if (oldSchema) oldSchema.remove();
+
+    // Cập nhật lại URL trình duyệt về trang chủ
+    if (window.location.pathname !== '/') {
+        history.pushState(null, '', '/');
+    }
+
     if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
         VIPPlayer.deactivate();
     }
@@ -3042,3 +3065,53 @@ const LPSubscriptions = {
         }
     }
 };
+
+
+// ══════════════════════════════════════════════════════════
+//  SEO ROUTING & STRUCTURED DATA HELPERS (BƯỚC 6 & 7)
+// ══════════════════════════════════════════════════════════
+function handleRouting() {
+    const path = window.location.pathname;
+    const match = path.match(/^\/phim\/([a-zA-Z0-9-]+)$/);
+    if (match) {
+        const slug = match[1];
+        // Chờ modal được tạo hoặc mở
+        setTimeout(() => {
+            if (typeof openModal === 'function') {
+                openModal(slug);
+            }
+        }, 100);
+    } else {
+        const modal = document.getElementById('modal');
+        if (modal && modal.getAttribute('aria-hidden') === 'false') {
+            if (typeof closeModal === 'function') {
+                closeModal();
+            }
+        }
+    }
+}
+
+function setMovieSchema(m) {
+    // Xóa schema cũ nếu có
+    const oldSchema = document.getElementById('movie-structured-data');
+    if (oldSchema) oldSchema.remove();
+
+    if (!m || !m.name) return;
+
+    const schema = {
+        "@context": "https://schema.org",
+        "@type": "Movie",
+        "name": m.name,
+        "alternativeHeadline": m.origin_name || "",
+        "description": m.content ? m.content.replace(/<[^>]*>/g, '') : "",
+        "image": m.poster_url || m.thumb_url || "",
+        "dateCreated": m.year || "",
+        "genre": m.category ? m.category.map(c => c.name) : []
+    };
+
+    const script = document.createElement('script');
+    script.id = 'movie-structured-data';
+    script.type = 'application/ld+json';
+    script.text = JSON.stringify(schema);
+    document.head.appendChild(script);
+}
