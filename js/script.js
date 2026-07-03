@@ -239,6 +239,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initSidebar();
     initTouchSwipe();
     if (typeof VIPPlayer !== 'undefined') VIPPlayer.init();
+    
+    // Khởi tạo Trợ lý AI LPhim
+    initAIChatbot();
+    
     loadAll();
     
     // Khởi tạo hệ thống định tuyến (URL đẹp cho SEO)
@@ -3114,4 +3118,227 @@ function setMovieSchema(m) {
     script.type = 'application/ld+json';
     script.text = JSON.stringify(schema);
     document.head.appendChild(script);
+}
+
+
+// ══════════════════════════════════════════════════════════
+//  LPHIM AI ASSISTANT CHATBOT INTEGRATION (BƯỚC 12 & 14)
+// ══════════════════════════════════════════════════════════
+function initAIChatbot() {
+    const bubble = document.getElementById('ai-bubble');
+    const panel = document.getElementById('ai-panel');
+    const closeBtn = document.getElementById('ai-panel-close');
+    const form = document.getElementById('ai-chat-form');
+    const input = document.getElementById('ai-chat-input');
+    const chatBody = document.getElementById('ai-chat-body');
+
+    if (!bubble || !panel || !closeBtn || !form || !input || !chatBody) return;
+
+    // Toggle Chat Panel
+    bubble.addEventListener('click', () => {
+        const isActive = panel.classList.toggle('active');
+        panel.setAttribute('aria-hidden', !isActive);
+        if (isActive) {
+            input.focus();
+            scrollToBottom();
+        }
+    });
+
+    closeBtn.addEventListener('click', () => {
+        panel.classList.remove('active');
+        panel.setAttribute('aria-hidden', 'true');
+    });
+
+    // Handle form submit
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
+
+        input.value = '';
+        addUserMessage(text);
+        sendAIMessage(text);
+    });
+
+    // Handle Quick Prompts
+    chatBody.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ai-quick-btn');
+        if (btn) {
+            const prompt = btn.getAttribute('data-prompt');
+            addUserMessage(prompt);
+            sendAIMessage(prompt);
+        }
+    });
+
+    function scrollToBottom() {
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function addUserMessage(text) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'ai-msg ai-msg--user';
+        msgDiv.innerHTML = `
+            <div class="ai-msg__content">
+                <p>${escapeHTML(text)}</p>
+            </div>
+        `;
+        chatBody.appendChild(msgDiv);
+        scrollToBottom();
+    }
+
+    function addBotMessage(text, movieTitles = []) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'ai-msg ai-msg--bot';
+        
+        let contentHTML = `<p>${formatBotResponse(text)}</p>`;
+        
+        msgDiv.innerHTML = `
+            <div class="ai-msg__avatar"><i class="fas fa-robot"></i></div>
+            <div class="ai-msg__content">
+                ${contentHTML}
+            </div>
+        `;
+        
+        chatBody.appendChild(msgDiv);
+        scrollToBottom();
+
+        // Nếu AI có gợi ý phim, tiến hành tìm kiếm trong Database LPhim
+        if (movieTitles && movieTitles.length > 0) {
+            const cardsContainer = document.createElement('div');
+            cardsContainer.className = 'ai-movie-cards';
+            msgDiv.querySelector('.ai-msg__content').appendChild(cardsContainer);
+
+            movieTitles.forEach(title => {
+                searchLocalMovie(title, cardsContainer);
+            });
+        }
+    }
+
+    function showTypingIndicator() {
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'ai-msg ai-msg--bot ai-typing-msg';
+        typingDiv.innerHTML = `
+            <div class="ai-msg__avatar"><i class="fas fa-robot"></i></div>
+            <div class="ai-msg__content">
+                <div class="ai-typing">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        `;
+        chatBody.appendChild(typingDiv);
+        scrollToBottom();
+        return typingDiv;
+    }
+
+    async function sendAIMessage(userText) {
+        const typingIndicator = showTypingIndicator();
+
+        try {
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: userText })
+            });
+
+            typingIndicator.remove();
+
+            if (!res.ok) {
+                const err = await res.json();
+                addBotMessage(`⚠️ Lỗi kết nối AI: ${err.error || 'Vui lòng thử lại sau.'}`);
+                return;
+            }
+
+            const data = await res.json();
+            const rawReply = data.reply || '';
+
+            // Tách dữ liệu JSON phim ra khỏi câu trả lời của AI
+            let replyText = rawReply;
+            let movieTitles = [];
+            const regex = /\[MOVIES:\s*(\[.*?\])\]/;
+            const match = rawReply.match(regex);
+            
+            if (match) {
+                try {
+                    movieTitles = JSON.parse(match[1]);
+                    // Xóa tag [MOVIES: ...] khỏi chuỗi hiển thị
+                    replyText = rawReply.replace(regex, '').trim();
+                } catch (e) {
+                    console.error('Parse movies JSON failed:', e);
+                }
+            }
+
+            addBotMessage(replyText, movieTitles);
+
+        } catch (error) {
+            typingIndicator.remove();
+            console.error('AI call error:', error);
+            addBotMessage('❌ Không thể kết nối tới máy chủ AI. Bạn hãy kiểm tra lại biến môi trường GEMINI_API_KEY trên Vercel.');
+        }
+    }
+
+    async function searchLocalMovie(title, container) {
+        try {
+            // Sử dụng endpoint tìm kiếm của OPhim
+            const searchUrl = `https://ophim1.com/danh-sach/phim-moi-cap-nhat?keyword=${encodeURIComponent(title)}`;
+            const res = await fetch(searchUrl);
+            if (!res.ok) return;
+
+            const data = await res.json();
+            const items = data.items || [];
+            
+            // Tìm phim trùng khớp tên nhất
+            const matchMovie = items.find(item => 
+                item.name.toLowerCase().includes(title.toLowerCase()) || 
+                item.origin_name.toLowerCase().includes(title.toLowerCase())
+            ) || items[0];
+
+            if (matchMovie) {
+                // Tạo thẻ phim động
+                const card = document.createElement('div');
+                card.className = 'ai-rec-card';
+                card.innerHTML = `
+                    <div class="ai-rec-card__img" style="background-image: url('https://img.otruyenapi.com/uploads/images/${matchMovie.thumb_url || matchMovie.poster_url}')"></div>
+                    <div class="ai-rec-card__info">
+                        <h5 class="ai-rec-card__title">${escapeHTML(matchMovie.name)}</h5>
+                        <span class="ai-rec-card__meta">${escapeHTML(matchMovie.origin_name)} (${matchMovie.year})</span>
+                        <button class="ai-rec-card__play-btn" type="button"><i class="fas fa-play"></i> Xem ngay 🎬</button>
+                    </div>
+                `;
+                
+                card.querySelector('.ai-rec-card__play-btn').addEventListener('click', () => {
+                    if (typeof openModal === 'function') {
+                        // Tự động đóng khung chat và mở modal phát phim
+                        panel.classList.remove('active');
+                        panel.setAttribute('aria-hidden', 'true');
+                        openModal(matchMovie.slug);
+                    }
+                });
+
+                container.appendChild(card);
+                scrollToBottom();
+            }
+        } catch (e) {
+            console.error('Search movie failed:', e);
+        }
+    }
+
+    function escapeHTML(str) {
+        return str.replace(/[&<>'"]/g, 
+            tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+        );
+    }
+
+    function formatBotResponse(text) {
+        // Hỗ trợ định dạng in đậm chéo Markdown đơn giản
+        let formatted = escapeHTML(text);
+        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        formatted = formatted.replace(/\*(.*?)\*/g, '<i>$1</i>');
+        // Thay thế ký tự xuống dòng thành <br>
+        formatted = formatted.replace(/\n/g, '<br>');
+        return formatted;
+    }
 }

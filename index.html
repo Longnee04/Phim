@@ -494,6 +494,47 @@
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toast-container"></div>
 
+    <!-- AI Movie Assistant (Trợ lý AI LPhim) -->
+    <button class="ai-bubble" id="ai-bubble" type="button" title="Trợ lý AI LPhim" aria-label="Mở Trợ lý AI LPhim">
+        <i class="fas fa-robot"></i>
+        <span class="ai-bubble__badge">AI</span>
+    </button>
+
+    <div class="ai-panel" id="ai-panel" aria-hidden="true">
+        <div class="ai-panel__header">
+            <div class="ai-panel__brand">
+                <i class="fas fa-robot"></i>
+                <div>
+                    <h4 class="ai-panel__title">Trợ lý AI LPhim</h4>
+                    <span class="ai-panel__status">Trực tuyến</span>
+                </div>
+            </div>
+            <button class="ai-panel__close" id="ai-panel-close" type="button" aria-label="Đóng Trợ lý AI"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <div class="ai-panel__chat" id="ai-chat-body">
+            <!-- Tin nhắn welcome ban đầu -->
+            <div class="ai-msg ai-msg--bot">
+                <div class="ai-msg__avatar"><i class="fas fa-robot"></i></div>
+                <div class="ai-msg__content">
+                    <p>Xin chào! Mình là Trợ lý AI của LPhim. Mình có thể giúp gì cho bạn? Bạn có thể yêu cầu:</p>
+                    <div class="ai-quick-prompts">
+                        <button class="ai-quick-btn" data-prompt="Gợi ý phim hành động viễn tưởng mới nhất">🎭 Gợi ý theo thể loại</button>
+                        <button class="ai-quick-btn" data-prompt="Tìm các phim có sự tham gia của diễn viên Cổ Thiên Lạc">👤 Tìm phim theo diễn viên</button>
+                        <button class="ai-quick-btn" data-prompt="Gợi ý các phim tình cảm chiếu rạp lãng mạn">🔥 Phim tình cảm hot</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="ai-panel__input-area">
+            <form class="ai-panel__form" id="ai-chat-form" autocomplete="off">
+                <input class="ai-panel__input" id="ai-chat-input" type="text" placeholder="Hỏi AI về phim, diễn viên..." required />
+                <button class="ai-panel__send-btn" type="submit" aria-label="Gửi tin nhắn"><i class="fas fa-paper-plane"></i></button>
+            </form>
+        </div>
+    </div>
+
     <script src="js/script.js"></script>
 </body>
 </html>
