@@ -1,6 +1,6 @@
 import https from 'https';
 
-const callGeminiHttps = (modelName, apiKey, systemInstruction, message) => {
+const callGeminiHttps = (apiVersion, modelName, apiKey, systemInstruction, message) => {
     return new Promise((resolve, reject) => {
         const postData = JSON.stringify({
             contents: [
@@ -21,7 +21,7 @@ const callGeminiHttps = (modelName, apiKey, systemInstruction, message) => {
         const options = {
             hostname: 'generativelanguage.googleapis.com',
             port: 443,
-            path: `/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+            path: `/${apiVersion}/models/${modelName}:generateContent?key=${apiKey}`,
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on Vercel' });
     }
 
-    const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const preferredModel = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
     const systemInstruction = 
         "Bạn là Trợ lý AI thông minh của LPhim (website xem phim trực tuyến miễn phí). " +
@@ -77,34 +77,51 @@ export default async function handler(req, res) {
         "\\n[MOVIES: [\\\"Tên Phim 1\\\", \\\"Tên Phim 2\\\"]]\\n" +
         "Ví dụ: Nếu gợi ý phim của Tom Cruise, hãy kết thúc bằng: [MOVIES: [\\\"Mission: Impossible - Dead Reckoning\\\", \\\"Top Gun: Maverick\\\"]]. Hãy ghi chính xác tên tiếng Việt hoặc tên tiếng Anh phổ biến nhất của phim.";
 
-    try {
-        let result = await callGeminiHttps(model, apiKey, systemInstruction, message);
+    // Danh sách các tổ hợp API và Model sẽ thử nghiệm tuần tự nếu gặp lỗi
+    const attempts = [
+        { apiVersion: 'v1beta', model: preferredModel },
+        { apiVersion: 'v1beta', model: 'gemini-2.0-flash' },
+        { apiVersion: 'v1', model: 'gemini-1.5-flash' },
+        { apiVersion: 'v1beta', model: 'gemini-1.5-pro' }
+    ];
 
-        // Fallback to gemini-1.5-flash if the custom model fails
-        if (!result.ok && model !== 'gemini-1.5-flash') {
-            console.log('Attempting fallback to gemini-1.5-flash...');
-            result = await callGeminiHttps('gemini-1.5-flash', apiKey, systemInstruction, message);
+    let lastError = null;
+
+    for (let i = 0; i < attempts.length; i++) {
+        const attempt = attempts[i];
+        
+        // Tránh chạy trùng lặp nếu preferredModel đã là gemini-2.0-flash hoặc gemini-1.5-flash
+        if (i > 0 && attempt.model === preferredModel && attempt.apiVersion === 'v1beta') {
+            continue;
         }
 
-        if (!result.ok) {
-            let errorMessage = 'Google Gemini API returned an error';
-            try {
-                const parsedError = JSON.parse(result.text);
-                if (parsedError.error && parsedError.error.message) {
-                    errorMessage = parsedError.error.message;
+        try {
+            console.log(`Trying Gemini call: API Version=${attempt.apiVersion}, Model=${attempt.model}...`);
+            const result = await callGeminiHttps(attempt.apiVersion, attempt.model, apiKey, systemInstruction, message);
+            
+            if (result.ok) {
+                const data = JSON.parse(result.text);
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                return res.status(200).json({ reply: text });
+            } else {
+                let currentError = `Model ${attempt.model} on ${attempt.apiVersion} failed`;
+                try {
+                    const parsed = JSON.parse(result.text);
+                    if (parsed.error && parsed.error.message) {
+                        currentError = parsed.error.message;
+                    }
+                } catch (e) {
+                    currentError = result.text || currentError;
                 }
-            } catch (e) {
-                errorMessage = result.text || errorMessage;
+                console.warn(`Attempt ${i + 1} failed:`, currentError);
+                lastError = currentError;
             }
-            return res.status(502).json({ error: errorMessage });
+        } catch (err) {
+            console.error(`Attempt ${i + 1} exception:`, err);
+            lastError = err.message || err;
         }
-
-        const data = JSON.parse(result.text);
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        return res.status(200).json({ reply: text });
-
-    } catch (error) {
-        console.error('Server error:', error);
-        return res.status(500).json({ error: 'Internal server error', details: error.message || error });
     }
+
+    // Nếu tất cả các cách đều thất bại, trả về lỗi chi tiết cuối cùng
+    return res.status(502).json({ error: lastError || 'All Gemini API call attempts failed' });
 }
