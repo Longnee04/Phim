@@ -67,7 +67,8 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on Vercel' });
     }
 
-    const preferredModel = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    // Set Gemini 2.5 Flash làm mô hình mặc định trong code theo đúng yêu cầu của bạn
+    const preferredModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
     const systemInstruction = 
         "Bạn là Trợ lý AI thông minh của LPhim (website xem phim trực tuyến miễn phí). " +
@@ -77,12 +78,13 @@ export default async function handler(req, res) {
         "\\n[MOVIES: [\\\"Tên Phim 1\\\", \\\"Tên Phim 2\\\"]]\\n" +
         "Ví dụ: Nếu gợi ý phim của Tom Cruise, hãy kết thúc bằng: [MOVIES: [\\\"Mission: Impossible - Dead Reckoning\\\", \\\"Top Gun: Maverick\\\"]]. Hãy ghi chính xác tên tiếng Việt hoặc tên tiếng Anh phổ biến nhất của phim.";
 
-    // Danh sách các tổ hợp API và Model sẽ thử nghiệm tuần tự nếu gặp lỗi
+    // Thử kết nối gemini-2.5-flash đầu tiên, sau đó thử các phương án dự phòng
     const attempts = [
         { apiVersion: 'v1beta', model: preferredModel },
+        { apiVersion: 'v1beta', model: 'gemini-2.5-flash' },
         { apiVersion: 'v1beta', model: 'gemini-2.0-flash' },
-        { apiVersion: 'v1', model: 'gemini-1.5-flash' },
-        { apiVersion: 'v1beta', model: 'gemini-1.5-pro' }
+        { apiVersion: 'v1beta', model: 'gemini-1.5-flash' },
+        { apiVersion: 'v1', model: 'gemini-1.5-flash' }
     ];
 
     let lastError = null;
@@ -90,7 +92,7 @@ export default async function handler(req, res) {
     for (let i = 0; i < attempts.length; i++) {
         const attempt = attempts[i];
         
-        // Tránh chạy trùng lặp nếu preferredModel đã là gemini-2.0-flash hoặc gemini-1.5-flash
+        // Tránh chạy trùng lặp nếu preferredModel đã là mô hình trong bước tiếp theo
         if (i > 0 && attempt.model === preferredModel && attempt.apiVersion === 'v1beta') {
             continue;
         }
