@@ -3236,6 +3236,27 @@ function initAIChatbot() {
     }
 
     async function sendAIMessage(userText) {
+        const cleanText = userText.trim();
+        const cacheKey = `ai_chat_cache_${cleanText.toLowerCase()}`;
+        
+        // Kiểm tra trong bộ nhớ đệm Session Caching
+        try {
+            const cached = sessionStorage.getItem(cacheKey);
+            if (cached) {
+                const typingIndicator = showTypingIndicator();
+                setTimeout(() => {
+                    typingIndicator.remove();
+                    try {
+                        const data = JSON.parse(cached);
+                        addBotMessage(data.reply, data.movies);
+                    } catch (e) {
+                        sessionStorage.removeItem(cacheKey);
+                    }
+                }, 800);
+                return;
+            }
+        } catch (e) {}
+
         const typingIndicator = showTypingIndicator();
 
         try {
@@ -3244,7 +3265,7 @@ function initAIChatbot() {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ message: userText })
+                body: JSON.stringify({ message: cleanText })
             });
 
             typingIndicator.remove();
@@ -3277,6 +3298,14 @@ function initAIChatbot() {
                     console.error('Parse movies JSON failed:', e);
                 }
             }
+
+            // Lưu vào bộ nhớ đệm
+            try {
+                sessionStorage.setItem(cacheKey, JSON.stringify({
+                    reply: replyText,
+                    movies: movieTitles
+                }));
+            } catch (e) {}
 
             addBotMessage(replyText, movieTitles);
 
