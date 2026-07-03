@@ -3251,7 +3251,11 @@ function initAIChatbot() {
 
             if (!res.ok) {
                 const err = await res.json();
-                addBotMessage(`⚠️ Lỗi kết nối AI: ${err.error || 'Vui lòng thử lại sau.'}`);
+                let errMsg = err.error || 'Vui lòng thử lại sau.';
+                if (err.details) {
+                    errMsg += ` (${err.details})`;
+                }
+                addBotMessage(`⚠️ Lỗi kết nối AI: ${errMsg}`);
                 return;
             }
 

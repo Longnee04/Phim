@@ -1,3 +1,57 @@
+import https from 'https';
+
+const callGeminiHttps = (modelName, apiKey, systemInstruction, message) => {
+    return new Promise((resolve, reject) => {
+        const postData = JSON.stringify({
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        { text: systemInstruction },
+                        { text: message }
+                    ]
+                }
+            ],
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 1000
+            }
+        });
+
+        const options = {
+            hostname: 'generativelanguage.googleapis.com',
+            port: 443,
+            path: `/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            res.on('end', () => {
+                resolve({
+                    ok: res.statusCode >= 200 && res.statusCode < 300,
+                    statusCode: res.statusCode,
+                    text: data
+                });
+            });
+        });
+
+        req.on('error', (e) => {
+            reject(e);
+        });
+
+        req.write(postData);
+        req.end();
+    });
+};
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -13,8 +67,6 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on Vercel' });
     }
 
-    // Default to gemini-1.5-flash (compatible with all free keys)
-    // Nếu bạn muốn dùng mô hình khác, bạn chỉ cần set biến GEMINI_MODEL trên Vercel
     const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
     const systemInstruction = 
@@ -25,68 +77,34 @@ export default async function handler(req, res) {
         "\\n[MOVIES: [\\\"Tên Phim 1\\\", \\\"Tên Phim 2\\\"]]\\n" +
         "Ví dụ: Nếu gợi ý phim của Tom Cruise, hãy kết thúc bằng: [MOVIES: [\\\"Mission: Impossible - Dead Reckoning\\\", \\\"Top Gun: Maverick\\\"]]. Hãy ghi chính xác tên tiếng Việt hoặc tên tiếng Anh phổ biến nhất của phim.";
 
-    const callGemini = async (modelName) => {
-        return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                contents: [
-                    {
-                        role: 'user',
-                        parts: [
-                            { text: systemInstruction },
-                            { text: message }
-                        ]
-                    }
-                ],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 1000
-                }
-            })
-        });
-    };
-
     try {
-        let response = await callGemini(model);
+        let result = await callGeminiHttps(model, apiKey, systemInstruction, message);
 
-        // Nếu mô hình được chọn bị lỗi (ví dụ gemini-2.5-flash không tồn tại)
-        if (!response.ok) {
-            const errText = await response.text();
-            console.error(`Gemini API error with model ${model}:`, errText);
-
-            // Thử tự động quay về gemini-1.5-flash nếu mô hình tùy chỉnh bị lỗi
-            if (model !== 'gemini-1.5-flash') {
-                console.log('Attempting fallback to gemini-1.5-flash...');
-                response = await callGemini('gemini-1.5-flash');
-            }
+        // Fallback to gemini-1.5-flash if the custom model fails
+        if (!result.ok && model !== 'gemini-1.5-flash') {
+            console.log('Attempting fallback to gemini-1.5-flash...');
+            result = await callGeminiHttps('gemini-1.5-flash', apiKey, systemInstruction, message);
         }
 
-        // Kiểm tra lại sau khi đã thử fallback
-        if (!response.ok) {
-            const errText = await response.text();
+        if (!result.ok) {
             let errorMessage = 'Google Gemini API returned an error';
-            
             try {
-                const parsedError = JSON.parse(errText);
+                const parsedError = JSON.parse(result.text);
                 if (parsedError.error && parsedError.error.message) {
                     errorMessage = parsedError.error.message;
                 }
             } catch (e) {
-                errorMessage = errText || errorMessage;
+                errorMessage = result.text || errorMessage;
             }
-
             return res.status(502).json({ error: errorMessage });
         }
 
-        const data = await response.json();
+        const data = JSON.parse(result.text);
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         return res.status(200).json({ reply: text });
 
     } catch (error) {
         console.error('Server error:', error);
-        return res.status(500).json({ error: 'Internal server error', details: error.message });
+        return res.status(500).json({ error: 'Internal server error', details: error.message || error });
     }
 }
