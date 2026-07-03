@@ -3171,7 +3171,10 @@ function initAIChatbot() {
     });
 
     function scrollToBottom() {
-        chatBody.scrollTop = chatBody.scrollHeight;
+        chatBody.scrollTo({
+            top: chatBody.scrollHeight,
+            behavior: 'smooth'
+        });
     }
 
     function addUserMessage(text) {
@@ -3289,38 +3292,43 @@ function initAIChatbot() {
 
             const data = await res.json();
             const items = data.items || [];
-            
-            // Tìm phim trùng khớp tên nhất
+            if (items.length === 0) return;
+
+            // Tìm phim trùng khớp tên nhất (bắt buộc tên tiếng Việt hoặc tên tiếng Anh chứa từ khóa)
+            const cleanTitle = title.trim().toLowerCase();
             const matchMovie = items.find(item => 
-                item.name.toLowerCase().includes(title.toLowerCase()) || 
-                item.origin_name.toLowerCase().includes(title.toLowerCase())
-            ) || items[0];
+                item.name.toLowerCase().includes(cleanTitle) || 
+                item.origin_name.toLowerCase().includes(cleanTitle) ||
+                cleanTitle.includes(item.name.toLowerCase()) ||
+                cleanTitle.includes(item.origin_name.toLowerCase())
+            );
 
-            if (matchMovie) {
-                // Tạo thẻ phim động
-                const card = document.createElement('div');
-                card.className = 'ai-rec-card';
-                card.innerHTML = `
-                    <div class="ai-rec-card__img" style="background-image: url('https://img.otruyenapi.com/uploads/images/${matchMovie.thumb_url || matchMovie.poster_url}')"></div>
-                    <div class="ai-rec-card__info">
-                        <h5 class="ai-rec-card__title">${escapeHTML(matchMovie.name)}</h5>
-                        <span class="ai-rec-card__meta">${escapeHTML(matchMovie.origin_name)} (${matchMovie.year})</span>
-                        <button class="ai-rec-card__play-btn" type="button"><i class="fas fa-play"></i> Xem ngay 🎬</button>
-                    </div>
-                `;
-                
-                card.querySelector('.ai-rec-card__play-btn').addEventListener('click', () => {
-                    if (typeof openModal === 'function') {
-                        // Tự động đóng khung chat và mở modal phát phim
-                        panel.classList.remove('active');
-                        panel.setAttribute('aria-hidden', 'true');
-                        openModal(matchMovie.slug);
-                    }
-                });
+            // Nếu không tìm thấy phim thực sự khớp, KHÔNG hiện thẻ phim ngẫu nhiên!
+            if (!matchMovie) return;
 
-                container.appendChild(card);
-                scrollToBottom();
-            }
+            // Tạo thẻ phim động
+            const card = document.createElement('div');
+            card.className = 'ai-rec-card';
+            card.innerHTML = `
+                <div class="ai-rec-card__img" style="background-image: url('https://img.otruyenapi.com/uploads/images/${matchMovie.thumb_url || matchMovie.poster_url}')"></div>
+                <div class="ai-rec-card__info">
+                    <h5 class="ai-rec-card__title">${escapeHTML(matchMovie.name)}</h5>
+                    <span class="ai-rec-card__meta">${escapeHTML(matchMovie.origin_name)} (${matchMovie.year})</span>
+                    <button class="ai-rec-card__play-btn" type="button"><i class="fas fa-play"></i> Xem ngay 🎬</button>
+                </div>
+            `;
+            
+            card.querySelector('.ai-rec-card__play-btn').addEventListener('click', () => {
+                if (typeof openModal === 'function') {
+                    // Tự động đóng khung chat và mở modal phát phim
+                    panel.classList.remove('active');
+                    panel.setAttribute('aria-hidden', 'true');
+                    openModal(matchMovie.slug);
+                }
+            });
+
+            container.appendChild(card);
+            scrollToBottom();
         } catch (e) {
             console.error('Search movie failed:', e);
         }
@@ -3333,12 +3341,22 @@ function initAIChatbot() {
     }
 
     function formatBotResponse(text) {
-        // Hỗ trợ định dạng in đậm chéo Markdown đơn giản
         let formatted = escapeHTML(text);
-        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-        formatted = formatted.replace(/\*(.*?)\*/g, '<i>$1</i>');
+        
+        // Parse in đậm: **text** -> <strong>text</strong>
+        formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        // Parse in nghiêng: *text* -> <em>$1</em>
+        formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        // Parse gạch đầu dòng: \n* Item -> <li class="ai-chat-bullet">Item</li>
+        formatted = formatted.replace(/^(?:\*|-)\s+(.*?)$/gm, '<li class="ai-chat-bullet">$1</li>');
+        
         // Thay thế ký tự xuống dòng thành <br>
         formatted = formatted.replace(/\n/g, '<br>');
+        formatted = formatted.replace(/<br><li/g, '<li');
+        formatted = formatted.replace(/<\/li><br>/g, '</li>');
+        
         return formatted;
     }
 }

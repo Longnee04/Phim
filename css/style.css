@@ -2090,6 +2090,7 @@ body.vip-pseudo-fs-active .modal__dialog {
   border-radius: 50%;
   background: var(--green);
   box-shadow: 0 0 8px var(--green);
+  animation: statusPulse 2s infinite;
 }
 
 .ai-panel__close {
@@ -2395,6 +2396,37 @@ body.vip-pseudo-fs-active .modal__dialog {
     width: calc(100vw - 32px);
     height: 460px;
   }
+}
+
+@keyframes statusPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+  }
+  70% {
+    transform: scale(1.2);
+    box-shadow: 0 0 0 6px rgba(46, 204, 113, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0);
+  }
+}
+
+.ai-chat-bullet {
+  list-style-type: none;
+  padding-left: 18px;
+  position: relative;
+  margin: 6px 0;
+}
+
+.ai-chat-bullet::before {
+  content: '•';
+  color: var(--red);
+  position: absolute;
+  left: 4px;
+  font-weight: bold;
+  text-shadow: 0 0 4px var(--red);
 }
 
 
