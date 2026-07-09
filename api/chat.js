@@ -14,7 +14,7 @@ const callGeminiHttps = (apiVersion, modelName, apiKey, systemInstruction, messa
             ],
             generationConfig: {
                 temperature: 0.7,
-                maxOutputTokens: 1000
+                maxOutputTokens: 2048
             }
         });
 
@@ -103,7 +103,7 @@ export default async function handler(req, res) {
             
             if (result.ok) {
                 const data = JSON.parse(result.text);
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                const text = data.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
                 return res.status(200).json({ reply: text });
             } else {
                 let currentError = `Model ${attempt.model} on ${attempt.apiVersion} failed`;
