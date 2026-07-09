@@ -607,15 +607,20 @@ function initSearch() {
         });
     };
 
+    let saveHistoryTimer = null;
     const saveSearchHistory = (q) => {
         if (!q || q.length < 2) return;
-        let history = JSON.parse(localStorage.getItem('lphim_search_history')) || [];
-        // Lọc bỏ trùng lặp không phân biệt hoa thường
-        history = history.filter(item => item.toLowerCase() !== q.toLowerCase());
-        history.unshift(q);
-        history = history.slice(0, 3); // Chỉ giữ lại 3 tìm kiếm gần nhất
-        localStorage.setItem('lphim_search_history', JSON.stringify(history));
-        renderSearchHistoryTags();
+        
+        clearTimeout(saveHistoryTimer);
+        saveHistoryTimer = setTimeout(() => {
+            let history = JSON.parse(localStorage.getItem('lphim_search_history')) || [];
+            // Lọc bỏ trùng lặp không phân biệt hoa thường
+            history = history.filter(item => item.toLowerCase() !== q.toLowerCase());
+            history.unshift(q);
+            history = history.slice(0, 3); // Chỉ giữ lại 3 tìm kiếm gần nhất
+            localStorage.setItem('lphim_search_history', JSON.stringify(history));
+            renderSearchHistoryTags();
+        }, 3000); // 3000ms = 3 giây dừng gõ
     };
 
     const toggle = () => { 
@@ -630,6 +635,7 @@ function initSearch() {
     };
 
     const closeSearch = () => {
+        clearTimeout(saveHistoryTimer);
         overlay.hidden = true;
         open = false;
         wrap.classList.remove('open');
