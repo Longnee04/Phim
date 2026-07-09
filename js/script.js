@@ -51,6 +51,53 @@ const TYPE_NAMES = { series:'Phim Bộ', movies:'Phim Lẻ', 'hoat-hinh':'Hoạt
 
 // Helpers
 const img = p => p ? (p.startsWith('http') ? p : IMG_CDN + p) : '';
+
+function handleImgError(el) {
+    if (!el.dataset.triedBackup) {
+        el.dataset.triedBackup = "true";
+        if (el.src.includes('img.ophim.live/uploads/movies')) {
+            el.src = el.src.replace('img.ophim.live/uploads/movies', 'img.otruyenapi.com/uploads/images');
+        } else if (el.src.includes('img.otruyenapi.com/uploads/images')) {
+            el.src = el.src.replace('img.otruyenapi.com/uploads/images', 'img.ophim.live/uploads/movies');
+        }
+    } else {
+        el.style.opacity = ".2";
+    }
+}
+
+function setSafeBgImage(el, src) {
+    if (!el) return;
+    if (!src) {
+        el.style.backgroundImage = '';
+        return;
+    }
+    const tempImg = new Image();
+    tempImg.src = src;
+    tempImg.onload = () => {
+        el.style.backgroundImage = `url("${src}")`;
+    };
+    tempImg.onerror = () => {
+        let backupSrc = src;
+        if (src.includes('img.ophim.live/uploads/movies')) {
+            backupSrc = src.replace('img.ophim.live/uploads/movies', 'img.otruyenapi.com/uploads/images');
+        } else if (src.includes('img.otruyenapi.com/uploads/images')) {
+            backupSrc = src.replace('img.otruyenapi.com/uploads/images', 'img.ophim.live/uploads/movies');
+        }
+        
+        if (backupSrc !== src) {
+            const secondImg = new Image();
+            secondImg.src = backupSrc;
+            secondImg.onload = () => {
+                el.style.backgroundImage = `url("${backupSrc}")`;
+            };
+            secondImg.onerror = () => {
+                el.style.backgroundImage = '';
+            };
+        } else {
+            el.style.backgroundImage = '';
+        }
+    };
+}
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
 // Check if a movie contains adult content
@@ -598,7 +645,7 @@ function initSearch() {
             grid.innerHTML = '';
             items.forEach(m => {
                 const c = document.createElement('div'); c.className = 'search-card';
-                c.innerHTML = `<img src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="this.style.opacity=.2"><div class="search-card__name">${m.name}</div>`;
+                c.innerHTML = `<img src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)"><div class="search-card__name">${m.name}</div>`;
                 c.onclick = () => { closeSearch(); openModal(m.slug); };
                 grid.appendChild(c);
             });
@@ -632,7 +679,7 @@ function initBillboard(movies) {
 
 function showSlide(i) {
     const m = billboardMovies[i]; if (!m) return;
-    document.getElementById('billboard-bg').style.backgroundImage = `url("${img(m.poster_url||m.thumb_url)}")`;
+    setSafeBgImage(document.getElementById('billboard-bg'), img(m.poster_url||m.thumb_url));
     document.getElementById('billboard-title').textContent = m.name;
     document.getElementById('billboard-desc').textContent = '';
     apiFetch(API.detail + m.slug).then(d => {
@@ -657,14 +704,35 @@ function stopTimer() { clearTimeout(billboardTimer); clearInterval(progressIv); 
 //  LOAD ALL ROWS
 // ══════════════════════════════════════════════════════════
 async function loadAll() {
-    ['track-top10','track-phim-moi','track-phim-bo','track-phim-le','track-hoat-hinh','track-tv-shows','track-vietsub'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = Array(ITEMS_PER_PAGE).fill('<div class="skeleton-card"></div>').join('');
-    });
+    // 1. Kiểm tra dữ liệu cache cục bộ của trang chủ để hiển thị ngay lập tức
+    const cachedData = localStorage.getItem('lphim_homepage_cache');
+    let hasCache = false;
+    
+    if (cachedData) {
+        try {
+            const cache = JSON.parse(cachedData);
+            if (cache && cache.m1) {
+                hasCache = true;
+                // Render giao diện tức thì từ cache (0ms)
+                renderHomeData(cache.m1, cache.m2, cache.m3, cache.m4, cache.m5, cache.m6);
+            }
+        } catch (e) {
+            localStorage.removeItem('lphim_homepage_cache');
+        }
+    }
 
-    // Render history row
+    // Nếu không có cache, mới hiện các skeleton loading
+    if (!hasCache) {
+        ['track-top10','track-phim-moi','track-phim-bo','track-phim-le','track-hoat-hinh','track-tv-shows','track-vietsub'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = Array(ITEMS_PER_PAGE).fill('<div class="skeleton-card"></div>').join('');
+        });
+    }
+
+    // Vẽ danh mục lịch sử xem phim
     renderHistoryRow();
 
+    // 2. Chạy ngầm việc fetch dữ liệu mới nhất (Stale-While-Revalidate)
     try {
         const [d1,d2,d3,d4,d5,d6] = await Promise.all([
             apiFetch(API.new + '?page=1'),
@@ -677,24 +745,49 @@ async function loadAll() {
         const m1=normalizeList(d1), m2=normalizeList(d2), m3=normalizeList(d3),
               m4=normalizeList(d4), m5=normalizeList(d5), m6=normalizeList(d6);
 
-        initTop10('top10', m1.slice(0, 10));
-        initSlider('phim-moi', m1);
-        initSlider('phim-bo', m2);
-        initSlider('phim-le', m3);
-        initSlider('hoat-hinh', m4);
-        if (m5.length) initSlider('tv-shows', m5);
-        else document.getElementById('section-tv-shows')?.remove();
-        if (m6.length) initSlider('vietsub', m6);
-        else document.getElementById('section-vietsub')?.remove();
+        // Cập nhật giao diện mới nhất
+        renderHomeData(m1, m2, m3, m4, m5, m6);
 
-        if (m1.length) initBillboard(m1);
-
-        // Re-init touch swipe after content loads
-        initTouchSwipe();
+        // Lưu đệm lại dữ liệu mới nhất vào localStorage
+        localStorage.setItem('lphim_homepage_cache', JSON.stringify({ m1, m2, m3, m4, m5, m6 }));
 
         // Gợi ý phim ngẫu nhiên sau khi tải
         if (m1.length) triggerRandomMovieSuggestion(m1);
-    } catch (e) { console.error('loadAll:', e); }
+    } catch (e) { 
+        console.error('loadAll fresh fetch failed:', e); 
+    }
+}
+
+function renderHomeData(m1, m2, m3, m4, m5, m6) {
+    initTop10('top10', m1.slice(0, 10));
+    initSlider('phim-moi', m1);
+    initSlider('phim-bo', m2);
+    initSlider('phim-le', m3);
+    initSlider('hoat-hinh', m4);
+    
+    const tvSection = document.getElementById('section-tv-shows');
+    if (m5 && m5.length) {
+        if (!tvSection) {
+            // Nếu lỡ bị remove trước đó, chỉ cần init để vẽ lại
+            initSlider('tv-shows', m5);
+        } else {
+            initSlider('tv-shows', m5);
+        }
+    } else {
+        document.getElementById('section-tv-shows')?.remove();
+    }
+    
+    const vietsubSection = document.getElementById('section-vietsub');
+    if (m6 && m6.length) {
+        initSlider('vietsub', m6);
+    } else {
+        document.getElementById('section-vietsub')?.remove();
+    }
+
+    if (m1 && m1.length) initBillboard(m1);
+
+    // Re-init touch swipe after content loads
+    initTouchSwipe();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -715,7 +808,7 @@ function renderHistoryRow() {
         card.className = 'card';
         card.innerHTML = `
             <button class="card__remove" data-remove-history="${m.slug}" type="button" title="Xóa khỏi lịch sử"><i class="fas fa-times"></i></button>
-            <img class="card__img" src="${img(m.thumb_url || m.poster_url)}" alt="${m.name}" loading="lazy" onerror="this.style.opacity=.2">
+            <img class="card__img" src="${img(m.thumb_url || m.poster_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)">
             ${m.episode ? `<div class="card__history-ep">Tập ${m.episode}</div>` : ''}
         `;
         card.querySelector('.card__img').addEventListener('click', () => openModal(m.slug));
@@ -743,7 +836,7 @@ function initTop10(name, movies) {
     track.innerHTML = '';
     movies.forEach((m, i) => {
         const card = document.createElement('div'); card.className = 'top10-card';
-        card.innerHTML = `<span class="top10-card__number">${i+1}</span><img class="top10-card__poster" src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="this.style.opacity=.2">`;
+        card.innerHTML = `<span class="top10-card__number">${i+1}</span><img class="top10-card__poster" src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)">`;
         card.addEventListener('click', () => openModal(m.slug));
         track.appendChild(card);
     });
@@ -794,7 +887,7 @@ function createCard(movie) {
     const genres = (movie.category || []).map(g => g.name).filter(Boolean);
     const inList = STORAGE.isInMyList(movie.slug);
     card.innerHTML = `
-        <img class="card__img" src="${poster}" alt="${movie.name}" loading="lazy" onerror="this.style.opacity=.2">
+        <img class="card__img" src="${poster}" alt="${movie.name}" loading="lazy" onerror="handleImgError(this)">
         <div class="card__info">
             <div class="card__info-row">
                 <div class="card__info-left">
@@ -959,12 +1052,12 @@ function openMyListPage() {
 
     // Use first item's poster as hero bg
     const heroEl = document.getElementById('browse-hero-bg');
-    if (list.length) heroEl.style.backgroundImage = `url("${img(list[0].poster_url||list[0].thumb_url)}")`;
+    if (list.length) setSafeBgImage(heroEl, img(list[0].poster_url||list[0].thumb_url));
 
     list.forEach(m => {
         const card = document.createElement('div'); card.className = 'browse__card';
         card.innerHTML = `
-            <img src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="this.style.opacity=.2">
+            <img src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)">
             <button class="browse__card-play" type="button"><i class="fas fa-play"></i></button>
             <button class="browse__card-remove" data-remove-mylist="${m.slug}" type="button" title="Xóa khỏi danh sách"><i class="fas fa-times"></i></button>
             <div class="browse__card-info">
@@ -1022,7 +1115,7 @@ async function loadBrowsePage() {
         browseAllItems = items;
 
         const heroEl = document.getElementById('browse-hero-bg');
-        if (items.length) heroEl.style.backgroundImage = `url("${img(items[0].poster_url||items[0].thumb_url)}")`;
+        if (items.length) setSafeBgImage(heroEl, img(items[0].poster_url||items[0].thumb_url));
         document.getElementById('browse-count').textContent = `${totalItems.toLocaleString()} phim`;
         indicator.textContent = `Trang ${browsePage} / ${totalPages}`;
 
@@ -1044,7 +1137,7 @@ function renderBrowseGrid(items) {
     items.forEach(m => {
         const card = document.createElement('div'); card.className = 'browse__card';
         card.innerHTML = `
-            <img src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="this.style.opacity=.2">
+            <img src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)">
             <button class="browse__card-play" type="button"><i class="fas fa-play"></i></button>
             <div class="browse__card-info">
                 <div class="browse__card-name">${m.name}</div>
@@ -1534,7 +1627,7 @@ async function openModal(slug, autoPlay = false) {
 
 
 
-        heroImg.style.backgroundImage = `url("${img(m.poster_url||m.thumb_url)}")`;
+        setSafeBgImage(heroImg, img(m.poster_url||m.thumb_url));
         document.getElementById('modal-title').textContent = m.name || '';
         document.getElementById('modal-year').textContent = m.year || '';
         document.getElementById('modal-quality').textContent = m.quality || 'HD';

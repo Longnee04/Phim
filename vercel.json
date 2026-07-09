@@ -1,7 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/((?!css/|js/|api/|robots.txt|sitemap_index.xml|google2c9ef27174b50506.html).*)$",
+      "source": "/((?!css/|js/|api/).*)$",
       "destination": "/index.html"
     }
   ]

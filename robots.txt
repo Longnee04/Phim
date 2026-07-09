@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://phim-three.vercel.app/sitemap_index.xml
