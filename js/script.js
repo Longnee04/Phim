@@ -113,21 +113,86 @@ function isAdultMovie(m) {
 async function apiFetch(url, opts = {}) {
     const k = opts.signal ? null : url;
     if (k && _cache.has(k)) return _cache.get(k);
-    const r = await fetch(url, opts); if (!r.ok) throw new Error(r.status);
-    let d = await r.json();
+
+    // Tạo controller timeout của chúng ta (4 giây)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
     
-    // Filter out adult movies from any returned lists
-    if (d) {
-        if (d.items && Array.isArray(d.items)) {
-            d.items = d.items.filter(m => !isAdultMovie(m));
-        }
-        if (d.data && d.data.items && Array.isArray(d.data.items)) {
-            d.data.items = d.data.items.filter(m => !isAdultMovie(m));
-        }
+    // Lắng nghe tín hiệu abort bên ngoài (như từ việc đóng modal) để hủy đồng bộ
+    if (opts.signal) {
+        opts.signal.addEventListener('abort', () => controller.abort());
     }
 
-    if (k) _cache.set(k, d); 
-    return d;
+    const fetchOpts = { ...opts, signal: controller.signal };
+
+    try {
+        const r = await fetch(url, fetchOpts);
+        clearTimeout(timeoutId);
+        if (!r.ok) throw new Error(r.status);
+        let d = await r.json();
+        
+        // Filter out adult movies from any returned lists
+        if (d) {
+            if (d.items && Array.isArray(d.items)) {
+                d.items = d.items.filter(m => !isAdultMovie(m));
+            }
+            if (d.data && d.data.items && Array.isArray(d.data.items)) {
+                d.data.items = d.data.items.filter(m => !isAdultMovie(m));
+            }
+        }
+
+        if (k) _cache.set(k, d); 
+        return d;
+    } catch (error) {
+        clearTimeout(timeoutId);
+
+        // Nếu tín hiệu bên ngoài chủ động hủy, không chạy fallback mà throw lỗi ngay
+        if (opts.signal && opts.signal.aborted) {
+            throw error;
+        }
+
+        console.warn(`Fetch to ${url} failed/timed out:`, error.message || error);
+
+        // Tự động chuyển đổi sang nguồn dự phòng KKPhim (phimapi.com)
+        if (url.includes('ophim1.com')) {
+            const backupUrl = url.replace('ophim1.com', 'phimapi.com');
+            console.log(`Attempting backup API fetch to: ${backupUrl}`);
+
+            const backupController = new AbortController();
+            const backupTimeoutId = setTimeout(() => backupController.abort(), 4000);
+
+            if (opts.signal) {
+                opts.signal.addEventListener('abort', () => backupController.abort());
+            }
+
+            const backupOpts = { ...opts, signal: backupController.signal };
+
+            try {
+                const r = await fetch(backupUrl, backupOpts);
+                clearTimeout(backupTimeoutId);
+                if (!r.ok) throw new Error(r.status);
+                let d = await r.json();
+
+                // Filter out adult movies
+                if (d) {
+                    if (d.items && Array.isArray(d.items)) {
+                        d.items = d.items.filter(m => !isAdultMovie(m));
+                    }
+                    if (d.data && d.data.items && Array.isArray(d.data.items)) {
+                        d.data.items = d.data.items.filter(m => !isAdultMovie(m));
+                    }
+                }
+
+                if (k) _cache.set(k, d);
+                return d;
+            } catch (backupError) {
+                clearTimeout(backupTimeoutId);
+                console.error(`Backup API fetch to ${backupUrl} also failed:`, backupError.message || backupError);
+                throw backupError;
+            }
+        }
+        throw error;
+    }
 }
 function normalizeList(raw) { return raw.items || raw.data?.items || []; }
 
@@ -1801,9 +1866,14 @@ const VIPPlayer = {
         // If Hls.js is supported, load and play
         if (Hls.isSupported()) {
             this.hls = new Hls({
-                maxMaxBufferLength: 30,
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+                maxBufferSize: 60 * 1024 * 1024, // 60MB max buffer size
                 enableWorker: true,
-                lowLatencyMode: true
+                lowLatencyMode: false, // Tắt Low-latency để tăng độ ổn định của bộ nhớ đệm cho VOD
+                manifestLoadingMaxRetry: 6,
+                levelLoadingMaxRetry: 6,
+                fragLoadingMaxRetry: 6
             });
             this.hls.loadSource(m3u8Url);
             this.hls.attachMedia(this.video);
