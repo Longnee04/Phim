@@ -571,7 +571,64 @@ function initSearch() {
         });
     });
 
-    const toggle = () => { open = !open; wrap.classList.toggle('open', open); if (open) setTimeout(() => input.focus(), 100); else { input.value = ''; closeSearch(); } };
+    // Render và gắn sự kiện cho các thẻ tìm kiếm gần đây
+    const renderSearchHistoryTags = () => {
+        const historyDiv = document.getElementById('search-history-tags');
+        if (!historyDiv) return;
+        
+        const history = JSON.parse(localStorage.getItem('lphim_search_history')) || [];
+        if (!history.length) {
+            historyDiv.style.display = 'none';
+            return;
+        }
+        
+        historyDiv.style.display = 'flex';
+        historyDiv.innerHTML = `
+            <span class="search-history__label"><i class="fas fa-history"></i> Tìm kiếm gần đây:</span>
+            <div class="search-history__list">
+                ${history.map(item => `<button class="search-history__tag" type="button">${item}</button>`).join('')}
+                <button class="search-history__clear" type="button" title="Xóa lịch sử"><i class="fas fa-trash-alt"></i> Xóa</button>
+            </div>
+        `;
+        
+        // Click vào tag để tìm kiếm lại ngay lập tức
+        historyDiv.querySelectorAll('.search-history__tag').forEach(tag => {
+            tag.addEventListener('click', () => {
+                input.value = tag.textContent;
+                doSearch(tag.textContent);
+                input.focus();
+            });
+        });
+
+        // Nút xóa toàn bộ lịch sử tìm kiếm
+        historyDiv.querySelector('.search-history__clear')?.addEventListener('click', () => {
+            localStorage.removeItem('lphim_search_history');
+            renderSearchHistoryTags();
+        });
+    };
+
+    const saveSearchHistory = (q) => {
+        if (!q || q.length < 2) return;
+        let history = JSON.parse(localStorage.getItem('lphim_search_history')) || [];
+        // Lọc bỏ trùng lặp không phân biệt hoa thường
+        history = history.filter(item => item.toLowerCase() !== q.toLowerCase());
+        history.unshift(q);
+        history = history.slice(0, 3); // Chỉ giữ lại 3 tìm kiếm gần nhất
+        localStorage.setItem('lphim_search_history', JSON.stringify(history));
+        renderSearchHistoryTags();
+    };
+
+    const toggle = () => { 
+        open = !open; 
+        wrap.classList.toggle('open', open); 
+        if (open) {
+            setTimeout(() => input.focus(), 100); 
+        } else { 
+            input.value = ''; 
+            closeSearch(); 
+        } 
+    };
+
     const closeSearch = () => {
         overlay.hidden = true;
         open = false;
@@ -580,11 +637,19 @@ function initSearch() {
         tabs.forEach((t, i) => t.classList.toggle('active', i === 0));
         searchType = 'all';
         if (suggestionsDiv) suggestionsDiv.hidden = true;
+        const historyDiv = document.getElementById('search-history-tags');
+        if (historyDiv) historyDiv.style.display = 'none';
     };
 
     btn.addEventListener('click', toggle);
     closeB.addEventListener('click', closeSearch);
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !overlay.hidden) closeSearch(); });
+
+    // Khi người dùng bấm vào ô input, hiện ngay lịch sử tìm kiếm
+    input.addEventListener('focus', () => {
+        overlay.hidden = false;
+        renderSearchHistoryTags();
+    });
 
     const doSearch = debounce(async q => {
         if (q.length < 2) {
@@ -596,11 +661,25 @@ function initSearch() {
                 renderActorSuggestions();
                 return;
             }
+            
+            // Nếu độ dài từ khóa < 2, hiển thị lại lịch sử tìm kiếm thay vì ẩn luôn overlay
+            const history = JSON.parse(localStorage.getItem('lphim_search_history')) || [];
+            if (history.length) {
+                overlay.hidden = false;
+                kw.textContent = 'Tìm kiếm gần đây';
+                grid.innerHTML = '';
+                empty.hidden = true;
+                renderSearchHistoryTags();
+                return;
+            }
+
             overlay.hidden = true;
             if (suggestionsDiv) suggestionsDiv.hidden = true;
             return;
         }
+
         overlay.hidden = false;
+        renderSearchHistoryTags();
         
         let label = q;
         if (searchType === 'actor') {
@@ -642,11 +721,16 @@ function initSearch() {
                 empty.innerHTML = `<i class="fas fa-search"></i><p>Không tìm thấy phim phù hợp.</p>`;
                 return;
             }
+
+            // Lưu tìm kiếm thành công vào lịch sử tìm kiếm gần nhất
+            saveSearchHistory(q);
+
             grid.innerHTML = '';
             items.forEach(m => {
                 const c = document.createElement('div'); c.className = 'search-card';
                 c.innerHTML = `<img src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)"><div class="search-card__name">${m.name}</div>`;
-                c.onclick = () => { closeSearch(); openModal(m.slug); };
+                // Loại bỏ closeSearch() để giữ nguyên khung và từ khóa tìm kiếm khi người dùng xem phim rồi đóng modal quay lại
+                c.onclick = () => { openModal(m.slug); };
                 grid.appendChild(c);
             });
         } catch (err) {
