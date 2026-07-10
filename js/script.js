@@ -3486,6 +3486,22 @@ function initAIChatbot() {
         });
     }
 
+    // Helper gửi ngầm góp ý lên Google Form
+    const submitFeedbackToGoogleForm = (feedbackText) => {
+        const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSeuAuJK1aq38wmpTHVT_UY0aaU0vs6J0_ci2Hz43350ZPsaQw/formResponse';
+        const formData = new URLSearchParams();
+        formData.append('entry.1079451922', feedbackText);
+        
+        fetch(formUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: formData.toString()
+        }).catch(err => console.error('Feedback submit error:', err));
+    };
+
     // Handle form submit
     form.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -3494,6 +3510,20 @@ function initAIChatbot() {
 
         input.value = '';
         addUserMessage(text);
+
+        // Kiểm tra xem có phải tin nhắn góp ý / báo lỗi không
+        if (text.startsWith('Tôi muốn báo lỗi / góp ý:')) {
+            const feedbackMsg = text.replace('Tôi muốn báo lỗi / góp ý:', '').trim();
+            if (feedbackMsg) {
+                submitFeedbackToGoogleForm(feedbackMsg);
+            }
+            // Trả lời ngay lập tức không cần gọi API Gemini
+            setTimeout(() => {
+                addBotMessage('Cảm ơn bạn đã gửi ý kiến đóng góp cho LPhim! ❤️ Ý kiến của bạn đã được chuyển ngầm tới ban quản trị LPhim để xem xét và xử lý sớm nhất.');
+            }, 500);
+            return;
+        }
+
         sendAIMessage(text);
     });
 
