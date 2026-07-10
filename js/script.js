@@ -1976,6 +1976,8 @@ const VIPPlayer = {
     currentM3u8: null,
     currentEmbed: null,
     currentServer: 'vip', // 'vip' or 'iframe'
+    hlsRetryCount: 0,
+    _isReloading: false,
     controlsTimeout: null,
     isSeeking: false,
     _lastVolume: 1,
@@ -2032,6 +2034,11 @@ const VIPPlayer = {
         this.currentEmbed = embedUrl;
         this.currentServer = 'vip';
 
+        if (!this._isReloading) {
+            this.hlsRetryCount = 0;
+        }
+        this._isReloading = false;
+
         // Clean up previous HLS instance
         if (this.hls) {
             this.hls.destroy();
@@ -2061,10 +2068,33 @@ const VIPPlayer = {
             this.hls.loadSource(m3u8Url);
             this.hls.attachMedia(this.video);
 
+            let mediaErrorCount = 0;
             this.hls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
-                    console.warn('Fatal HLS error, falling back to iframe:', data.type);
-                    this.fallbackToIframe();
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.warn('Fatal HLS network error, attempting to startLoad...', data);
+                            this.hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            mediaErrorCount++;
+                            if (mediaErrorCount <= 2) {
+                                console.warn(`Fatal HLS media error (${mediaErrorCount}/2), attempting recoverMediaError...`, data);
+                                this.hls.recoverMediaError();
+                            } else {
+                                console.warn('Hls recoverMediaError failed twice, attempting full stream reload...');
+                                this._handleFatalError();
+                            }
+                            break;
+                        default:
+                            console.error('Fatal unrecoverable HLS error, attempting stream reload...', data);
+                            this._handleFatalError();
+                            break;
+                    }
+                } else {
+                    if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                        mediaErrorCount = 0;
+                    }
                 }
             });
         } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -2084,6 +2114,30 @@ const VIPPlayer = {
         this.deactivate();
         this.currentServer = 'iframe';
         playInModal(this.currentEmbed);
+    },
+
+    _handleFatalError() {
+        if (this.hlsRetryCount < 1) {
+            this.hlsRetryCount++;
+            this._isReloading = true;
+            console.log(`Stream error. Auto-reloading stream (Attempt ${this.hlsRetryCount}/1) to recover...`);
+            
+            // Save current playback position
+            this._saveTimeProgress();
+            
+            // Destroy HLS instance
+            if (this.hls) {
+                this.hls.destroy();
+                this.hls = null;
+            }
+            
+            // Reload stream
+            this.load(this.currentM3u8, this.currentEmbed);
+        } else {
+            console.error('Stream reload attempt failed. Falling back to backup iframe...');
+            this.hlsRetryCount = 0;
+            this.fallbackToIframe();
+        }
     },
 
     // Activate VIP player UI
@@ -2211,6 +2265,9 @@ const VIPPlayer = {
 
         this.video.addEventListener('timeupdate', () => {
             this._updateProgress();
+            if (this.video.currentTime > 10 && this.hlsRetryCount > 0) {
+                this.hlsRetryCount = 0;
+            }
         });
 
         this.video.addEventListener('progress', () => {
@@ -2239,6 +2296,17 @@ const VIPPlayer = {
 
         this.video.addEventListener('ended', () => {
             this._onEnded();
+        });
+
+        this.video.addEventListener('error', (e) => {
+            const err = this.video.error;
+            if (err) {
+                console.warn('Native video element error code:', err.code, err.message);
+                if (err.code === 4) { // MEDIA_ERR_SRC_NOT_SUPPORTED
+                    console.error('Fatal native src unsupported error, falling back to iframe');
+                    this.fallbackToIframe();
+                }
+            }
         });
 
         this.video.addEventListener('volumechange', () => {
