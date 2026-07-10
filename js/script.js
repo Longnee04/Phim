@@ -3473,6 +3473,19 @@ function initAIChatbot() {
         panel.setAttribute('aria-hidden', 'true');
     });
 
+    // Lắng nghe nút Góp ý ở chân trang (Footer Feedback)
+    const feedbackBtn = document.getElementById('footer-feedback-btn');
+    if (feedbackBtn) {
+        feedbackBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            panel.classList.add('active');
+            panel.setAttribute('aria-hidden', 'false');
+            input.value = 'Tôi muốn báo lỗi / góp ý: ';
+            input.focus();
+            scrollToBottom();
+        });
+    }
+
     // Handle form submit
     form.addEventListener('submit', (e) => {
         e.preventDefault();
