@@ -354,6 +354,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Khởi tạo Trợ lý AI LPhim
     initAIChatbot();
+
+    // Khởi tạo thông báo cập nhật mới
+    initNotifications();
     
     loadAll();
     
@@ -3713,4 +3716,42 @@ function initAIChatbot() {
         
         return formatted;
     }
+}
+
+// Khởi tạo tính năng thông báo cập nhật mới
+function initNotifications() {
+    const btn = document.getElementById('notification-btn');
+    const badge = document.getElementById('notification-badge');
+    const modal = document.getElementById('notification-modal');
+    const closeBtn = document.getElementById('notification-close');
+    
+    if (!btn || !modal) return;
+    
+    const CURRENT_VERSION = '1.3';
+    const lastReadVersion = localStorage.getItem('lphim_last_read_version');
+    
+    // Nếu chưa đọc phiên bản mới nhất, hiện dấu chấm đỏ nhấp nháy
+    if (lastReadVersion !== CURRENT_VERSION) {
+        if (badge) badge.style.display = 'block';
+    }
+    
+    btn.addEventListener('click', () => {
+        // Mở modal thông báo
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden'; // Khóa cuộn trang nền
+        
+        // Ẩn chấm đỏ và đánh dấu đã đọc
+        if (badge) badge.style.display = 'none';
+        localStorage.setItem('lphim_last_read_version', CURRENT_VERSION);
+    });
+    
+    const closeModal = () => {
+        modal.hidden = true;
+        document.body.style.overflow = '';
+    };
+    
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
 }
