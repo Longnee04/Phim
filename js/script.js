@@ -3511,9 +3511,12 @@ function initAIChatbot() {
         input.value = '';
         addUserMessage(text);
 
-        // Kiểm tra xem có phải tin nhắn góp ý / báo lỗi không
-        if (text.startsWith('Tôi muốn báo lỗi / góp ý:')) {
-            const feedbackMsg = text.replace('Tôi muốn báo lỗi / góp ý:', '').trim();
+        // Sử dụng Regex để nhận diện linh hoạt góp ý (không phân biệt hoa/thường, dấu cách, có/không dấu)
+        const feedbackRegex = /^(?:tôi\s+muốn\s+báo\s+lỗi|toi\s+muon\s+bao\s+loi)\s*\/\s*(?:góp\s+ý|gop\s+y)\s*:\s*(.*)$/i;
+        const feedbackMatch = text.match(feedbackRegex);
+
+        if (feedbackMatch) {
+            const feedbackMsg = feedbackMatch[1].trim();
             if (feedbackMsg) {
                 submitFeedbackToGoogleForm(feedbackMsg);
             }
