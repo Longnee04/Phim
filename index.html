@@ -66,6 +66,7 @@
                         <a href="#" data-genre="bi-an">Bí Ẩn</a>
                         <a href="#" data-genre="hoc-duong">Học Đường</a>
                         <a href="#" data-genre="kinh-dien">Kinh Điển</a>
+                        <a href="#" data-browse="anime">Anime</a>
                     </div>
                 </li>
 
@@ -113,7 +114,7 @@
         <div class="nav__right">
             <div class="nav__search" id="nav-search">
                 <button class="nav__search-btn" id="search-btn" type="button" aria-label="Tìm kiếm"><i class="fas fa-search"></i></button>
-                <input type="text" class="nav__search-input" id="search-input" placeholder="Tên phim, diễn viên..." autocomplete="off">
+                <input type="text" class="nav__search-input" id="search-input" placeholder="Tên phim, năm phát hành..." autocomplete="off">
             </div>
             <button class="nav__notification" id="notification-btn" type="button" aria-label="Thông báo">
                 <i class="fas fa-bell"></i>
@@ -164,6 +165,7 @@
                     <a href="#" data-genre="bi-an">Bí Ẩn</a>
                     <a href="#" data-genre="hoc-duong">Học Đường</a>
                     <a href="#" data-genre="kinh-dien">Kinh Điển</a>
+                    <a href="#" data-browse="anime">Anime</a>
                 </div>
             </div>
 
@@ -179,7 +181,7 @@
                     <a href="#" data-country="hong-kong">Hồng Kông</a>
                     <a href="#" data-country="an-do">Ấn Độ</a>
                     <a href="#" data-country="anh">Anh</a>
-                    <a href="#" data-country="phap">Pháp</a>
+                    <a href="#" data-country="phap"> Pháp</a>
                     <a href="#" data-country="duc">Đức</a>
                     <a href="#" data-country="viet-nam">Việt Nam</a>
                     <a href="#" data-country="tho-nhi-ky">Thổ Nhĩ Kỳ</a>
@@ -211,7 +213,6 @@
             <h3>Kết quả cho: <span id="search-keyword"></span></h3>
             <div class="search-overlay__tabs">
                 <button class="search-tab active" data-search-type="all"><i class="fas fa-search"></i> Tất cả</button>
-                <button class="search-tab" data-search-type="actor"><i class="fas fa-user"></i> Diễn viên</button>
                 <button class="search-tab" data-search-type="year"><i class="fas fa-calendar"></i> Năm</button>
             </div>
             <button class="search-overlay__close" id="search-close" type="button"><i class="fas fa-times"></i></button>
@@ -228,6 +229,7 @@
     <div id="home-view">
         <header class="billboard" id="billboard">
             <div class="billboard__bg" id="billboard-bg"></div>
+            <div class="billboard__ambient" id="billboard-ambient"></div>
             <div class="billboard__vignette"></div>
             <div class="billboard__gradient-bottom"></div>
             <div class="billboard__content">

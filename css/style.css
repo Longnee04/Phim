@@ -2625,4 +2625,382 @@ body.vip-pseudo-fs-active .modal__dialog {
   box-shadow: 0 0 8px var(--red);
 }
 
+/* ==========================================================
+   LPHIM MODERN PREMIUM HORIZONTAL LAYOUT OVERRIDES
+   ========================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800;900&family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --bg: #0a0a0f;
+  --surface: rgba(20, 20, 28, 0.65);
+  --surface-solid: #12121a;
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --red: #ff2a3b;
+  --red-hover: #ff5c6c;
+  --red-glow: rgba(255, 42, 59, 0.35);
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+}
+
+body {
+  background-color: var(--bg);
+  font-family: 'Inter', sans-serif;
+}
+
+/* Typography titles using Montserrat & Be Vietnam Pro (No accent glitches!) */
+.nav__logo, .billboard__title, .row__title, .modal__title, .search-overlay__title, .notification-modal__header h3 {
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+/* Force clean Inter font inside AI Chatbot to fix any Vietnamese diacritic rendering glitches */
+.ai-panel, .ai-panel *, .ai-bubble, .ai-bubble *, .ai-panel__title, .ai-panel__status, .ai-msg__content, .ai-quick-btn {
+  font-family: 'Inter', sans-serif !important;
+}
+
+/* Ultra-Compact & Aligned Floating Translucent Header */
+.nav {
+  position: fixed;
+  top: 8px; /* Closer to top */
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 24px);
+  max-width: 1400px;
+  height: 44px; /* Ultra slim height */
+  background: rgba(10, 10, 15, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 22px; /* Half of height */
+  padding: 0 16px;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav.nav--solid {
+  top: 0;
+  width: 100%;
+  max-width: 100%;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  background: rgba(10, 10, 15, 0.96);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  height: 54px; /* Slightly taller when solid scrolled */
+}
+
+.nav__left, .nav__right {
+  display: flex;
+  align-items: center;
+  gap: 12px !important; /* Smaller gaps */
+}
+
+.nav__logo {
+  color: var(--white);
+  font-size: 1.15rem; /* Compact logo size */
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.nav__logo i {
+  font-size: 0.95rem;
+}
+
+.nav__logo span {
+  color: var(--red);
+  text-shadow: 0 0 10px var(--red-glow);
+}
+
+.nav__menu {
+  display: flex;
+  gap: 6px !important; /* Extremely close alignment */
+  margin: 0;
+  padding: 0;
+  align-items: center;
+}
+
+/* Perfect alignment for navbar links using inline-flex */
+.nav__link {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.82rem !important; /* Compact link font size */
+  font-weight: 600 !important;
+  height: 26px !important; /* Fixed height for absolute alignment */
+  padding: 0 10px !important;
+  border-radius: 13px !important;
+  box-sizing: border-box !important;
+  color: var(--t2) !important;
+  transition: all var(--fast) !important;
+}
+
+.nav__link::after {
+  display: none; /* Disable old under-line border */
+}
+
+.nav__link:hover, .nav__link.active {
+  color: var(--white) !important;
+  background: var(--surface-hover) !important;
+}
+
+/* Dropdown alignment */
+.nav__link--dropdown i {
+  font-size: 0.6rem !important;
+  margin-left: 4px;
+}
+
+/* Search input & button layout overrides */
+.nav__search-btn {
+  min-width: 28px !important;
+  min-height: 28px !important;
+  font-size: 0.85rem !important;
+  padding: 0 !important;
+}
+
+.nav__search-input {
+  height: 28px !important;
+  font-size: 0.8rem !important;
+  padding: 4px 32px 4px 10px !important;
+  border-radius: 14px !important;
+  background: rgba(10, 10, 15, 0.92) !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+/* Notification badge & button overrides */
+.nav__notification {
+  font-size: 0.9rem !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
+/* Ambient Glow Billboard Slide */
+.billboard {
+  position: relative;
+  overflow: hidden;
+  height: 85vh;
+  min-height: 550px;
+}
+
+.billboard__ambient {
+  position: absolute;
+  top: -20%;
+  left: -10%;
+  width: 120%;
+  height: 140%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(80px);
+  opacity: 0.25;
+  z-index: 1;
+  pointer-events: none;
+  transform: scale(1.1);
+  transition: background-image 0.5s ease;
+}
+
+.billboard__bg {
+  z-index: 2;
+}
+
+.billboard__vignette {
+  z-index: 3;
+}
+
+.billboard__gradient-bottom {
+  z-index: 3;
+}
+
+.billboard__content {
+  z-index: 4;
+}
+
+/* Cinematic spacious card grids */
+.rows-container {
+  padding-top: 20px;
+}
+
+.row {
+  margin-bottom: 40px;
+  padding: 0 4% 0 5%;
+}
+
+.row__title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.card {
+  border-radius: var(--radius-lg) !important;
+  overflow: hidden !important;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+.card__img {
+  border-radius: var(--radius-lg) !important;
+  transition: transform 0.4s ease !important;
+}
+
+.card:hover {
+  transform: translateY(-8px) scale(1.03) !important;
+  border-color: rgba(255, 42, 59, 0.4);
+  box-shadow: 0 12px 30px rgba(255, 42, 59, 0.15), 0 0 0 2px rgba(255, 42, 59, 0.1) !important;
+  z-index: 10 !important;
+}
+
+.card:hover .card__img {
+  transform: scale(1.05);
+}
+
+.card__info {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: auto !important;
+  background: linear-gradient(transparent, rgba(10,10,15,0.95) 75%) !important;
+  padding: 30px 12px 12px !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: translateY(0) !important;
+  opacity: 0 !important;
+  transition: opacity 0.3s ease !important;
+}
+
+.card:hover .card__info {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Centered details modal styled with premium translucent glassmorphism */
+.modal__backdrop {
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.modal__dialog {
+  background: rgba(18, 18, 26, 0.82) !important;
+  backdrop-filter: blur(32px) !important;
+  -webkit-backdrop-filter: blur(32px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6) !important;
+  border-radius: var(--radius-lg) !important;
+}
+
+.modal__close {
+  background: rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  transition: all var(--fast) !important;
+}
+
+.modal__close:hover {
+  background: var(--red) !important;
+  border-color: var(--red) !important;
+  transform: rotate(90deg) !important;
+}
+
+/* Synchronize browse grid cards and search cards with home page premium cards */
+.browse__card {
+  position: relative !important;
+  border-radius: var(--radius-lg) !important;
+  overflow: hidden !important;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.03) !important;
+  box-shadow: none !important;
+}
+
+.browse__card img {
+  border-radius: var(--radius-lg) !important;
+  transition: transform 0.4s ease !important;
+  width: 100%;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+  display: block;
+}
+
+.browse__card:hover {
+  transform: translateY(-8px) scale(1.03) !important;
+  border-color: rgba(255, 42, 59, 0.4) !important;
+  box-shadow: 0 12px 30px rgba(255, 42, 59, 0.15), 0 0 0 2px rgba(255, 42, 59, 0.1) !important;
+  z-index: 10 !important;
+}
+
+.browse__card:hover img {
+  transform: scale(1.05) !important;
+}
+
+.browse__card-info {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: auto !important;
+  background: linear-gradient(transparent, rgba(10, 10, 15, 0.95) 70%) !important;
+  padding: 12px !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.browse__card .card__info-row {
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), 
+              opacity 0.25s ease, 
+              margin-bottom 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.browse__card:hover .card__info-row {
+  max-height: 40px;
+  opacity: 1;
+  margin-bottom: 8px;
+  pointer-events: auto;
+}
+
+.browse__card-name {
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  color: var(--white) !important;
+  line-height: 1.3 !important;
+  margin: 0 !important;
+}
+
+.browse__card .browse__card-meta {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), 
+              opacity 0.25s ease, 
+              margin-top 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.browse__card:hover .browse__card-meta {
+  max-height: 30px;
+  opacity: 1;
+  margin-top: 6px;
+  pointer-events: auto;
+}
+
 

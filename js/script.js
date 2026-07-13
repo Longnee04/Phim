@@ -10,6 +10,7 @@ const API = {
     "hoat-hinh":  "https://ophim1.com/v1/api/danh-sach/hoat-hinh",
     "tv-shows":   "https://ophim1.com/v1/api/danh-sach/tv-shows",
     vietsub:   "https://ophim1.com/v1/api/danh-sach/phim-vietsub",
+    anime:     "https://ophim1.com/v1/api/danh-sach/hoat-hinh?country=nhat-ban",
     search:    "https://ophim1.com/v1/api/tim-kiem",
     detail:    "https://ophim1.com/phim/",
     genre:     "https://ophim1.com/v1/api/the-loai/",
@@ -39,7 +40,7 @@ const GENRE_NAMES = {
     'vo-thuat':'Võ Thuật','vien-tuong':'Viễn Tưởng','phieu-luu':'Phiêu Lưu','khoa-hoc':'Khoa Học',
     'kinh-di':'Kinh Dị','am-nhac':'Âm Nhạc','than-thoai':'Thần Thoại','tai-lieu':'Tài Liệu',
     'gia-dinh':'Gia Đình','chinh-kich':'Chính Kịch','bi-an':'Bí Ẩn','hoc-duong':'Học Đường',
-    'kinh-dien':'Kinh Điển'
+    'kinh-dien':'Kinh Điển','anime':'Anime'
 };
 const COUNTRY_NAMES = {
     'trung-quoc':'Trung Quốc','han-quoc':'Hàn Quốc','nhat-ban':'Nhật Bản','thai-lan':'Thái Lan',
@@ -47,7 +48,7 @@ const COUNTRY_NAMES = {
     'anh':'Anh','phap':'Pháp','duc':'Đức','viet-nam':'Việt Nam',
     'tho-nhi-ky':'Thổ Nhĩ Kỳ','philippines':'Philippines','indonesia':'Indonesia'
 };
-const TYPE_NAMES = { series:'Phim Bộ', movies:'Phim Lẻ', 'hoat-hinh':'Hoạt Hình', 'tv-shows':'TV Shows', vietsub:'Phim Vietsub' };
+const TYPE_NAMES = { series:'Phim Bộ', movies:'Phim Lẻ', 'hoat-hinh':'Hoạt Hình', 'tv-shows':'TV Shows', vietsub:'Phim Vietsub', anime:'Anime' };
 
 // Helpers
 const img = p => p ? (p.startsWith('http') ? p : IMG_CDN + p) : '';
@@ -773,6 +774,7 @@ function initBillboard(movies) {
 function showSlide(i) {
     const m = billboardMovies[i]; if (!m) return;
     setSafeBgImage(document.getElementById('billboard-bg'), img(m.poster_url||m.thumb_url));
+    setSafeBgImage(document.getElementById('billboard-ambient'), img(m.poster_url||m.thumb_url));
     document.getElementById('billboard-title').textContent = m.name;
     document.getElementById('billboard-desc').textContent = '';
     apiFetch(API.detail + m.slug).then(d => {
@@ -1147,26 +1149,35 @@ function openMyListPage() {
     list.forEach(m => {
         const card = document.createElement('div'); card.className = 'browse__card';
         card.innerHTML = `
-            <img src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)">
-            <button class="browse__card-play" type="button"><i class="fas fa-play"></i></button>
-            <button class="browse__card-remove" data-remove-mylist="${m.slug}" type="button" title="Xóa khỏi danh sách"><i class="fas fa-times"></i></button>
+            <img class="browse__card-img" src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)">
             <div class="browse__card-info">
-                <div class="browse__card-name">${m.name}</div>
+                <div class="card__info-row">
+                    <div class="card__info-left">
+                        <button class="card__mini-btn card__mini-btn--play" data-slug="${m.slug}" data-play="1" type="button"><i class="fas fa-play"></i></button>
+                        <button class="card__mini-btn card__mylist-btn in-list" data-mylist-slug="${m.slug}" type="button" title="Xóa khỏi danh sách"><i class="fas fa-check"></i></button>
+                    </div>
+                    <div class="card__info-right">
+                        <button class="card__mini-btn" data-slug="${m.slug}" type="button"><i class="fas fa-chevron-down"></i></button>
+                    </div>
+                </div>
+                <div class="browse__card-name" style="margin-top: 6px;">${m.name}</div>
                 <div class="browse__card-meta">
                     ${m.year ? `<span>${m.year}</span>` : ''}
                     ${m.quality ? `<span class="browse__card-badge">${m.quality}</span>` : ''}
                     ${m.lang ? `<span class="browse__card-badge">${m.lang}</span>` : ''}
                 </div>
             </div>`;
-        card.querySelector('.browse__card-play').addEventListener('click', e => { e.stopPropagation(); openModal(m.slug, true); });
-        card.querySelector('[data-remove-mylist]').addEventListener('click', e => {
+        card.querySelector('.browse__card-img').addEventListener('click', () => openModal(m.slug));
+        card.querySelectorAll('[data-slug]').forEach(b => {
+            b.addEventListener('click', e => { e.stopPropagation(); openModal(b.dataset.slug, b.dataset.play === '1'); });
+        });
+        card.querySelector('.card__mylist-btn').addEventListener('click', e => {
             e.stopPropagation();
             STORAGE.removeFromMyList(m.slug);
             card.style.transform = 'scale(0.8)';
             card.style.opacity = '0';
             setTimeout(() => openMyListPage(), 300);
         });
-        card.addEventListener('click', () => openModal(m.slug));
         grid.appendChild(card);
     });
 
@@ -1174,7 +1185,11 @@ function openMyListPage() {
 }
 
 function getBrowseUrl(page) {
-    if (browseType === 'type') return `${API[browseSlug]}?page=${page}&limit=${BROWSE_SIZE}`;
+    if (browseType === 'type') {
+        const base = API[browseSlug];
+        const sep = base.includes('?') ? '&' : '?';
+        return `${base}${sep}page=${page}&limit=${BROWSE_SIZE}`;
+    }
     if (browseType === 'genre') return `${API.genre}${browseSlug}?page=${page}&limit=${BROWSE_SIZE}`;
     if (browseType === 'country') return `${API.country}${browseSlug}?page=${page}&limit=${BROWSE_SIZE}`;
     if (browseType === 'year') return `${API.list}?year=${browseSlug}&page=${page}&limit=${BROWSE_SIZE}`;
@@ -1226,18 +1241,37 @@ function renderBrowseGrid(items) {
     if (!items.length) { grid.innerHTML = '<p style="color:var(--t3);text-align:center;padding:40px;">Không có phim.</p>'; return; }
     items.forEach(m => {
         const card = document.createElement('div'); card.className = 'browse__card';
+        const inList = STORAGE.isInMyList(m.slug);
         card.innerHTML = `
-            <img src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)">
-            <button class="browse__card-play" type="button"><i class="fas fa-play"></i></button>
+            <img class="browse__card-img" src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)">
             <div class="browse__card-info">
-                <div class="browse__card-name">${m.name}</div>
+                <div class="card__info-row">
+                    <div class="card__info-left">
+                        <button class="card__mini-btn card__mini-btn--play" data-slug="${m.slug}" data-play="1" type="button"><i class="fas fa-play"></i></button>
+                        <button class="card__mini-btn card__mylist-btn${inList ? ' in-list' : ''}" data-mylist-slug="${m.slug}" type="button" title="${inList ? 'Xóa khỏi danh sách' : 'Thêm vào danh sách'}"><i class="fas fa-${inList ? 'check' : 'plus'}"></i></button>
+                    </div>
+                    <div class="card__info-right">
+                        <button class="card__mini-btn" data-slug="${m.slug}" type="button"><i class="fas fa-chevron-down"></i></button>
+                    </div>
+                </div>
+                <div class="browse__card-name" style="margin-top: 6px;">${m.name}</div>
                 <div class="browse__card-meta">
                     ${m.year ? `<span>${m.year}</span>` : ''}
                     ${m.quality ? `<span class="browse__card-badge">${m.quality}</span>` : ''}
                     ${m.lang ? `<span class="browse__card-badge">${m.lang}</span>` : ''}
                 </div>
             </div>`;
-        card.addEventListener('click', () => openModal(m.slug));
+        card.querySelector('.browse__card-img').addEventListener('click', () => openModal(m.slug));
+        card.querySelectorAll('[data-slug]').forEach(b => {
+            b.addEventListener('click', e => { e.stopPropagation(); openModal(b.dataset.slug, b.dataset.play === '1'); });
+        });
+        const myListBtn = card.querySelector('.card__mylist-btn');
+        if (myListBtn) {
+            myListBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                toggleMyListOnCard(m, myListBtn);
+            });
+        }
         grid.appendChild(card);
     });
 }
@@ -1619,9 +1653,13 @@ async function openModal(slug, autoPlay = false) {
     const heroImg = document.getElementById('modal-hero-img');
     const hero = document.getElementById('modal-hero');
 
-    // Cập nhật URL trình duyệt cho SEO (URL đẹp)
-    if (window.location.pathname !== '/phim/' + slug) {
-        history.pushState({ slug: slug }, '', '/phim/' + slug);
+    // Cập nhật URL trình duyệt cho SEO (URL đẹp) - Chỉ chạy nếu không dùng giao thức file://
+    try {
+        if (window.location.protocol !== 'file:' && window.location.pathname !== '/phim/' + slug) {
+            history.pushState({ slug: slug }, '', '/phim/' + slug);
+        }
+    } catch (e) {
+        console.warn('history.pushState is bypassed on local files:', e);
     }
 
     _modalReqId++; const reqId = _modalReqId;
@@ -1901,8 +1939,12 @@ function closeModal() {
     if (oldSchema) oldSchema.remove();
 
     // Cập nhật lại URL trình duyệt về trang chủ
-    if (window.location.pathname !== '/') {
-        history.pushState(null, '', '/');
+    try {
+        if (window.location.protocol !== 'file:' && window.location.pathname !== '/') {
+            history.pushState(null, '', '/');
+        }
+    } catch (e) {
+        console.warn('history.pushState is bypassed on local files:', e);
     }
 
     if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
