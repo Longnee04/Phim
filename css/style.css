@@ -3003,4 +3003,68 @@ body {
   pointer-events: auto;
 }
 
+/* Mobile Responsive Optimizations for Floating Header & Search */
+@media (max-width: 860px) {
+  .nav {
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+    height: 50px !important; /* Flat header layout on mobile */
+    border: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    background: rgba(10, 10, 15, 0.95) !important;
+    padding: 0 12px !important;
+  }
+  
+  .nav__left {
+    gap: 8px !important;
+  }
+
+  .nav__logo {
+    font-size: 1.2rem !important;
+  }
+  
+  .nav__mobile-toggle {
+    display: flex !important;
+    position: absolute !important;
+    top: 7px !important;
+    right: 8px !important;
+    width: 36px !important;
+    height: 36px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 50% !important;
+    color: var(--white) !important;
+    z-index: 1010 !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  .nav__right {
+    margin-right: 44px !important; /* Make room for hamburger trigger */
+    gap: 8px !important;
+  }
+  
+  .nav__notification {
+    display: none !important; /* Hide notification on mobile header */
+  }
+  
+  .nav__search-btn {
+    min-width: 32px !important;
+    min-height: 32px !important;
+  }
+  
+  .nav__search-input {
+    width: 0;
+  }
+  
+  .nav__search.open .nav__search-input {
+    width: 180px !important; /* Limit search bar width to avoid horizontal screen overflow */
+    background: rgba(10, 10, 15, 0.98) !important;
+  }
+}
+
 
