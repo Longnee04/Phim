@@ -2659,6 +2659,13 @@ body {
   font-family: 'Inter', sans-serif !important;
 }
 
+/* Restore Font Awesome font-family for icons inside AI elements */
+.ai-panel i, .ai-bubble i, .ai-panel [class*="fa-"], .ai-bubble [class*="fa-"] {
+  font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Brands', sans-serif !important;
+  font-style: normal !important;
+  font-weight: 900 !important;
+}
+
 /* Ultra-Compact & Aligned Floating Translucent Header */
 .nav {
   position: fixed;
