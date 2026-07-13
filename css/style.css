@@ -3003,7 +3003,7 @@ body {
   pointer-events: auto;
 }
 
-/* Mobile Responsive Optimizations for Floating Header & Search */
+/* Mobile Responsive Optimizations for Swipeable Header & Search */
 @media (max-width: 860px) {
   .nav {
     top: 0 !important;
@@ -3016,24 +3016,65 @@ body {
     border: none !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
     background: rgba(10, 10, 15, 0.95) !important;
-    padding: 0 12px !important;
+    padding: 0 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
   }
   
   .nav__left {
+    display: flex !important;
+    align-items: center !important;
     gap: 8px !important;
+    flex-grow: 1 !important;
+    overflow: hidden !important;
   }
 
   .nav__logo {
-    font-size: 1.2rem !important;
+    font-size: 1.15rem !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Horizontal swipeable scroll menu on mobile */
+  .nav__menu {
+    display: flex !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    gap: 4px !important;
+    padding: 0 4px !important;
+    scrollbar-width: none !important; /* Hide scrollbar for Firefox */
+    -webkit-overflow-scrolling: touch !important; /* Smooth scroll on iOS */
+    flex-grow: 1 !important;
+  }
+  
+  .nav__menu::-webkit-scrollbar {
+    display: none !important; /* Hide scrollbar for Chrome/Safari */
+  }
+
+  .nav__menu li {
+    display: flex !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Hide dropdown menus on top mobile bar to avoid clipping errors (they are in sidebar) */
+  .nav__menu .nav__dropdown {
+    display: none !important;
+  }
+
+  .nav__link {
+    font-size: 0.8rem !important;
+    padding: 4px 8px !important;
+    height: 24px !important;
+    border-radius: 12px !important;
   }
   
   .nav__mobile-toggle {
     display: flex !important;
     position: absolute !important;
-    top: 7px !important;
+    top: 9px !important;
     right: 8px !important;
-    width: 36px !important;
-    height: 36px !important;
+    width: 32px !important;
+    height: 32px !important;
     background: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: 50% !important;
@@ -3044,8 +3085,9 @@ body {
   }
   
   .nav__right {
-    margin-right: 44px !important; /* Make room for hamburger trigger */
-    gap: 8px !important;
+    margin-right: 36px !important; /* Leave space for absolute hamburger trigger */
+    gap: 6px !important;
+    flex-shrink: 0 !important;
   }
   
   .nav__notification {
@@ -3062,7 +3104,7 @@ body {
   }
   
   .nav__search.open .nav__search-input {
-    width: 180px !important; /* Limit search bar width to avoid horizontal screen overflow */
+    width: 140px !important; /* Shorten search input width to avoid squishing the scroll bar too much */
     background: rgba(10, 10, 15, 0.98) !important;
   }
 }
