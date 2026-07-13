@@ -3800,7 +3800,7 @@ function initNotifications() {
     
     if (!btn || !modal) return;
     
-    const CURRENT_VERSION = '1.3';
+    const CURRENT_VERSION = '2.0';
     const lastReadVersion = localStorage.getItem('lphim_last_read_version');
     
     // Nếu chưa đọc phiên bản mới nhất, hiện dấu chấm đỏ nhấp nháy
