@@ -843,9 +843,6 @@ async function loadAll() {
 
         // Lưu đệm lại dữ liệu mới nhất vào localStorage
         localStorage.setItem('lphim_homepage_cache', JSON.stringify({ m1, m2, m3, m4, m5, m6 }));
-
-        // Gợi ý phim ngẫu nhiên sau khi tải
-        if (m1.length) triggerRandomMovieSuggestion(m1);
     } catch (e) { 
         console.error('loadAll fresh fetch failed:', e); 
     }
@@ -1322,19 +1319,7 @@ function showToast(title, desc, icon = 'fa-info-circle', onClickAction = null) {
     }, 6000);
 }
 
-// Gợi ý phim mới ngẫu nhiên khi vào trang
-function triggerRandomMovieSuggestion(movies) {
-    if (!movies || !movies.length) return;
-    setTimeout(() => {
-        const rand = movies[Math.floor(Math.random() * movies.length)];
-        showToast(
-            'Gợi ý phim hot hôm nay 🎬',
-            `Có phim mới cập nhật: <b>${rand.name}</b>. Xem ngay!`,
-            'fa-ticket',
-            () => openModal(rand.slug)
-        );
-    }, 3500); // 3.5 giây sau khi trang tải xong
-}
+
 
 // ══════════════════════════════════════════════════════════
 //  MODAL
