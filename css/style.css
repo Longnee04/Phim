@@ -3116,4 +3116,201 @@ body {
   }
 }
 
+/* Title overlay on home page movie cards */
+.card__title-overlay {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  background: linear-gradient(transparent, rgba(10, 10, 15, 0.95) 80%) !important;
+  padding: 24px 8px 8px !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  color: var(--white) !important;
+  text-align: center !important;
+  border-bottom-left-radius: var(--radius) !important;
+  border-bottom-right-radius: var(--radius) !important;
+  pointer-events: none !important;
+  transition: opacity 0.2s ease !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  z-index: 2 !important;
+}
+
+.card:hover .card__title-overlay {
+  opacity: 0 !important;
+}
+
+/* "Nội dung tương tự" (More Like This) section inside Details Modal */
+.modal__related-section {
+  margin-top: 48px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  padding-top: 32px !important;
+}
+
+.modal__related-title {
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  color: var(--white) !important;
+  margin-bottom: 20px !important;
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+.modal__related-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 20px !important;
+}
+
+@media (max-width: 768px) {
+  .modal__related-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal__related-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.related-card {
+  background: #181818 !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  transition: transform 0.3s ease, border-color 0.3s ease !important;
+  cursor: pointer !important;
+}
+
+.related-card:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(255, 42, 59, 0.3) !important;
+}
+
+.related-card__img-container {
+  position: relative !important;
+  width: 100% !important;
+  aspect-ratio: 16/9 !important;
+  overflow: hidden !important;
+  background: var(--surface2) !important;
+}
+
+.related-card__img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transition: transform 0.4s ease !important;
+}
+
+.related-card:hover .related-card__img {
+  transform: scale(1.05) !important;
+}
+
+.related-card__duration {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  color: var(--white) !important;
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  z-index: 2 !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+.related-card__play-overlay {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(0.8) !important;
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  border: 2px solid var(--white) !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  color: var(--white) !important;
+  font-size: 1rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0 !important;
+  transition: all 0.3s ease !important;
+  z-index: 3 !important;
+  pointer-events: none !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+.related-card:hover .related-card__play-overlay {
+  opacity: 1 !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+}
+
+.related-card__body {
+  padding: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex-grow: 1 !important;
+}
+
+.related-card__meta-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 10px !important;
+}
+
+.related-card__meta-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.related-card__tag {
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  color: var(--t2) !important;
+  padding: 1px 5px !important;
+  border-radius: 3px !important;
+}
+
+.related-card__year {
+  font-size: 0.75rem !important;
+  color: var(--t3) !important;
+  font-weight: 500 !important;
+}
+
+.related-card__mylist-btn {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 0.7rem !important;
+  flex-shrink: 0 !important;
+}
+
+.related-card__title {
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  color: var(--white) !important;
+  margin: 0 0 6px 0 !important;
+  line-height: 1.4 !important;
+  transition: color 0.25s ease !important;
+}
+
+.related-card__title:hover {
+  color: var(--red) !important;
+}
+
+.related-card__genres {
+  font-size: 0.72rem !important;
+  color: var(--t3) !important;
+  margin: auto 0 0 0 !important; /* Push to bottom of body */
+  line-height: 1.3 !important;
+}
+
 

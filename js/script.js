@@ -980,6 +980,7 @@ function createCard(movie) {
     const inList = STORAGE.isInMyList(movie.slug);
     card.innerHTML = `
         <img class="card__img" src="${poster}" alt="${movie.name}" loading="lazy" onerror="handleImgError(this)">
+        <div class="card__title-overlay">${movie.name}</div>
         <div class="card__info">
             <div class="card__info-row">
                 <div class="card__info-left">
@@ -1801,6 +1802,7 @@ async function openModal(slug, autoPlay = false) {
         }
 
         renderEpisodes(eps, m);
+        renderRelatedMovies(m, _modalAbort.signal);
 
         // Khôi phục tiến trình xem dở (nếu có)
         const savedProgress = STORAGE.getProgress(slug);
@@ -1852,6 +1854,91 @@ function renderEpisodes(eps, movie) {
         };
         c.appendChild(b);
     });
+}
+
+async function renderRelatedMovies(movie, signal) {
+    const section = document.getElementById('modal-related-section');
+    const grid = document.getElementById('modal-related-grid');
+    if (!section || !grid) return;
+
+    section.style.display = 'none';
+    grid.innerHTML = '';
+
+    const categories = movie.category || [];
+    if (!categories.length) return;
+
+    const genreSlug = categories[0].slug;
+    if (!genreSlug) return;
+
+    try {
+        const d = await apiFetch(API.genre + genreSlug, { signal });
+        if (!d || !d.data || !d.data.items) return;
+
+        const items = d.data.items.filter(item => item.slug !== movie.slug).slice(0, 9);
+        if (!items.length) return;
+
+        section.style.display = 'block';
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'related-card';
+            
+            const poster = img(item.poster_url || item.thumb_url);
+            const duration = item.time || item.episode_current || '';
+            const year = item.year || '';
+            const quality = item.quality || 'HD';
+            const lang = item.lang || 'Vietsub';
+            const inList = STORAGE.isInMyList(item.slug);
+
+            card.innerHTML = `
+                <div class="related-card__img-container">
+                    <img class="related-card__img" src="${poster}" alt="${item.name}" loading="lazy" onerror="handleImgError(this)">
+                    ${duration ? `<span class="related-card__duration">${duration}</span>` : ''}
+                    <button class="related-card__play-overlay" type="button"><i class="fas fa-play"></i></button>
+                </div>
+                <div class="related-card__body">
+                    <div class="related-card__meta-row">
+                        <div class="related-card__meta-left">
+                            <span class="related-card__tag">${quality}</span>
+                            <span class="related-card__year">${year}</span>
+                        </div>
+                        <button class="card__mini-btn related-card__mylist-btn${inList ? ' in-list' : ''}" data-mylist-slug="${item.slug}" type="button" title="${inList ? 'Xóa khỏi danh sách' : 'Thêm vào danh sách'}"><i class="fas fa-${inList ? 'check' : 'plus'}"></i></button>
+                    </div>
+                    <h4 class="related-card__title">${item.name}</h4>
+                    <p class="related-card__genres">${(item.category || []).map(c => c.name).filter(Boolean).slice(0, 3).join(' • ')}</p>
+                </div>
+            `;
+
+            // Click handlers
+            card.querySelector('.related-card__img-container').onclick = () => {
+                openModal(item.slug);
+            };
+            card.querySelector('.related-card__title').onclick = () => {
+                openModal(item.slug);
+            };
+
+            const myListBtn = card.querySelector('[data-mylist-slug]');
+            if (myListBtn) {
+                myListBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const added = STORAGE.toggleMyList(item);
+                    myListBtn.classList.toggle('in-list', added);
+                    myListBtn.innerHTML = `<i class="fas fa-${added ? 'check' : 'plus'}"></i>`;
+                    updateAllMyListButtons(item.slug, added);
+                    showToast(
+                        added ? 'Đã thêm vào danh sách! ✓' : 'Đã xóa khỏi danh sách!',
+                        added ? `Đã lưu phim <b>${item.name}</b> vào Danh sách của tôi.` : `Đã xóa <b>${item.name}</b> khỏi Danh sách của tôi.`,
+                        added ? 'fa-heart' : 'fa-trash-can'
+                    );
+                };
+            }
+
+            grid.appendChild(card);
+        });
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            console.error('renderRelatedMovies:', err);
+        }
+    }
 }
 
 function playEpisode(ep, movie) {
