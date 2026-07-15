@@ -437,7 +437,7 @@ a{text-decoration:none;color:inherit;}
 .btn-circle--danger:hover{border-color:var(--red);color:var(--white);background:var(--red);transform:scale(1.1);}
 
 /* ==================== ROWS ==================== */
-.rows-container{position:relative;z-index:10;margin-top:-18vh;padding-bottom:40px;}
+.rows-container{position:relative;z-index:10;margin-top:-6vh;padding-bottom:40px;}
 .row{margin-bottom:28px;position:relative;}
 .row__header{
   display:flex;align-items:center;justify-content:space-between;
@@ -3122,10 +3122,10 @@ body {
   bottom: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  background: linear-gradient(transparent, rgba(10, 10, 15, 0.95) 80%) !important;
-  padding: 24px 8px 8px !important;
-  font-size: 0.72rem !important;
-  font-weight: 600 !important;
+  background: linear-gradient(transparent, rgba(10, 10, 15, 0.98) 70%) !important;
+  padding: 28px 10px 10px !important;
+  font-size: 0.85rem !important; /* Larger font size */
+  font-weight: 700 !important; /* Bolder font weight */
   color: var(--white) !important;
   text-align: center !important;
   border-bottom-left-radius: var(--radius) !important;
@@ -3142,6 +3142,28 @@ body {
   opacity: 0 !important;
 }
 
+/* Ensure high-quality Vietnamese fonts are used globally across the entire app */
+body, p, span, div, a, button, input, textarea, select, li, label, h1, h2, h3, h4, h5, h6 {
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif !important;
+}
+
+/* Explicitly keep Montserrat for logo, headings and section titles */
+.nav__logo, .billboard__title, .row__title, .modal__title, .search-overlay__title, .notification-modal__header h3, .modal__related-title {
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+/* Configure home page card component styles to adapt inside categories grid view (.browse__grid) */
+.browse__grid .card {
+  flex: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+/* Adjust grid row gaps to leave space for hovered card absolute dropdown overlays */
+.browse__grid {
+  gap: 24px 16px !important;
+}
+
 /* "Nội dung tương tự" (More Like This) section inside Details Modal */
 .modal__related-section {
   margin-top: 48px !important;
@@ -3154,7 +3176,6 @@ body {
   font-weight: 700 !important;
   color: var(--white) !important;
   margin-bottom: 20px !important;
-  font-family: 'Montserrat', sans-serif !important;
 }
 
 .modal__related-grid {
@@ -3294,7 +3315,7 @@ body {
 }
 
 .related-card__title {
-  font-size: 0.88rem !important;
+  font-size: 0.95rem !important; /* Slightly larger title font size */
   font-weight: 700 !important;
   color: var(--white) !important;
   margin: 0 0 6px 0 !important;

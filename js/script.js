@@ -1148,37 +1148,20 @@ function openMyListPage() {
     if (list.length) setSafeBgImage(heroEl, img(list[0].poster_url||list[0].thumb_url));
 
     list.forEach(m => {
-        const card = document.createElement('div'); card.className = 'browse__card';
-        card.innerHTML = `
-            <img class="browse__card-img" src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)">
-            <div class="browse__card-info">
-                <div class="card__info-row">
-                    <div class="card__info-left">
-                        <button class="card__mini-btn card__mini-btn--play" data-slug="${m.slug}" data-play="1" type="button"><i class="fas fa-play"></i></button>
-                        <button class="card__mini-btn card__mylist-btn in-list" data-mylist-slug="${m.slug}" type="button" title="Xóa khỏi danh sách"><i class="fas fa-check"></i></button>
-                    </div>
-                    <div class="card__info-right">
-                        <button class="card__mini-btn" data-slug="${m.slug}" type="button"><i class="fas fa-chevron-down"></i></button>
-                    </div>
-                </div>
-                <div class="browse__card-name" style="margin-top: 6px;">${m.name}</div>
-                <div class="browse__card-meta">
-                    ${m.year ? `<span>${m.year}</span>` : ''}
-                    ${m.quality ? `<span class="browse__card-badge">${m.quality}</span>` : ''}
-                    ${m.lang ? `<span class="browse__card-badge">${m.lang}</span>` : ''}
-                </div>
-            </div>`;
-        card.querySelector('.browse__card-img').addEventListener('click', () => openModal(m.slug));
-        card.querySelectorAll('[data-slug]').forEach(b => {
-            b.addEventListener('click', e => { e.stopPropagation(); openModal(b.dataset.slug, b.dataset.play === '1'); });
-        });
-        card.querySelector('.card__mylist-btn').addEventListener('click', e => {
-            e.stopPropagation();
-            STORAGE.removeFromMyList(m.slug);
-            card.style.transform = 'scale(0.8)';
-            card.style.opacity = '0';
-            setTimeout(() => openMyListPage(), 300);
-        });
+        const card = createCard(m);
+        const myListBtn = card.querySelector('[data-mylist-slug]');
+        if (myListBtn) {
+            myListBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                setTimeout(() => {
+                    if (!STORAGE.isInMyList(m.slug)) {
+                        card.style.transform = 'scale(0.8)';
+                        card.style.opacity = '0';
+                        setTimeout(() => openMyListPage(), 300);
+                    }
+                }, 100);
+            });
+        }
         grid.appendChild(card);
     });
 
@@ -1241,38 +1224,7 @@ function renderBrowseGrid(items) {
     const grid = document.getElementById('browse-grid'); grid.innerHTML = '';
     if (!items.length) { grid.innerHTML = '<p style="color:var(--t3);text-align:center;padding:40px;">Không có phim.</p>'; return; }
     items.forEach(m => {
-        const card = document.createElement('div'); card.className = 'browse__card';
-        const inList = STORAGE.isInMyList(m.slug);
-        card.innerHTML = `
-            <img class="browse__card-img" src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)">
-            <div class="browse__card-info">
-                <div class="card__info-row">
-                    <div class="card__info-left">
-                        <button class="card__mini-btn card__mini-btn--play" data-slug="${m.slug}" data-play="1" type="button"><i class="fas fa-play"></i></button>
-                        <button class="card__mini-btn card__mylist-btn${inList ? ' in-list' : ''}" data-mylist-slug="${m.slug}" type="button" title="${inList ? 'Xóa khỏi danh sách' : 'Thêm vào danh sách'}"><i class="fas fa-${inList ? 'check' : 'plus'}"></i></button>
-                    </div>
-                    <div class="card__info-right">
-                        <button class="card__mini-btn" data-slug="${m.slug}" type="button"><i class="fas fa-chevron-down"></i></button>
-                    </div>
-                </div>
-                <div class="browse__card-name" style="margin-top: 6px;">${m.name}</div>
-                <div class="browse__card-meta">
-                    ${m.year ? `<span>${m.year}</span>` : ''}
-                    ${m.quality ? `<span class="browse__card-badge">${m.quality}</span>` : ''}
-                    ${m.lang ? `<span class="browse__card-badge">${m.lang}</span>` : ''}
-                </div>
-            </div>`;
-        card.querySelector('.browse__card-img').addEventListener('click', () => openModal(m.slug));
-        card.querySelectorAll('[data-slug]').forEach(b => {
-            b.addEventListener('click', e => { e.stopPropagation(); openModal(b.dataset.slug, b.dataset.play === '1'); });
-        });
-        const myListBtn = card.querySelector('.card__mylist-btn');
-        if (myListBtn) {
-            myListBtn.addEventListener('click', e => {
-                e.stopPropagation();
-                toggleMyListOnCard(m, myListBtn);
-            });
-        }
+        const card = createCard(m);
         grid.appendChild(card);
     });
 }
