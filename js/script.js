@@ -1900,16 +1900,16 @@ function playEpisode(ep, movie) {
     const m3u8 = ep.link_m3u8;
     const embed = ep.link_embed;
 
-    if (m3u8 && typeof VIPPlayer !== 'undefined') {
-        const hero = document.getElementById('modal-hero');
-        if (hero) hero.querySelectorAll('iframe').forEach(f => f.remove());
-        VIPPlayer.load(m3u8, embed);
-        VIPPlayer._updateNextButton();
-    } else if (embed) {
+    if (embed) {
         if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
             VIPPlayer.deactivate();
         }
         playInModal(embed);
+    } else if (m3u8 && typeof VIPPlayer !== 'undefined') {
+        const hero = document.getElementById('modal-hero');
+        if (hero) hero.querySelectorAll('iframe').forEach(f => f.remove());
+        VIPPlayer.load(m3u8, embed);
+        VIPPlayer._updateNextButton();
     } else {
         if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
             VIPPlayer.deactivate();
