@@ -1424,6 +1424,26 @@ function initModal() {
         });
     }
 
+    // Nút Đổi Nguồn (Switch Source)
+    const sourceBtn = document.getElementById('modal-source-btn');
+    if (sourceBtn) {
+        sourceBtn.addEventListener('click', () => {
+            if (!_currentEpisode) return;
+            const currentPref = localStorage.getItem('lphim_preferred_source') || 'vip';
+            const newPref = currentPref === 'vip' ? 'iframe' : 'vip';
+            localStorage.setItem('lphim_preferred_source', newPref);
+            updateSourceButton();
+            
+            showToast(
+                newPref === 'vip' ? 'Đổi nguồn VIP ⚡' : 'Đổi nguồn Dự Phòng 🛡️',
+                newPref === 'vip' ? 'Đang chuyển sang trình phát HTML5 tự động chất lượng cao.' : 'Đang chuyển sang trình phát dự phòng nhúng trực tiếp.',
+                'fa-server'
+            );
+            
+            playEpisode(_currentEpisode, _currentModalMovie);
+        });
+    }
+
 
     // Sự kiện tương tác đánh giá sao (Star Rating)
     const starsContainer = document.getElementById('modal-stars');
@@ -1642,6 +1662,7 @@ async function openModal(slug, autoPlay = false) {
     // Ẩn các nút điều khiển video khi chưa phát
     document.getElementById('modal-light-btn').style.display = 'none';
     document.getElementById('modal-theater-btn').style.display = 'none';
+    document.getElementById('modal-source-btn').style.display = 'none';
     document.getElementById('modal-player-bar').style.display = 'none';
     document.getElementById('modal-light-btn').title = 'Tắt đèn (Theater Mode)';
 
@@ -1788,6 +1809,99 @@ async function openModal(slug, autoPlay = false) {
         if (err.name === 'AbortError') return;
         document.getElementById('modal-desc').textContent = 'Lỗi khi tải.';
     }
+}
+
+function updateSourceButton() {
+    const btn = document.getElementById('modal-source-btn');
+    if (!btn) return;
+    
+    if (!_currentEpisode) {
+        btn.style.display = 'none';
+        return;
+    }
+    
+    btn.style.display = 'inline-flex';
+    const pref = localStorage.getItem('lphim_preferred_source') || 'vip';
+    
+    if (pref === 'vip') {
+        btn.innerHTML = `<i class="fas fa-server"></i> Nguồn: VIP (HLS)`;
+        btn.title = "Đang phát bằng nguồn VIP (HTML5). Bấm để đổi sang nguồn Dự Phòng (Iframe).";
+    } else {
+        btn.innerHTML = `<i class="fas fa-server"></i> Nguồn: Dự Phòng`;
+        btn.title = "Đang phát bằng nguồn Dự Phòng (Iframe). Bấm để đổi sang nguồn VIP (HTML5).";
+    }
+}
+
+function playEpisode(ep, movie) {
+    _currentEpisode = ep;
+    if (movie) _currentModalMovie = movie;
+
+    const m3u8 = ep.link_m3u8;
+    const embed = ep.link_embed;
+
+    const pref = localStorage.getItem('lphim_preferred_source') || 'vip';
+
+    if (pref === 'vip' && m3u8 && typeof VIPPlayer !== 'undefined') {
+        const hero = document.getElementById('modal-hero');
+        if (hero) hero.querySelectorAll('iframe').forEach(f => f.remove());
+        VIPPlayer.load(m3u8, embed);
+        VIPPlayer._updateNextButton();
+    } else if (embed) {
+        if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
+            VIPPlayer.deactivate();
+        }
+        playInModal(embed);
+    } else if (m3u8 && typeof VIPPlayer !== 'undefined') {
+        const hero = document.getElementById('modal-hero');
+        if (hero) hero.querySelectorAll('iframe').forEach(f => f.remove());
+        VIPPlayer.load(m3u8, embed);
+        VIPPlayer._updateNextButton();
+    } else {
+        if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
+            VIPPlayer.deactivate();
+        }
+        showToast('Lỗi phát ⚠️', 'Không tìm thấy nguồn phát hợp lệ cho tập này.', 'fa-triangle-exclamation');
+    }
+    updateNextEpisodeButton();
+
+    const modalEl = document.getElementById('modal');
+    if (modalEl) {
+        window.focus();
+        modalEl.focus();
+    }
+
+    // Lưu tiến trình xem dở (tập nào)
+    const slug = (movie && movie.slug) || _currentModalSlug;
+    if (slug) STORAGE.saveProgress(slug, ep.name);
+
+    // Save to history
+    if (movie) {
+        STORAGE.addHistory({
+            slug: movie.slug || _currentModalSlug,
+            name: movie.name || '',
+            poster_url: movie.poster_url || '',
+            thumb_url: movie.thumb_url || '',
+            episode: ep.name || ''
+        });
+        
+        // Hiện nút xóa lịch sử trong modal ngay lập tức
+        const removeHistoryBtn = document.getElementById('modal-remove-history-btn');
+        if (removeHistoryBtn) {
+            removeHistoryBtn.onclick = () => {
+                STORAGE.removeHistory(movie.slug || _currentModalSlug);
+                removeHistoryBtn.style.display = 'none';
+                showToast(
+                    'Đã xóa lịch sử! 🕒',
+                    `Đã xóa phim <b>${movie.name || ''}</b> khỏi Tiếp tục xem.`,
+                    'fa-trash-can'
+                );
+                renderHistoryRow();
+            };
+        }
+    }
+    
+    // Cập nhật hiển thị nút đổi nguồn phát
+    updateSourceButton();
 }
 
 function renderEpisodes(eps, movie) {
@@ -2003,6 +2117,8 @@ function closeModal() {
     modal.classList.remove('is-playing');
     const playerBar = document.getElementById('modal-player-bar');
     if (playerBar) playerBar.style.display = 'none';
+    const sourceBtn = document.getElementById('modal-source-btn');
+    if (sourceBtn) sourceBtn.style.display = 'none';
 
     // Tắt các class rạp chiếu, tắt đèn
     document.body.classList.remove('theater-light-off');
