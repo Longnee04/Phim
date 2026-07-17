@@ -1205,9 +1205,8 @@ body.theater-light-off .modal__hero iframe {
 
 /* Active VIP State on Modal */
 .modal.vip-active .modal__hero-info {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--med);
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 /* VIP Player Container */

@@ -2244,33 +2244,32 @@ const VIPPlayer = {
                 enableWorker: true,
                 lowLatencyMode: false,
                 
-                // Cấu hình bộ nhớ đệm (Buffer) siêu mượt
-                maxBufferLength: 60,               // Tăng thời gian lưu đệm tối đa lên 60 giây (mặc định 30)
-                maxMaxBufferLength: 120,           // Cho phép đệm trước tới 2 phút nếu mạng khỏe
-                maxBufferSize: 120 * 1024 * 1024,  // Tăng giới hạn bộ nhớ đệm lên 120MB (mặc định 60MB)
-                maxBufferHole: 0.5,                // Tự động bỏ qua các lỗ hổng đệm nhỏ (dưới 0.5s) thay vì đứng hình
+                // Cấu hình bộ nhớ đệm (Buffer) nhẹ nhàng để tránh bị CDN của server bóp băng thông
+                maxBufferLength: 8,                // Đệm trước 8 giây video (mặc định 30)
+                maxMaxBufferLength: 12,            // Cho phép đệm tối đa 12 giây
+                maxBufferSize: 12 * 1024 * 1024,   // Giới hạn bộ nhớ đệm nhẹ 12MB để giảm tải kết nối song song
+                maxBufferHole: 0.5,                // Tự động nhảy qua các lỗ hổng nhỏ
                 
-                // Cơ chế tự động hồi phục khi bị đứng hình (Stall Recovery)
-                highBufferWatchdogPeriod: 2,       // Kiểm tra hiện tượng đứng băng thông mỗi 2 giây
-                nudgeMaxRetries: 10,               // Nỗ lực nhích khung hình nếu bị kẹt
-                nudgeDelay: 200,                   // Độ trễ thử lại nhích khung hình (200ms)
+                // Tối ưu hóa phản hồi kẹt hình nhanh
+                highBufferWatchdogPeriod: 2,
+                nudgeMaxRetries: 8,
+                nudgeDelay: 150,
                 
-                // Cơ chế tự động giảm chất lượng thông minh khi mạng yếu (ABR)
-                abrBandWidthFactor: 0.85,          // Hệ số an toàn ước lượng băng thông
-                abrMaxWithRealBitrate: true,       // Sử dụng băng thông thực tế để ước tính chất lượng
+                abrBandWidthFactor: 0.9,           // Tăng hệ số an toàn ABR lên 90%
+                abrMaxWithRealBitrate: true,
                 
-                // Cấu hình kết nối và tải lại đoạn video bền bỉ
-                manifestLoadingTimeOut: 15000,
-                manifestLoadingMaxRetry: 8,
-                manifestLoadingRetryDelay: 1000,
+                // Kết nối nhanh, timeout ngắn để kích hoạt fallback / retry sớm
+                manifestLoadingTimeOut: 8000,
+                manifestLoadingMaxRetry: 5,
+                manifestLoadingRetryDelay: 500,
                 
-                levelLoadingTimeOut: 15000,
-                levelLoadingMaxRetry: 8,
-                levelLoadingRetryDelay: 1000,
+                levelLoadingTimeOut: 8000,
+                levelLoadingMaxRetry: 5,
+                levelLoadingRetryDelay: 500,
                 
-                fragLoadingTimeOut: 25000,
-                fragLoadingMaxRetry: 12,
-                fragLoadingRetryDelay: 1000
+                fragLoadingTimeOut: 12000,
+                fragLoadingMaxRetry: 8,
+                fragLoadingRetryDelay: 500
             });
             this.hls.loadSource(m3u8Url);
             this.hls.attachMedia(this.video);
@@ -2383,11 +2382,11 @@ const VIPPlayer = {
         if (this._saveInterval) clearInterval(this._saveInterval);
         this._saveInterval = setInterval(() => this._saveTimeProgress(), 5000);
 
-        // Hide light/theater buttons as custom player handles all controls
+        // Show light/theater buttons to let user toggle them while in HTML5 player
         const lightBtn = document.getElementById('modal-light-btn');
         const theaterBtn = document.getElementById('modal-theater-btn');
-        if (lightBtn) lightBtn.style.display = 'none';
-        if (theaterBtn) theaterBtn.style.display = 'none';
+        if (lightBtn) lightBtn.style.display = 'inline-flex';
+        if (theaterBtn) theaterBtn.style.display = 'inline-flex';
 
         // Play the video
         this.video.play().catch(e => {
