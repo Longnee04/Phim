@@ -2125,14 +2125,36 @@ const VIPPlayer = {
         // If Hls.js is supported, load and play
         if (Hls.isSupported()) {
             this.hls = new Hls({
-                maxBufferLength: 30,
-                maxMaxBufferLength: 60,
-                maxBufferSize: 60 * 1024 * 1024, // 60MB max buffer size
                 enableWorker: true,
-                lowLatencyMode: false, // Tắt Low-latency để tăng độ ổn định của bộ nhớ đệm cho VOD
-                manifestLoadingMaxRetry: 6,
-                levelLoadingMaxRetry: 6,
-                fragLoadingMaxRetry: 6
+                lowLatencyMode: false,
+                
+                // Cấu hình bộ nhớ đệm (Buffer) siêu mượt
+                maxBufferLength: 60,               // Tăng thời gian lưu đệm tối đa lên 60 giây (mặc định 30)
+                maxMaxBufferLength: 120,           // Cho phép đệm trước tới 2 phút nếu mạng khỏe
+                maxBufferSize: 120 * 1024 * 1024,  // Tăng giới hạn bộ nhớ đệm lên 120MB (mặc định 60MB)
+                maxBufferHole: 0.5,                // Tự động bỏ qua các lỗ hổng đệm nhỏ (dưới 0.5s) thay vì đứng hình
+                
+                // Cơ chế tự động hồi phục khi bị đứng hình (Stall Recovery)
+                highBufferWatchdogPeriod: 2,       // Kiểm tra hiện tượng đứng băng thông mỗi 2 giây
+                nudgeMaxRetries: 10,               // Nỗ lực nhích khung hình nếu bị kẹt
+                nudgeDelay: 200,                   // Độ trễ thử lại nhích khung hình (200ms)
+                
+                // Cơ chế tự động giảm chất lượng thông minh khi mạng yếu (ABR)
+                abrBandWidthFactor: 0.85,          // Hệ số an toàn ước lượng băng thông
+                abrMaxWithRealBitrate: true,       // Sử dụng băng thông thực tế để ước tính chất lượng
+                
+                // Cấu hình kết nối và tải lại đoạn video bền bỉ
+                manifestLoadingTimeOut: 15000,
+                manifestLoadingMaxRetry: 8,
+                manifestLoadingRetryDelay: 1000,
+                
+                levelLoadingTimeOut: 15000,
+                levelLoadingMaxRetry: 8,
+                levelLoadingRetryDelay: 1000,
+                
+                fragLoadingTimeOut: 25000,
+                fragLoadingMaxRetry: 12,
+                fragLoadingRetryDelay: 1000
             });
             this.hls.loadSource(m3u8Url);
             this.hls.attachMedia(this.video);
