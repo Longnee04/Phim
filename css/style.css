@@ -175,7 +175,7 @@ a{text-decoration:none;color:inherit;}
   transition:max-height .35s cubic-bezier(.4,0,.2,1);
   background:rgba(0,0,0,.2);
 }
-.sidebar__accordion.open .sidebar__accordion-body{max-height:600px;}
+.sidebar__accordion.open .sidebar__accordion-body{max-height:1000px;}
 .sidebar__accordion-body a{
   display:block;padding:10px 22px 10px 58px;font-size:.82rem;color:var(--t3);
   transition:all var(--fast);
