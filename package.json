@@ -1,0 +1,20 @@
+{
+  "name": "phim",
+  "version": "1.0.0",
+  "description": "LPhim - Xem Phim Online Miễn Phí Mới Nhất HD Vietsub",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'No build step required for static site'",
+    "lint": "echo 'No linter configured'"
+  },
+  "keywords": [
+    "phim",
+    "movies",
+    "streaming"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vercel/speed-insights": "^1.0.12"
+  }
+}
