@@ -2272,51 +2272,17 @@ const VIPPlayer = {
         // If Hls.js is supported, load and play
         if (Hls.isSupported()) {
             this.hls = new Hls({
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+                maxBufferSize: 60 * 1024 * 1024, // 60MB max buffer size
                 enableWorker: true,
-                lowLatencyMode: false,
-                
-                // Cấu hình bộ nhớ đệm (Buffer) cao cấp để phát mượt mà không bị giật lag
-                maxBufferLength: 60,               // Đệm trước 60 giây video (thay vì 8s) để không bị hết đệm khi mạng trập trùng
-                maxMaxBufferLength: 120,           // Đệm tối đa 120 giây
-                maxBufferSize: 60 * 1024 * 1024,   // Dung lượng bộ nhớ đệm 60MB
-                backBufferLength: 30,              // Giữ lại 30 giây đã xem để tua lại tức thì không cần tải lại
-                maxBufferHole: 0.5,                // Tự động vượt lỗ hổng nhỏ
-                
-                // Giới hạn độ phân giải phù hợp màn hình tránh decoder quá tải
-                capLevelToPlayerSize: true,
-                smoothQualityChange: true,
-                
-                // Tối ưu hóa phản hồi kẹt hình nhanh
-                highBufferWatchdogPeriod: 1,
-                nudgeMaxRetries: 10,
-                nudgeDelay: 100,
-                
-                abrBandWidthFactor: 0.85,
-                abrBandWidthUpFactor: 0.7,
-                abrMaxWithRealBitrate: true,
-                
-                manifestLoadingTimeOut: 10000,
+                lowLatencyMode: false, // Tắt Low-latency để tăng độ ổn định của bộ nhớ đệm cho VOD
                 manifestLoadingMaxRetry: 6,
-                manifestLoadingRetryDelay: 500,
-                
-                levelLoadingTimeOut: 10000,
                 levelLoadingMaxRetry: 6,
-                levelLoadingRetryDelay: 500,
-                
-                fragLoadingTimeOut: 15000,
-                fragLoadingMaxRetry: 8,
-                fragLoadingRetryDelay: 500
+                fragLoadingMaxRetry: 6
             });
             this.hls.loadSource(m3u8Url);
             this.hls.attachMedia(this.video);
-
-            // Tự động gỡ nghẽn nếu bị stall đệm
-            this.hls.on(Hls.Events.BUFFER_STALLED, () => {
-                if (this.video && !this.video.paused) {
-                    console.warn('HLS Buffer stalled, auto nudging playback...');
-                    this.video.currentTime += 0.1;
-                }
-            });
 
             let mediaErrorCount = 0;
             this.hls.on(Hls.Events.ERROR, (event, data) => {
