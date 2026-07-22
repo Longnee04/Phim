@@ -1228,6 +1228,9 @@ body.theater-light-off .modal__hero iframe {
   object-fit: contain;
   background: #000;
   display: block;
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* Double Tap Zones */

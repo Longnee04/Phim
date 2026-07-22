@@ -2275,35 +2275,48 @@ const VIPPlayer = {
                 enableWorker: true,
                 lowLatencyMode: false,
                 
-                // Cấu hình bộ nhớ đệm (Buffer) nhẹ nhàng để tránh bị CDN của server bóp băng thông
-                maxBufferLength: 8,                // Đệm trước 8 giây video (mặc định 30)
-                maxMaxBufferLength: 12,            // Cho phép đệm tối đa 12 giây
-                maxBufferSize: 12 * 1024 * 1024,   // Giới hạn bộ nhớ đệm nhẹ 12MB để giảm tải kết nối song song
-                maxBufferHole: 0.5,                // Tự động nhảy qua các lỗ hổng nhỏ
+                // Cấu hình bộ nhớ đệm (Buffer) cao cấp để phát mượt mà không bị giật lag
+                maxBufferLength: 60,               // Đệm trước 60 giây video (thay vì 8s) để không bị hết đệm khi mạng trập trùng
+                maxMaxBufferLength: 120,           // Đệm tối đa 120 giây
+                maxBufferSize: 60 * 1024 * 1024,   // Dung lượng bộ nhớ đệm 60MB
+                backBufferLength: 30,              // Giữ lại 30 giây đã xem để tua lại tức thì không cần tải lại
+                maxBufferHole: 0.5,                // Tự động vượt lỗ hổng nhỏ
+                
+                // Giới hạn độ phân giải phù hợp màn hình tránh decoder quá tải
+                capLevelToPlayerSize: true,
+                smoothQualityChange: true,
                 
                 // Tối ưu hóa phản hồi kẹt hình nhanh
-                highBufferWatchdogPeriod: 2,
-                nudgeMaxRetries: 8,
-                nudgeDelay: 150,
+                highBufferWatchdogPeriod: 1,
+                nudgeMaxRetries: 10,
+                nudgeDelay: 100,
                 
-                abrBandWidthFactor: 0.9,           // Tăng hệ số an toàn ABR lên 90%
+                abrBandWidthFactor: 0.85,
+                abrBandWidthUpFactor: 0.7,
                 abrMaxWithRealBitrate: true,
                 
-                // Kết nối nhanh, timeout ngắn để kích hoạt fallback / retry sớm
-                manifestLoadingTimeOut: 8000,
-                manifestLoadingMaxRetry: 5,
+                manifestLoadingTimeOut: 10000,
+                manifestLoadingMaxRetry: 6,
                 manifestLoadingRetryDelay: 500,
                 
-                levelLoadingTimeOut: 8000,
-                levelLoadingMaxRetry: 5,
+                levelLoadingTimeOut: 10000,
+                levelLoadingMaxRetry: 6,
                 levelLoadingRetryDelay: 500,
                 
-                fragLoadingTimeOut: 12000,
+                fragLoadingTimeOut: 15000,
                 fragLoadingMaxRetry: 8,
                 fragLoadingRetryDelay: 500
             });
             this.hls.loadSource(m3u8Url);
             this.hls.attachMedia(this.video);
+
+            // Tự động gỡ nghẽn nếu bị stall đệm
+            this.hls.on(Hls.Events.BUFFER_STALLED, () => {
+                if (this.video && !this.video.paused) {
+                    console.warn('HLS Buffer stalled, auto nudging playback...');
+                    this.video.currentTime += 0.1;
+                }
+            });
 
             let mediaErrorCount = 0;
             this.hls.on(Hls.Events.ERROR, (event, data) => {
