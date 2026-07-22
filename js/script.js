@@ -2285,12 +2285,20 @@ const VIPPlayer = {
             this.hls.attachMedia(this.video);
 
             let mediaErrorCount = 0;
+            let networkErrorCount = 0;
             this.hls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
-                            console.warn('Fatal HLS network error, attempting to startLoad...', data);
-                            this.hls.startLoad();
+                            networkErrorCount++;
+                            if (networkErrorCount <= 2) {
+                                console.warn(`Fatal HLS network error (${networkErrorCount}/2), attempting to startLoad...`, data);
+                                this.hls.startLoad();
+                            } else {
+                                console.warn('Hls network load failed twice, falling back to backup iframe...');
+                                networkErrorCount = 0;
+                                this.fallbackToIframe();
+                            }
                             break;
                         case Hls.ErrorTypes.MEDIA_ERROR:
                             mediaErrorCount++;
