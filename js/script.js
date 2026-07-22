@@ -1862,11 +1862,15 @@ function updateSourceButton() {
     const pref = localStorage.getItem('lphim_preferred_source') || 'vip';
     
     if (pref === 'vip') {
-        btn.innerHTML = `<i class="fas fa-server"></i> Nguồn: VIP (HLS)`;
-        btn.title = "Đang phát bằng nguồn VIP (HTML5). Bấm để đổi sang nguồn Dự Phòng (Iframe).";
+        btn.innerHTML = `<i class="fas fa-server"></i>`;
+        btn.title = "Nguồn đang phát: VIP (HTML5). Bấm để đổi sang nguồn Dự Phòng (Iframe).";
+        btn.style.background = '';
+        btn.style.borderColor = '';
     } else {
-        btn.innerHTML = `<i class="fas fa-server"></i> Nguồn: Dự Phòng`;
-        btn.title = "Đang phát bằng nguồn Dự Phòng (Iframe). Bấm để đổi sang nguồn VIP (HTML5).";
+        btn.innerHTML = `<i class="fas fa-server" style="color: var(--red);"></i>`;
+        btn.title = "Nguồn đang phát: Dự Phòng (Iframe). Bấm để đổi sang nguồn VIP (HTML5).";
+        btn.style.background = 'rgba(255, 42, 59, 0.15)';
+        btn.style.borderColor = 'rgba(255, 42, 59, 0.25)';
     }
 }
 
