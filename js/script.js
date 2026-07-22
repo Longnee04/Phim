@@ -1456,23 +1456,30 @@ function initModal() {
     }
 
     // Nút Đổi Nguồn (Switch Source)
+    const toggleSource = () => {
+        if (!_currentEpisode) return;
+        const currentPref = localStorage.getItem('lphim_preferred_source') || 'vip';
+        const newPref = currentPref === 'vip' ? 'iframe' : 'vip';
+        localStorage.setItem('lphim_preferred_source', newPref);
+        updateSourceButton();
+        
+        showToast(
+            newPref === 'vip' ? 'Đổi nguồn VIP ⚡' : 'Đổi nguồn Dự Phòng 🛡️',
+            newPref === 'vip' ? 'Đang chuyển sang trình phát HTML5 tự động chất lượng cao.' : 'Đang chuyển sang trình phát dự phòng nhúng trực tiếp.',
+            'fa-server'
+        );
+        
+        playEpisode(_currentEpisode, _currentModalMovie);
+    };
+
     const sourceBtn = document.getElementById('modal-source-btn');
     if (sourceBtn) {
-        sourceBtn.addEventListener('click', () => {
-            if (!_currentEpisode) return;
-            const currentPref = localStorage.getItem('lphim_preferred_source') || 'vip';
-            const newPref = currentPref === 'vip' ? 'iframe' : 'vip';
-            localStorage.setItem('lphim_preferred_source', newPref);
-            updateSourceButton();
-            
-            showToast(
-                newPref === 'vip' ? 'Đổi nguồn VIP ⚡' : 'Đổi nguồn Dự Phòng 🛡️',
-                newPref === 'vip' ? 'Đang chuyển sang trình phát HTML5 tự động chất lượng cao.' : 'Đang chuyển sang trình phát dự phòng nhúng trực tiếp.',
-                'fa-server'
-            );
-            
-            playEpisode(_currentEpisode, _currentModalMovie);
-        });
+        sourceBtn.addEventListener('click', toggleSource);
+    }
+
+    const vipSourceBtn = document.getElementById('vip-btn-source');
+    if (vipSourceBtn) {
+        vipSourceBtn.addEventListener('click', toggleSource);
     }
 
 
