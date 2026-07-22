@@ -1675,7 +1675,6 @@ async function openModal(slug, autoPlay = false) {
     // Ẩn các nút điều khiển video khi chưa phát
     document.getElementById('modal-light-btn').style.display = 'none';
     document.getElementById('modal-theater-btn').style.display = 'none';
-    document.getElementById('modal-source-btn').style.display = 'none';
     document.getElementById('modal-player-bar').style.display = 'none';
     document.getElementById('modal-light-btn').title = 'Tắt đèn (Theater Mode)';
 
