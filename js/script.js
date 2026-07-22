@@ -759,16 +759,21 @@ function initSearch() {
 function initBillboard(movies) {
     billboardMovies = movies.slice(0, 10); billboardIdx = 0;
     const c = document.getElementById('billboard-dots'); c.innerHTML = '';
+    const frag = document.createDocumentFragment();
     billboardMovies.forEach((_, i) => {
         const d = document.createElement('button');
         d.className = 'billboard__dot' + (i === 0 ? ' active' : '');
         d.onclick = () => { billboardIdx = i; showSlide(i); startTimer(); };
-        c.appendChild(d);
+        frag.appendChild(d);
     });
+    c.appendChild(frag);
     showSlide(0); startTimer();
     const bb = document.getElementById('billboard');
-    bb.addEventListener('mouseenter', stopTimer);
-    bb.addEventListener('mouseleave', () => { if (billboardMovies.length) startTimer(); });
+    if (bb && !bb.dataset.hasHoverListener) {
+        bb.dataset.hasHoverListener = 'true';
+        bb.addEventListener('mouseenter', stopTimer);
+        bb.addEventListener('mouseleave', () => { if (billboardMovies.length) startTimer(); });
+    }
 }
 
 function showSlide(i) {
@@ -788,12 +793,30 @@ function showSlide(i) {
 }
 
 function startTimer() {
-    stopTimer(); let pv = 0;
-    const fill = document.getElementById('billboard-timer-fill'); fill.style.width = '0%';
-    progressIv = setInterval(() => { pv += 100 / (BILLBOARD_MS / 100); fill.style.width = Math.min(pv, 100) + '%'; }, 100);
-    billboardTimer = setTimeout(() => { billboardIdx = (billboardIdx + 1) % billboardMovies.length; showSlide(billboardIdx); startTimer(); }, BILLBOARD_MS);
+    stopTimer();
+    const fill = document.getElementById('billboard-timer-fill');
+    if (fill) {
+        fill.style.transition = 'none';
+        fill.style.width = '0%';
+        void fill.offsetWidth;
+        fill.style.transition = `width ${BILLBOARD_MS}ms linear`;
+        fill.style.width = '100%';
+    }
+    billboardTimer = setTimeout(() => {
+        billboardIdx = (billboardIdx + 1) % billboardMovies.length;
+        showSlide(billboardIdx);
+        startTimer();
+    }, BILLBOARD_MS);
 }
-function stopTimer() { clearTimeout(billboardTimer); clearInterval(progressIv); }
+function stopTimer() {
+    clearTimeout(billboardTimer);
+    const fill = document.getElementById('billboard-timer-fill');
+    if (fill) {
+        const computedWidth = getComputedStyle(fill).width;
+        fill.style.transition = 'none';
+        fill.style.width = computedWidth;
+    }
+}
 
 // ══════════════════════════════════════════════════════════
 //  LOAD ALL ROWS
@@ -895,6 +918,7 @@ function renderHistoryRow() {
 
     section.style.display = '';
     track.innerHTML = '';
+    const frag = document.createDocumentFragment();
     history.forEach(m => {
         const card = document.createElement('div');
         card.className = 'card';
@@ -909,8 +933,9 @@ function renderHistoryRow() {
             STORAGE.removeHistory(m.slug);
             renderHistoryRow();
         });
-        track.appendChild(card);
+        frag.appendChild(card);
     });
+    track.appendChild(frag);
 
     const totalPages = Math.max(1, Math.ceil(history.length / ITEMS_PER_PAGE));
     sliderState['history'] = { page: 0, totalPages, movies: history };
@@ -926,12 +951,14 @@ function initTop10(name, movies) {
     const totalPages = Math.max(1, Math.ceil(movies.length / 5));
     sliderState[name] = { page: 0, totalPages, movies };
     track.innerHTML = '';
+    const frag = document.createDocumentFragment();
     movies.forEach((m, i) => {
         const card = document.createElement('div'); card.className = 'top10-card';
         card.innerHTML = `<span class="top10-card__number">${i+1}</span><img class="top10-card__poster" src="${img(m.poster_url||m.thumb_url)}" alt="${m.name}" loading="lazy" onerror="handleImgError(this)">`;
         card.addEventListener('click', () => openModal(m.slug));
-        track.appendChild(card);
+        frag.appendChild(card);
     });
+    track.appendChild(frag);
     renderRowDots('dots-' + name, totalPages, 0);
     bindArrows(name);
 }
@@ -944,7 +971,9 @@ function initSlider(name, movies) {
     const totalPages = Math.max(1, Math.ceil(movies.length / ITEMS_PER_PAGE));
     sliderState[name] = { page: 0, totalPages, movies };
     track.innerHTML = '';
-    movies.forEach(m => track.appendChild(createCard(m)));
+    const frag = document.createDocumentFragment();
+    movies.forEach(m => frag.appendChild(createCard(m)));
+    track.appendChild(frag);
     renderRowDots('dots-' + name, totalPages, 0);
     bindArrows(name);
 }
@@ -1223,10 +1252,12 @@ async function loadBrowsePage() {
 function renderBrowseGrid(items) {
     const grid = document.getElementById('browse-grid'); grid.innerHTML = '';
     if (!items.length) { grid.innerHTML = '<p style="color:var(--t3);text-align:center;padding:40px;">Không có phim.</p>'; return; }
+    const frag = document.createDocumentFragment();
     items.forEach(m => {
         const card = createCard(m);
-        grid.appendChild(card);
+        frag.appendChild(card);
     });
+    grid.appendChild(frag);
 }
 
 function renderBrowsePager(current, total) {
