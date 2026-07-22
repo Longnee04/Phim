@@ -713,13 +713,24 @@ a{text-decoration:none;color:inherit;}
 /* ==================== MODAL ==================== */
 .modal{display:none;position:fixed;inset:0;z-index:1000;overflow-y:auto;}
 .modal[aria-hidden="false"]{display:block;}
-.modal__backdrop{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(3px);animation:fadeIn .2s ease;}
+.modal__backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(3px);
+  animation:fadeIn .2s ease;
+  will-change: opacity;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .modal__dialog{
   position:relative;margin:2vh auto;width:94%;max-width:900px;
   background:var(--surface);border-radius:var(--radius-lg);
   box-shadow:0 20px 80px rgba(0,0,0,.85);
   animation:modalIn .35s cubic-bezier(.17,.67,.3,1.15);overflow:hidden;padding-bottom:36px;
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 @keyframes modalIn{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
 .modal__close{
@@ -2812,7 +2823,11 @@ body {
   opacity: 0.25;
   z-index: 1;
   pointer-events: none;
-  transform: scale(1.1);
+  transform: scale(1.1) translate3d(0, 0, 0);
+  -webkit-transform: scale(1.1) translate3d(0, 0, 0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   transition: background-image 0.5s ease;
 }
 
@@ -2851,24 +2866,32 @@ body {
 .card {
   border-radius: var(--radius-lg) !important;
   overflow: hidden !important;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
   border: 1px solid rgba(255,255,255,0.03);
+  will-change: transform, box-shadow;
+  transform: translate3d(0, 0, 0) !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
 }
 
 .card__img {
   border-radius: var(--radius-lg) !important;
-  transition: transform 0.4s ease !important;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  will-change: transform;
+  transform: translate3d(0, 0, 0) !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
 }
 
 .card:hover {
-  transform: translateY(-8px) scale(1.03) !important;
+  transform: translateY(-8px) scale(1.03) translate3d(0, 0, 0) !important;
   border-color: rgba(255, 42, 59, 0.4);
   box-shadow: 0 12px 30px rgba(255, 42, 59, 0.15), 0 0 0 2px rgba(255, 42, 59, 0.1) !important;
   z-index: 10 !important;
 }
 
 .card:hover .card__img {
-  transform: scale(1.05);
+  transform: scale(1.05) translate3d(0, 0, 0) !important;
 }
 
 .card__info {
@@ -3218,10 +3241,14 @@ body, p, span, div, a, button, input, textarea, select, li, label, h1, h2, h3, h
   flex-direction: column !important;
   transition: transform 0.3s ease, border-color 0.3s ease !important;
   cursor: pointer !important;
+  will-change: transform;
+  transform: translate3d(0, 0, 0) !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
 }
 
 .related-card:hover {
-  transform: translateY(-4px) !important;
+  transform: translateY(-4px) translate3d(0, 0, 0) !important;
   border-color: rgba(255, 42, 59, 0.3) !important;
 }
 
@@ -3238,10 +3265,14 @@ body, p, span, div, a, button, input, textarea, select, li, label, h1, h2, h3, h
   height: 100% !important;
   object-fit: cover !important;
   transition: transform 0.4s ease !important;
+  will-change: transform;
+  transform: translate3d(0, 0, 0) !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
 }
 
 .related-card:hover .related-card__img {
-  transform: scale(1.05) !important;
+  transform: scale(1.05) translate3d(0, 0, 0) !important;
 }
 
 .related-card__duration {
