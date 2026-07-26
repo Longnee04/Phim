@@ -811,7 +811,11 @@ function initSearch() {
         try {
             let url;
             if (searchType === 'year') {
-                url = `${API.list}?year=${q}&limit=24`;
+                if (currentSource === 'vsmov') {
+                    url = `https://vsmov.com/api/nam/${q}?limit=24`;
+                } else {
+                    url = `${API.list}?year=${q}&limit=24`;
+                }
             } else if (searchType === 'actor') {
                 const cleanQ = q.toLowerCase().trim();
                 const apiQ = ACTOR_MAP[cleanQ] || q;
@@ -1294,14 +1298,32 @@ function openMyListPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+const VSMOV_GENRE_MAP = {
+    'hai-huoc': 'hai',
+    'tinh-cam': 'lang-man',
+    'khoa-hoc': 'khoa-hoc-vien-tuong',
+    'movies': 'phim-chieu-rap',
+    'series': 'chinh-kich',
+    'hoat-hinh': 'hoat-hinh',
+    'tv-shows': 'hai-huoc',
+    'vietsub': 'vien-tuong'
+};
+
 function getBrowseUrl(page) {
     if (browseType === 'type') {
+        if (currentSource === 'vsmov') {
+            const vsmovGenre = VSMOV_GENRE_MAP[browseSlug] || browseSlug;
+            return `https://vsmov.com/api/the-loai/${vsmovGenre}?page=${page}&limit=${BROWSE_SIZE}`;
+        }
         const base = API[browseSlug];
         if (!base) return '';
         const sep = base.includes('?') ? '&' : '?';
         return `${base}${sep}page=${page}&limit=${BROWSE_SIZE}`;
     }
-    if (browseType === 'genre') return `${API.genre}${browseSlug}?page=${page}&limit=${BROWSE_SIZE}`;
+    if (browseType === 'genre') {
+        const slug = currentSource === 'vsmov' ? (VSMOV_GENRE_MAP[browseSlug] || browseSlug) : browseSlug;
+        return `${API.genre}${slug}?page=${page}&limit=${BROWSE_SIZE}`;
+    }
     if (browseType === 'country') return `${API.country}${browseSlug}?page=${page}&limit=${BROWSE_SIZE}`;
     if (browseType === 'year') {
         if (currentSource === 'vsmov') {
