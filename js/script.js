@@ -33,9 +33,9 @@ function updateApiConfig() {
         IMG_CDN = "https://vsmov.com/storage/images/";
         API.new        = "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat";
         API.series     = "https://vsmov.com/api/the-loai/chinh-kich";
-        API.movies     = "https://vsmov.com/api/the-loai/phim-chieu-rap";
+        API.movies     = "https://vsmov.com/api/the-loai/hanh-dong";
         API["hoat-hinh"]= "https://vsmov.com/api/the-loai/hoat-hinh";
-        API["tv-shows"]= "https://vsmov.com/api/the-loai/hai-huoc";
+        API["tv-shows"]= "https://vsmov.com/api/the-loai/truyen-hinh-thuc-te";
         API.vietsub    = "https://vsmov.com/api/the-loai/vien-tuong";
         API.anime      = "https://vsmov.com/api/the-loai/hoat-hinh";
         API.search     = "https://vsmov.com/api/tim-kiem";
@@ -1302,10 +1302,10 @@ const VSMOV_GENRE_MAP = {
     'hai-huoc': 'hai',
     'tinh-cam': 'lang-man',
     'khoa-hoc': 'khoa-hoc-vien-tuong',
-    'movies': 'phim-chieu-rap',
+    'movies': 'hanh-dong',
     'series': 'chinh-kich',
     'hoat-hinh': 'hoat-hinh',
-    'tv-shows': 'hai-huoc',
+    'tv-shows': 'truyen-hinh-thuc-te',
     'vietsub': 'vien-tuong'
 };
 
