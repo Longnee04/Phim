@@ -2296,10 +2296,11 @@ const VIPPlayer = {
         // If Hls.js is supported, load and play
         if (Hls.isSupported()) {
             this.hls = new Hls({
-                maxBufferLength: 30,
-                maxMaxBufferLength: 60,
+                maxBufferLength: 15,
+                maxMaxBufferLength: 30,
                 maxBufferSize: 60 * 1024 * 1024, // 60MB max buffer size
                 enableWorker: true,
+                startFragPrefetch: true, // Nạp trước fragment đầu tiên tức thì để giảm độ trễ
                 lowLatencyMode: false, // Tắt Low-latency để tăng độ ổn định của bộ nhớ đệm cho VOD
                 manifestLoadingMaxRetry: 6,
                 levelLoadingMaxRetry: 6,
@@ -2307,6 +2308,12 @@ const VIPPlayer = {
             });
             this.hls.loadSource(m3u8Url);
             this.hls.attachMedia(this.video);
+
+            this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                const loading = document.getElementById('vip-loading');
+                if (loading) loading.style.display = 'none';
+                if (this.video) this.video.play().catch(() => {});
+            });
 
             let mediaErrorCount = 0;
             let networkErrorCount = 0;
