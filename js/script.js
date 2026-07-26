@@ -2,22 +2,118 @@
    LongPhim — Netflix Premium Clone JS (Full Featured)
    ========================================================== */
 
-const IMG_CDN = "https://img.ophim.live/uploads/movies/";
-const API = {
-    new:       "https://ophim1.com/danh-sach/phim-moi-cap-nhat",
-    series:    "https://ophim1.com/v1/api/danh-sach/phim-bo",
-    movies:    "https://ophim1.com/v1/api/danh-sach/phim-le",
-    "hoat-hinh":  "https://ophim1.com/v1/api/danh-sach/hoat-hinh",
-    "tv-shows":   "https://ophim1.com/v1/api/danh-sach/tv-shows",
-    vietsub:   "https://ophim1.com/v1/api/danh-sach/phim-vietsub",
-    anime:     "https://ophim1.com/v1/api/danh-sach/hoat-hinh?country=nhat-ban",
-    search:    "https://ophim1.com/v1/api/tim-kiem",
-    detail:    "https://ophim1.com/phim/",
-    genre:     "https://ophim1.com/v1/api/the-loai/",
-    country:   "https://ophim1.com/v1/api/quoc-gia/",
-    year:      "https://ophim1.com/v1/api/nam/",
-    list:      "https://ophim1.com/v1/api/danh-sach",
+let currentSource = localStorage.getItem('longphim_source') || 'ophim';
+let IMG_CDN = "https://img.ophim.live/uploads/movies/";
+
+const API = {};
+
+const SOURCE_LABELS = {
+    ophim: 'OPhim',
+    kkphim: 'KKPhim',
+    vsmov: 'VSMOV'
 };
+
+function updateApiConfig() {
+    if (currentSource === 'kkphim') {
+        IMG_CDN = "https://phimimg.com/";
+        API.new        = "https://phimapi.com/danh-sach/phim-moi-cap-nhat";
+        API.series     = "https://phimapi.com/v1/api/danh-sach/phim-bo";
+        API.movies     = "https://phimapi.com/v1/api/danh-sach/phim-le";
+        API["hoat-hinh"]= "https://phimapi.com/v1/api/danh-sach/hoat-hinh";
+        API["tv-shows"]= "https://phimapi.com/v1/api/danh-sach/tv-shows";
+        API.vietsub    = "https://phimapi.com/v1/api/danh-sach/phim-vietsub";
+        API.anime      = "https://phimapi.com/v1/api/danh-sach/hoat-hinh?country=nhat-ban";
+        API.search     = "https://phimapi.com/v1/api/tim-kiem";
+        API.detail     = "https://phimapi.com/phim/";
+        API.genre      = "https://phimapi.com/v1/api/the-loai/";
+        API.country    = "https://phimapi.com/v1/api/quoc-gia/";
+        API.year       = "https://phimapi.com/v1/api/nam/";
+        API.list       = "https://phimapi.com/v1/api/danh-sach";
+    } else if (currentSource === 'vsmov') {
+        IMG_CDN = "https://vsmov.com/storage/images/";
+        API.new        = "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat";
+        API.series     = "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat?type=series";
+        API.movies     = "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat?type=single";
+        API["hoat-hinh"]= "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat?type=hoathinh";
+        API["tv-shows"]= "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat?type=tvshows";
+        API.vietsub    = "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat";
+        API.anime      = "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat?type=hoathinh&country=nhat-ban";
+        API.search     = "https://vsmov.com/api/tim-kiem";
+        API.detail     = "https://vsmov.com/api/phim/";
+        API.genre      = "https://vsmov.com/api/the-loai/";
+        API.country    = "https://vsmov.com/api/quoc-gia/";
+        API.year       = "https://vsmov.com/api/nam/";
+        API.list       = "https://vsmov.com/api/danh-sach";
+    } else {
+        currentSource = 'ophim';
+        IMG_CDN = "https://img.ophim.live/uploads/movies/";
+        API.new        = "https://ophim1.com/danh-sach/phim-moi-cap-nhat";
+        API.series     = "https://ophim1.com/v1/api/danh-sach/phim-bo";
+        API.movies     = "https://ophim1.com/v1/api/danh-sach/phim-le";
+        API["hoat-hinh"]= "https://ophim1.com/v1/api/danh-sach/hoat-hinh";
+        API["tv-shows"]= "https://ophim1.com/v1/api/danh-sach/tv-shows";
+        API.vietsub    = "https://ophim1.com/v1/api/danh-sach/phim-vietsub";
+        API.anime      = "https://ophim1.com/v1/api/danh-sach/hoat-hinh?country=nhat-ban";
+        API.search     = "https://ophim1.com/v1/api/tim-kiem";
+        API.detail     = "https://ophim1.com/phim/";
+        API.genre      = "https://ophim1.com/v1/api/the-loai/";
+        API.country    = "https://ophim1.com/v1/api/quoc-gia/";
+        API.year       = "https://ophim1.com/v1/api/nam/";
+        API.list       = "https://ophim1.com/v1/api/danh-sach";
+    }
+}
+updateApiConfig();
+
+function getUrlWithPage(url, page = 1, limit = 24) {
+    if (!url) return '';
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}page=${page}&limit=${limit}`;
+}
+
+function updateSourceUI() {
+    const label = SOURCE_LABELS[currentSource] || 'OPhim';
+    const desktopLabel = document.getElementById('current-source-label');
+    const mobileLabel = document.getElementById('current-source-label-mobile');
+    if (desktopLabel) desktopLabel.textContent = label;
+    if (mobileLabel) mobileLabel.textContent = label;
+
+    document.querySelectorAll('[data-source]').forEach(el => {
+        if (el.dataset.source === currentSource) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
+}
+
+function setSource(sourceName) {
+    if (!SOURCE_LABELS[sourceName] || sourceName === currentSource) return;
+    currentSource = sourceName;
+    localStorage.setItem('longphim_source', sourceName);
+    _cache.clear();
+    location.reload();
+}
+
+function initSourceSelector() {
+    updateSourceUI();
+    document.addEventListener('click', (e) => {
+        const sourceBtn = e.target.closest('[data-source]');
+        if (sourceBtn) {
+            e.preventDefault();
+            const source = sourceBtn.dataset.source;
+            if (source) {
+                setSource(source);
+                const sidebar = document.getElementById('sidebar');
+                const overlay = document.getElementById('sidebar-overlay');
+                if (sidebar && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                    if (overlay) overlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            }
+        }
+    });
+}
 
 // ══════════════════════════════════════════════════════════
 //  STATE
@@ -351,6 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initBrowse();
     initSidebar();
     initTouchSwipe();
+    initSourceSelector();
     if (typeof VIPPlayer !== 'undefined') VIPPlayer.init();
     
     // Khởi tạo Trợ lý AI LPhim
@@ -853,12 +950,12 @@ async function loadAll() {
     // 2. Chạy ngầm việc fetch dữ liệu mới nhất (Stale-While-Revalidate)
     try {
         const [d1,d2,d3,d4,d5,d6] = await Promise.all([
-            apiFetch(API.new + '?page=1'),
-            apiFetch(API.series + '?page=1&limit=24'),
-            apiFetch(API.movies + '?page=1&limit=24'),
-            apiFetch(API['hoat-hinh'] + '?page=1&limit=24'),
-            apiFetch(API['tv-shows'] + '?page=1&limit=24').catch(() => ({items:[]})),
-            apiFetch(API.vietsub + '?page=1&limit=24').catch(() => ({items:[]})),
+            apiFetch(getUrlWithPage(API.new, 1, 24)),
+            apiFetch(getUrlWithPage(API.series, 1, 24)),
+            apiFetch(getUrlWithPage(API.movies, 1, 24)),
+            apiFetch(getUrlWithPage(API['hoat-hinh'], 1, 24)),
+            apiFetch(getUrlWithPage(API['tv-shows'], 1, 24)).catch(() => ({items:[]})),
+            apiFetch(getUrlWithPage(API.vietsub, 1, 24)).catch(() => ({items:[]})),
         ]);
         const m1=normalizeList(d1), m2=normalizeList(d2), m3=normalizeList(d3),
               m4=normalizeList(d4), m5=normalizeList(d5), m6=normalizeList(d6);
@@ -1200,12 +1297,18 @@ function openMyListPage() {
 function getBrowseUrl(page) {
     if (browseType === 'type') {
         const base = API[browseSlug];
+        if (!base) return '';
         const sep = base.includes('?') ? '&' : '?';
         return `${base}${sep}page=${page}&limit=${BROWSE_SIZE}`;
     }
     if (browseType === 'genre') return `${API.genre}${browseSlug}?page=${page}&limit=${BROWSE_SIZE}`;
     if (browseType === 'country') return `${API.country}${browseSlug}?page=${page}&limit=${BROWSE_SIZE}`;
-    if (browseType === 'year') return `${API.list}?year=${browseSlug}&page=${page}&limit=${BROWSE_SIZE}`;
+    if (browseType === 'year') {
+        if (currentSource === 'vsmov') {
+            return `https://vsmov.com/api/nam/${browseSlug}?page=${page}&limit=${BROWSE_SIZE}`;
+        }
+        return `${API.list}?year=${browseSlug}&page=${page}&limit=${BROWSE_SIZE}`;
+    }
     return '';
 }
 
@@ -1823,22 +1926,82 @@ async function openModal(slug, autoPlay = false) {
     }
 }
 
+function playInIframe(url) {
+    const hero = document.getElementById('modal-hero');
+    if (!hero) return;
+    hero.querySelectorAll('iframe, .vsmov-player-fallback').forEach(f => f.remove());
+    if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
+        VIPPlayer.deactivate();
+    }
+
+    const fallback = document.createElement('div');
+    fallback.className = 'vsmov-player-fallback';
+    fallback.innerHTML = `
+        <div class="vsmov-fallback-content">
+            <i class="fas fa-play-circle vsmov-fallback-icon"></i>
+            <div class="vsmov-fallback-title">Nguồn Phim VSMOV</div>
+            <div class="vsmov-fallback-desc">Máy chủ VSMOV bảo mật chặn nhúng Iframe trên trình duyệt local. Bấm nút bên dưới để mở phát trực tiếp mượt mà không bị lỗi.</div>
+            <a href="${url}" target="_blank" rel="noopener noreferrer" class="vsmov-fallback-btn">
+                <i class="fas fa-external-link-alt"></i> Mở Trình Phát VSMOV (Tab Mới)
+            </a>
+        </div>
+    `;
+    hero.appendChild(fallback);
+
+    const heroImg = document.getElementById('modal-hero-img');
+    if (heroImg) heroImg.style.opacity = '0';
+
+    const gradient = hero.querySelector('.modal__hero-gradient');
+    if (gradient) gradient.style.opacity = '0';
+
+    const playBtn = document.getElementById('modal-play-btn');
+    if (playBtn) playBtn.innerHTML = '<i class="fas fa-external-link-alt"></i> Mở VSMOV';
+
+    const modal = document.getElementById('modal');
+    if (modal) modal.classList.add('is-playing');
+}
+
+function getVsmovM3u8(linkEmbed) {
+    if (!linkEmbed || !linkEmbed.includes('/video/')) return null;
+    try {
+        const urlObj = new URL(linkEmbed);
+        const host = urlObj.host;
+        const parts = urlObj.pathname.split('/video/');
+        const hash = parts[1];
+        if (hash) {
+            if (window.location.protocol !== 'file:') {
+                return `/api/vsmov?host=${encodeURIComponent(host)}&hash=${encodeURIComponent(hash)}`;
+            }
+            return `https://${host}/stream/${hash}/master.m3u8`;
+        }
+    } catch {}
+    return null;
+}
+
 function playEpisode(ep, movie) {
     _currentEpisode = ep;
     if (movie) _currentModalMovie = movie;
 
-    const m3u8 = ep.link_m3u8;
+    let m3u8 = ep.link_m3u8;
+    if (!m3u8 && ep.link_embed) {
+        m3u8 = getVsmovM3u8(ep.link_embed);
+    }
+
+    const hero = document.getElementById('modal-hero');
+    if (hero) hero.querySelectorAll('iframe, .vsmov-player-fallback').forEach(f => f.remove());
 
     if (m3u8 && typeof VIPPlayer !== 'undefined') {
-        const hero = document.getElementById('modal-hero');
-        if (hero) hero.querySelectorAll('iframe').forEach(f => f.remove());
+        const videoContainer = document.getElementById('vip-player-container');
+        if (videoContainer) videoContainer.style.display = 'block';
         VIPPlayer.load(m3u8);
         VIPPlayer._updateNextButton();
+    } else if (ep.link_embed) {
+        playInIframe(ep.link_embed);
     } else {
         if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
             VIPPlayer.deactivate();
         }
-        showToast('Lỗi phát ⚠️', 'Tập phim này không hỗ trợ nguồn phát trực tiếp (VIP).', 'fa-triangle-exclamation');
+        showToast('Lỗi phát ⚠️', 'Tập phim này không hỗ trợ nguồn phát hợp lệ.', 'fa-triangle-exclamation');
     }
     updateNextEpisodeButton();
 

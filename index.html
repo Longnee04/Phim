@@ -20,7 +20,7 @@
     <meta property="twitter:title" content="LPhim - Xem Phim Online Miễn Phí Mới Nhất HD Vietsub">
     <meta property="twitter:description" content="LPhim - Trang web xem phim online miễn phí chất lượng cao HD Vietsub. Kho phim lẻ, phim bộ, hoạt hình phong phú cập nhật liên tục tại LPhim.">
 
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -112,6 +112,17 @@
             </ul>
         </div>
         <div class="nav__right">
+            <!-- Nguồn phim Dropdown -->
+            <div class="nav__dropdown nav__dropdown--source">
+                <a href="#" class="nav__link nav__link--dropdown" id="source-select-btn">
+                    <i class="fas fa-server"></i> Nguồn: <span id="current-source-label">OPhim</span> <i class="fas fa-caret-down"></i>
+                </a>
+                <div class="nav__dropdown-menu nav__dropdown-menu--small" id="dropdown-source" style="min-width: 140px; columns: 1;">
+                    <a href="#" data-source="ophim"><i class="fas fa-database" style="margin-right: 6px;"></i> OPhim</a>
+                    <a href="#" data-source="kkphim"><i class="fas fa-database" style="margin-right: 6px;"></i> KKPhim</a>
+                    <a href="#" data-source="vsmov"><i class="fas fa-database" style="margin-right: 6px;"></i> VSMOV</a>
+                </div>
+            </div>
             <div class="nav__search" id="nav-search">
                 <button class="nav__search-btn" id="search-btn" type="button" aria-label="Tìm kiếm"><i class="fas fa-search"></i></button>
                 <input type="text" class="nav__search-input" id="search-input" placeholder="Tên phim, năm phát hành..." autocomplete="off">
@@ -133,6 +144,15 @@
             <button class="sidebar__close" id="sidebar-close" type="button" aria-label="Đóng menu"><i class="fas fa-times"></i></button>
         </div>
         <nav class="sidebar__nav">
+            <div class="sidebar__accordion">
+                <button class="sidebar__accordion-btn" type="button"><i class="fas fa-server"></i> Nguồn phát: <span id="current-source-label-mobile" style="color: var(--red); font-weight: 600;">OPhim</span> <i class="fas fa-chevron-down sidebar__accordion-icon"></i></button>
+                <div class="sidebar__accordion-body" id="sidebar-source">
+                    <a href="#" data-source="ophim"><i class="fas fa-database" style="margin-right: 6px;"></i> OPhim</a>
+                    <a href="#" data-source="kkphim"><i class="fas fa-database" style="margin-right: 6px;"></i> KKPhim</a>
+                    <a href="#" data-source="vsmov"><i class="fas fa-database" style="margin-right: 6px;"></i> VSMOV</a>
+                </div>
+            </div>
+
             <a href="#" class="sidebar__link" data-section="home"><i class="fas fa-home"></i> Trang chủ</a>
             <a href="#" class="sidebar__link" data-browse="series"><i class="fas fa-tv"></i> Phim Bộ</a>
             <a href="#" class="sidebar__link" data-browse="movies"><i class="fas fa-film"></i> Phim Lẻ</a>
@@ -587,6 +607,6 @@
         </div>
     </div>
 
-    <script src="/js/script.js" defer></script>
+    <script src="js/script.js" defer></script>
 </body>
 </html>
