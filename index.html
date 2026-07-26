@@ -20,7 +20,7 @@
     <meta property="twitter:title" content="LPhim - Xem Phim Online Miễn Phí Mới Nhất HD Vietsub">
     <meta property="twitter:description" content="LPhim - Trang web xem phim online miễn phí chất lượng cao HD Vietsub. Kho phim lẻ, phim bộ, hoạt hình phong phú cập nhật liên tục tại LPhim.">
 
-    <link rel="stylesheet" href="css/style.css">
+    <link id="main-css" rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -607,6 +607,14 @@
         </div>
     </div>
 
-    <script src="js/script.js" defer></script>
+    <script id="main-js" src="/js/script.js" defer></script>
+    <script>
+        if (window.location.protocol === 'file:') {
+            var cssEl = document.getElementById('main-css');
+            var jsEl = document.getElementById('main-js');
+            if (cssEl) cssEl.href = 'css/style.css';
+            if (jsEl) jsEl.src = 'js/script.js';
+        }
+    </script>
 </body>
 </html>
