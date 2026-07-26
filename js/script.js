@@ -32,12 +32,12 @@ function updateApiConfig() {
     } else if (currentSource === 'vsmov') {
         IMG_CDN = "https://vsmov.com/storage/images/";
         API.new        = "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat";
-        API.series     = "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat?type=series";
-        API.movies     = "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat?type=single";
-        API["hoat-hinh"]= "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat?type=hoathinh";
-        API["tv-shows"]= "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat?type=tvshows";
-        API.vietsub    = "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat";
-        API.anime      = "https://vsmov.com/api/danh-sach/phim-moi-cap-nhat?type=hoathinh&country=nhat-ban";
+        API.series     = "https://vsmov.com/api/the-loai/chinh-kich";
+        API.movies     = "https://vsmov.com/api/the-loai/phim-chieu-rap";
+        API["hoat-hinh"]= "https://vsmov.com/api/the-loai/hoat-hinh";
+        API["tv-shows"]= "https://vsmov.com/api/the-loai/hai-huoc";
+        API.vietsub    = "https://vsmov.com/api/the-loai/vien-tuong";
+        API.anime      = "https://vsmov.com/api/the-loai/hoat-hinh";
         API.search     = "https://vsmov.com/api/tim-kiem";
         API.detail     = "https://vsmov.com/api/phim/";
         API.genre      = "https://vsmov.com/api/the-loai/";
