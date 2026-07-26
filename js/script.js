@@ -147,7 +147,7 @@ const COUNTRY_NAMES = {
 const TYPE_NAMES = { series:'Phim Bộ', movies:'Phim Lẻ', 'hoat-hinh':'Hoạt Hình', 'tv-shows':'TV Shows', vietsub:'Phim Vietsub', anime:'Anime' };
 
 // Helpers
-const img = p => p ? (p.startsWith('http') ? p : IMG_CDN + p) : '';
+const img = p => (p && typeof p === 'string') ? (p.startsWith('http') ? p : IMG_CDN + p) : '';
 
 function handleImgError(el) {
     if (!el.dataset.triedBackup) {
