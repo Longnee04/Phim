@@ -923,24 +923,22 @@ function stopTimer() {
 //  LOAD ALL ROWS
 // ══════════════════════════════════════════════════════════
 async function loadAll() {
-    // 1. Kiểm tra dữ liệu cache cục bộ của trang chủ để hiển thị ngay lập tức
-    const cachedData = localStorage.getItem('lphim_homepage_cache');
+    const cacheKey = 'lphim_homepage_cache_' + currentSource;
+    const cachedData = localStorage.getItem(cacheKey);
     let hasCache = false;
     
     if (cachedData) {
         try {
             const cache = JSON.parse(cachedData);
-            if (cache && cache.m1) {
+            if (cache && cache.m1 && cache.m1.length) {
                 hasCache = true;
-                // Render giao diện tức thì từ cache (0ms)
                 renderHomeData(cache.m1, cache.m2, cache.m3, cache.m4, cache.m5, cache.m6);
             }
         } catch (e) {
-            localStorage.removeItem('lphim_homepage_cache');
+            localStorage.removeItem(cacheKey);
         }
     }
 
-    // Nếu không có cache, mới hiện các skeleton loading
     if (!hasCache) {
         ['track-top10','track-phim-moi','track-phim-bo','track-phim-le','track-hoat-hinh','track-tv-shows','track-vietsub'].forEach(id => {
             const el = document.getElementById(id);
@@ -948,30 +946,61 @@ async function loadAll() {
         });
     }
 
-    // Vẽ danh mục lịch sử xem phim
     renderHistoryRow();
 
-    // 2. Chạy ngầm việc fetch dữ liệu mới nhất (Stale-While-Revalidate)
-    try {
-        const [d1,d2,d3,d4,d5,d6] = await Promise.all([
-            apiFetch(getUrlWithPage(API.new, 1, 24)),
-            apiFetch(getUrlWithPage(API.series, 1, 24)),
-            apiFetch(getUrlWithPage(API.movies, 1, 24)),
-            apiFetch(getUrlWithPage(API['hoat-hinh'], 1, 24)),
-            apiFetch(getUrlWithPage(API['tv-shows'], 1, 24)).catch(() => ({items:[]})),
-            apiFetch(getUrlWithPage(API.vietsub, 1, 24)).catch(() => ({items:[]})),
-        ]);
-        const m1=normalizeList(d1), m2=normalizeList(d2), m3=normalizeList(d3),
-              m4=normalizeList(d4), m5=normalizeList(d5), m6=normalizeList(d6);
+    let m1 = [], m2 = [], m3 = [], m4 = [], m5 = [], m6 = [];
 
-        // Cập nhật giao diện mới nhất
-        renderHomeData(m1, m2, m3, m4, m5, m6);
+    const p1 = apiFetch(getUrlWithPage(API.new, 1, 24)).then(d => {
+        m1 = normalizeList(d);
+        if (m1.length) {
+            initTop10('top10', m1.slice(0, 10));
+            initSlider('phim-moi', m1);
+            if (!hasCache) initBillboard(m1);
+        }
+    }).catch(() => {});
 
-        // Lưu đệm lại dữ liệu mới nhất vào localStorage
-        localStorage.setItem('lphim_homepage_cache', JSON.stringify({ m1, m2, m3, m4, m5, m6 }));
-    } catch (e) { 
-        console.error('loadAll fresh fetch failed:', e); 
-    }
+    const p2 = apiFetch(getUrlWithPage(API.series, 1, 24)).then(d => {
+        m2 = normalizeList(d);
+        if (m2.length) initSlider('phim-bo', m2);
+    }).catch(() => {});
+
+    const p3 = apiFetch(getUrlWithPage(API.movies, 1, 24)).then(d => {
+        m3 = normalizeList(d);
+        if (m3.length) initSlider('phim-le', m3);
+    }).catch(() => {});
+
+    const p4 = apiFetch(getUrlWithPage(API['hoat-hinh'], 1, 24)).then(d => {
+        m4 = normalizeList(d);
+        if (m4.length) initSlider('hoat-hinh', m4);
+    }).catch(() => {});
+
+    const p5 = apiFetch(getUrlWithPage(API['tv-shows'], 1, 24)).then(d => {
+        m5 = normalizeList(d);
+        const tvSection = document.getElementById('section-tv-shows');
+        if (m5.length) {
+            if (tvSection) tvSection.style.display = '';
+            initSlider('tv-shows', m5);
+        } else if (tvSection) {
+            tvSection.style.display = 'none';
+        }
+    }).catch(() => {});
+
+    const p6 = apiFetch(getUrlWithPage(API.vietsub, 1, 24)).then(d => {
+        m6 = normalizeList(d);
+        const vsSection = document.getElementById('section-vietsub');
+        if (m6.length) {
+            if (vsSection) vsSection.style.display = '';
+            initSlider('vietsub', m6);
+        } else if (vsSection) {
+            vsSection.style.display = 'none';
+        }
+    }).catch(() => {});
+
+    Promise.allSettled([p1, p2, p3, p4, p5, p6]).then(() => {
+        if (m1.length || m2.length || m3.length) {
+            localStorage.setItem(cacheKey, JSON.stringify({ m1, m2, m3, m4, m5, m6 }));
+        }
+    });
 }
 
 function renderHomeData(m1, m2, m3, m4, m5, m6) {
