@@ -2347,12 +2347,13 @@ const VIPPlayer = {
         // If Hls.js is supported, load and play
         if (Hls.isSupported()) {
             this.hls = new Hls({
-                maxBufferLength: 15,
-                maxMaxBufferLength: 30,
-                maxBufferSize: 60 * 1024 * 1024, // 60MB max buffer size
+                maxBufferLength: 60,             // Đệm trước 60 giây video để phim phát mượt tuyệt đối không lo đứng hình
+                maxMaxBufferLength: 120,         // Giới hạn đệm tối đa 120 giây
+                maxBufferSize: 100 * 1024 * 1024,// 100MB bộ đệm bộ nhớ cho Full HD 1080p
+                backBufferLength: 60,            // Giữ 60s video đã xem trong bộ nhớ để tua lùi phát tức thì (0ms)
                 enableWorker: true,
-                startFragPrefetch: true, // Nạp trước fragment đầu tiên tức thì để giảm độ trễ
-                lowLatencyMode: false, // Tắt Low-latency để tăng độ ổn định của bộ nhớ đệm cho VOD
+                startFragPrefetch: true,         // Tải trước phân đoạn video ngay lập tức
+                lowLatencyMode: false,           // Tắt Low-latency để tăng độ ổn định của bộ nhớ đệm cho VOD
                 manifestLoadingMaxRetry: 6,
                 levelLoadingMaxRetry: 6,
                 fragLoadingMaxRetry: 6
