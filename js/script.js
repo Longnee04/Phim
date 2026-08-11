@@ -2398,19 +2398,35 @@ const VIPPlayer = {
         // If Hls.js is supported, load and play
         if (Hls.isSupported()) {
             this.hls = new Hls({
-                maxBufferLength: 60,             // Đệm trước 60 giây video để phim phát mượt tuyệt đối không lo đứng hình
+                // ═══ BỘ ĐỆM SIÊU LỚN CHỐNG GIẬT HÌNH ═══
+                maxBufferLength: 60,             // Đệm trước 60 giây video — mạng chập chờn vẫn phát mượt
                 maxMaxBufferLength: 120,         // Giới hạn đệm tối đa 120 giây
                 maxBufferSize: 120 * 1024 * 1024,// 120MB bộ đệm bộ nhớ cho Full HD 1080p
-                backBufferLength: 60,            // Giữ 60s video đã xem trong bộ nhớ để tua lùi phát tức thì (0ms)
-                capLevelToPlayerSize: true,      // Tự động giới hạn độ phân giải theo kích thước màn hình để tiết kiệm băng thông & chống giật
-                enableWorker: true,              // Chạy giải mã HLS trên Web Worker độc lập với luồng UI
-                startFragPrefetch: true,         // Tải trước phân đoạn video ngay lập tức
-                nudgeMaxRetries: 8,              // Tự động nhích nhẹ đầu đĩa nếu dính khe hở khung hình (chống đơ)
-                nudgeOffset: 0.1,
-                lowLatencyMode: false,           // Tắt Low-latency để tăng độ ổn định của bộ nhớ đệm cho VOD
-                manifestLoadingMaxRetry: 6,
-                levelLoadingMaxRetry: 6,
-                fragLoadingMaxRetry: 6
+                backBufferLength: 60,            // Giữ 60s video đã xem, tua lùi phát tức thì 0ms
+                maxBufferHole: 0.5,              // Bỏ qua khe hở buffer ≤0.5s thay vì dừng phát (chống giật)
+
+                // ═══ ABR TỰ ĐỘNG HẠ CHẤT LƯỢNG KHI MẠNG YẾU ═══
+                capLevelToPlayerSize: true,      // Giới hạn resolution theo kích thước player thực tế
+                abrEwmaDefaultEstimate: 500000,  // Khởi động từ 500Kbps (SD) → nâng dần lên HD khi mạng ổn
+                abrBandWidthFactor: 0.8,         // Chỉ chọn quality dùng 80% băng thông đo được (dự phòng 20%)
+                abrBandWidthUpFactor: 0.5,       // Chỉ nâng quality khi có dư 50% băng thông (rất thận trọng)
+                abrMaxWithRealBitrate: true,     // Dùng bitrate thực tế thay vì bitrate khai báo trong manifest
+                startLevel: -1,                  // Để Hls.js tự chọn level khởi đầu theo băng thông
+
+                // ═══ HIỆU NĂNG GIẢI MÃ ═══
+                enableWorker: true,              // Giải mã HLS trên Web Worker tách biệt khỏi luồng UI
+                startFragPrefetch: true,         // Tải trước fragment đầu tiên ngay lập tức
+                nudgeMaxRetries: 10,             // Tự nhích đầu đĩa khi dính khe hở khung hình
+                nudgeOffset: 0.1,                // Nhích 0.1s mỗi lần
+                lowLatencyMode: false,           // Tắt low-latency để tăng ổn định bộ đệm cho VOD
+
+                // ═══ TỰ PHỤC HỒI KHI LỖI MẠNG ═══
+                manifestLoadingMaxRetry: 8,
+                manifestLoadingRetryDelay: 500,  // Retry sau 0.5s
+                levelLoadingMaxRetry: 8,
+                levelLoadingRetryDelay: 500,
+                fragLoadingMaxRetry: 8,
+                fragLoadingRetryDelay: 500,
             });
             this.hls.loadSource(m3u8Url);
             this.hls.attachMedia(this.video);
@@ -2421,6 +2437,28 @@ const VIPPlayer = {
                 if (this.video) this.video.play().catch(() => {});
             });
 
+            // ═══ GIÁM SÁT FRAME DROP — TỰ GIẢM CHẤT LƯỢNG NẾU GPU/CPU KHÔNG KỊP ═══
+            let frameDropCheckInterval = null;
+            this.hls.on(Hls.Events.FRAG_BUFFERED, () => {
+                if (frameDropCheckInterval) return;
+                frameDropCheckInterval = setInterval(() => {
+                    if (!this.video || !this.hls) {
+                        clearInterval(frameDropCheckInterval);
+                        frameDropCheckInterval = null;
+                        return;
+                    }
+                    const quality = this.video.getVideoPlaybackQuality?.();
+                    if (quality && quality.totalVideoFrames > 100) {
+                        const dropRate = quality.droppedVideoFrames / quality.totalVideoFrames;
+                        if (dropRate > 0.05 && this.hls.currentLevel > 0) {
+                            // Drop rate > 5%: tự giảm 1 bậc chất lượng
+                            console.warn(`Frame drop rate ${(dropRate*100).toFixed(1)}% > 5%, downgrading quality level ${this.hls.currentLevel} → ${this.hls.currentLevel - 1}`);
+                            this.hls.currentLevel = this.hls.currentLevel - 1;
+                        }
+                    }
+                }, 5000);
+            });
+
             let mediaErrorCount = 0;
             let networkErrorCount = 0;
             this.hls.on(Hls.Events.ERROR, (event, data) => {
@@ -2428,9 +2466,11 @@ const VIPPlayer = {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
                             networkErrorCount++;
-                            if (networkErrorCount <= 3) {
-                                console.warn(`Fatal HLS network error (${networkErrorCount}/3), attempting to startLoad...`, data);
-                                this.hls.startLoad();
+                            if (networkErrorCount <= 5) {
+                                console.warn(`Fatal HLS network error (${networkErrorCount}/5), attempting to startLoad...`, data);
+                                setTimeout(() => {
+                                    if (this.hls) this.hls.startLoad();
+                                }, 500 * networkErrorCount);
                             } else {
                                 console.warn('Hls network load failed. Stream connection timeout.');
                                 networkErrorCount = 0;
@@ -2441,11 +2481,11 @@ const VIPPlayer = {
                             break;
                         case Hls.ErrorTypes.MEDIA_ERROR:
                             mediaErrorCount++;
-                            if (mediaErrorCount <= 2) {
-                                console.warn(`Fatal HLS media error (${mediaErrorCount}/2), attempting recoverMediaError...`, data);
+                            if (mediaErrorCount <= 3) {
+                                console.warn(`Fatal HLS media error (${mediaErrorCount}/3), attempting recoverMediaError...`, data);
                                 this.hls.recoverMediaError();
                             } else {
-                                console.warn('Hls recoverMediaError failed twice, attempting full stream reload...');
+                                console.warn('Hls recoverMediaError failed, attempting full stream reload...');
                                 this._handleFatalError();
                             }
                             break;
@@ -2455,6 +2495,11 @@ const VIPPlayer = {
                             break;
                     }
                 } else {
+                    // ═══ XỬ LÝ LỖI NON-FATAL: BUFFER STALL & FRAG PARSE ═══
+                    if (data.details === 'bufferStalledError' && this.hls) {
+                        console.warn('Non-fatal buffer stall detected, nudging startLoad...');
+                        this.hls.startLoad();
+                    }
                     if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                         mediaErrorCount = 0;
                     }
@@ -2642,24 +2687,68 @@ const VIPPlayer = {
             if (loading) loading.style.display = 'none';
         });
 
+        // ═══ BUFFER STARVATION GUARD — CHỐNG GIẬT HÌNH TRIỆT ĐỂ ═══
         let stallTimer = null;
+        let bufferGuardInterval = null;
+        this._bufferGuardPaused = false;
+
         this.video.addEventListener('waiting', () => {
             const loading = document.getElementById('vip-loading');
             if (loading) loading.style.display = 'flex';
             clearTimeout(stallTimer);
             stallTimer = setTimeout(() => {
                 if (this.hls && this.video && !this.video.paused) {
-                    console.warn('Player waiting stall timeout (2.5s), triggering HLS startLoad auto-recovery...');
+                    console.warn('Player waiting stall (2s), startLoad recovery + quality downgrade...');
                     this.hls.startLoad();
+                    // Nếu đang ở quality cao, tự giảm 1 bậc để tránh giật tiếp
+                    if (this.hls.currentLevel > 0 && this.hls.autoLevelEnabled) {
+                        this.hls.nextLevel = this.hls.currentLevel - 1;
+                    }
                 }
-            }, 2500);
+            }, 2000);
         });
 
         this.video.addEventListener('playing', () => {
             clearTimeout(stallTimer);
+            this._bufferGuardPaused = false;
             const loading = document.getElementById('vip-loading');
             if (loading) loading.style.display = 'none';
         });
+
+        // Buffer Starvation Guard: kiểm tra mỗi 500ms, nếu buffer < 0.5s → tạm dừng chờ đệm đủ 3s mới phát lại
+        // Giúp loại bỏ hiện tượng giật hình micro-stutter do buffer chạy cạn
+        const startBufferGuard = () => {
+            if (bufferGuardInterval) return;
+            bufferGuardInterval = setInterval(() => {
+                if (!this.video || this.video.paused || !this.hls) return;
+                const ct = this.video.currentTime;
+                const buffered = this.video.buffered;
+                let bufferAhead = 0;
+                for (let i = 0; i < buffered.length; i++) {
+                    if (buffered.start(i) <= ct && ct <= buffered.end(i)) {
+                        bufferAhead = buffered.end(i) - ct;
+                        break;
+                    }
+                }
+                // Nếu buffer còn < 0.5s và video đang phát → tạm dừng chờ đệm
+                if (bufferAhead < 0.5 && !this._bufferGuardPaused && this.video.currentTime > 0.5) {
+                    this._bufferGuardPaused = true;
+                    this.video.pause();
+                    const loading = document.getElementById('vip-loading');
+                    if (loading) loading.style.display = 'flex';
+                    console.warn(`Buffer guard: buffer ${bufferAhead.toFixed(2)}s < 0.5s, pausing to accumulate...`);
+                }
+                // Khi đã đệm đủ 3s → tự phát lại
+                if (this._bufferGuardPaused && bufferAhead >= 3) {
+                    this._bufferGuardPaused = false;
+                    this.video.play().catch(() => {});
+                    const loading = document.getElementById('vip-loading');
+                    if (loading) loading.style.display = 'none';
+                    console.log(`Buffer guard: buffer ${bufferAhead.toFixed(2)}s >= 3s, resuming playback.`);
+                }
+            }, 500);
+        };
+        this.video.addEventListener('playing', startBufferGuard);
 
         this.video.addEventListener('ended', () => {
             this._onEnded();
