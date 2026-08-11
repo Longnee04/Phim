@@ -1847,7 +1847,7 @@ async function openModal(slug, autoPlay = false) {
     try {
         const d = await apiFetch(API.detail + slug, { signal: _modalAbort.signal });
         if (reqId !== _modalReqId) return;
-        const m = d.movie || {}, eps = d.episodes?.[0]?.server_data || [];
+        const m = d.movie || {}, episodesData = d.episodes || [], eps = (episodesData[0] && episodesData[0].server_data) ? episodesData[0].server_data : [];
 
         // Cập nhật Structured Data (Movie Schema) cho SEO
         if (typeof setMovieSchema === 'function') {
@@ -1940,6 +1940,7 @@ async function openModal(slug, autoPlay = false) {
             };
         }
 
+        renderServers(episodesData, m, autoPlay);
         renderEpisodes(eps, m);
         renderRelatedMovies(m, _modalAbort.signal);
 
@@ -2091,6 +2092,56 @@ function playEpisode(ep, movie) {
             };
         }
     }
+}
+
+function renderServers(serversData, movie, autoPlay) {
+    const sec = document.getElementById('modal-servers-section');
+    const list = document.getElementById('modal-servers-list');
+    if (!sec || !list) return;
+
+    list.innerHTML = '';
+    if (!serversData || !serversData.length || serversData.length <= 1) {
+        sec.style.display = 'none';
+        return;
+    }
+
+    sec.style.display = 'block';
+
+    serversData.forEach((server, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'server-btn' + (idx === 0 ? ' active' : '');
+        btn.type = 'button';
+        
+        let iconClass = 'fa-play-circle';
+        const nameLower = (server.server_name || '').toLowerCase();
+        if (nameLower.includes('thuyết minh') || nameLower.includes('thuyet minh')) {
+            iconClass = 'fa-microphone';
+        } else if (nameLower.includes('lồng tiếng') || nameLower.includes('long tieng')) {
+            iconClass = 'fa-headset';
+        } else if (nameLower.includes('vietsub')) {
+            iconClass = 'fa-closed-captioning';
+        }
+
+        btn.innerHTML = `<i class="fas ${iconClass}"></i> ${server.server_name || ('Server #' + (idx + 1))}`;
+        
+        btn.onclick = () => {
+            list.querySelectorAll('.server-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            const serverEps = server.server_data || [];
+            _currentEpisodesList = serverEps;
+            renderEpisodes(serverEps, movie);
+
+            if (serverEps.length) {
+                playEpisode(serverEps[0], movie);
+                const btns = document.querySelectorAll('.ep-btn');
+                btns.forEach(x => x.classList.remove('active'));
+                if (btns[0]) btns[0].classList.add('active');
+            }
+        };
+
+        list.appendChild(btn);
+    });
 }
 
 function renderEpisodes(eps, movie) {

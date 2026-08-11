@@ -3532,3 +3532,62 @@ body, p, span, div, a, button, input, textarea, select, li, label, h1, h2, h3, h
   to { transform: scale(1.08); filter: drop-shadow(0 0 25px rgba(229,9,20,0.8)); }
 }
 
+/* Server Selector (Các bản chiếu / Nguồn phát) */
+.modal__servers-section {
+  margin-top: 22px;
+  margin-bottom: 16px;
+}
+
+.modal__servers-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal__servers-title i {
+  color: var(--red);
+}
+
+.modal__servers-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.server-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--t2);
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.server-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--white);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.server-btn.active {
+  background: linear-gradient(135deg, var(--red) 0%, #b20710 100%);
+  color: var(--white);
+  border-color: var(--red);
+  box-shadow: 0 4px 16px rgba(229, 9, 20, 0.4);
+}
+
+.server-btn i {
+  font-size: 0.95rem;
+}
+
