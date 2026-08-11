@@ -2400,10 +2400,13 @@ const VIPPlayer = {
             this.hls = new Hls({
                 maxBufferLength: 60,             // Đệm trước 60 giây video để phim phát mượt tuyệt đối không lo đứng hình
                 maxMaxBufferLength: 120,         // Giới hạn đệm tối đa 120 giây
-                maxBufferSize: 100 * 1024 * 1024,// 100MB bộ đệm bộ nhớ cho Full HD 1080p
+                maxBufferSize: 120 * 1024 * 1024,// 120MB bộ đệm bộ nhớ cho Full HD 1080p
                 backBufferLength: 60,            // Giữ 60s video đã xem trong bộ nhớ để tua lùi phát tức thì (0ms)
-                enableWorker: true,
+                capLevelToPlayerSize: true,      // Tự động giới hạn độ phân giải theo kích thước màn hình để tiết kiệm băng thông & chống giật
+                enableWorker: true,              // Chạy giải mã HLS trên Web Worker độc lập với luồng UI
                 startFragPrefetch: true,         // Tải trước phân đoạn video ngay lập tức
+                nudgeMaxRetries: 8,              // Tự động nhích nhẹ đầu đĩa nếu dính khe hở khung hình (chống đơ)
+                nudgeOffset: 0.1,
                 lowLatencyMode: false,           // Tắt Low-latency để tăng độ ổn định của bộ nhớ đệm cho VOD
                 manifestLoadingMaxRetry: 6,
                 levelLoadingMaxRetry: 6,
@@ -2639,12 +2642,21 @@ const VIPPlayer = {
             if (loading) loading.style.display = 'none';
         });
 
+        let stallTimer = null;
         this.video.addEventListener('waiting', () => {
             const loading = document.getElementById('vip-loading');
             if (loading) loading.style.display = 'flex';
+            clearTimeout(stallTimer);
+            stallTimer = setTimeout(() => {
+                if (this.hls && this.video && !this.video.paused) {
+                    console.warn('Player waiting stall timeout (2.5s), triggering HLS startLoad auto-recovery...');
+                    this.hls.startLoad();
+                }
+            }, 2500);
         });
 
         this.video.addEventListener('playing', () => {
+            clearTimeout(stallTimer);
             const loading = document.getElementById('vip-loading');
             if (loading) loading.style.display = 'none';
         });
