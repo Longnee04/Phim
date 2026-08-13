@@ -1978,35 +1978,9 @@ async function openModal(slug, autoPlay = false) {
     }
 }
 
-// ══════════════════════════════════════════════════════════
-//  VIDEO PLAYBACK & EPISODE ROUTING ENGINE
-// ══════════════════════════════════════════════════════════
-
-// Convert VSMOV embed URLs to direct or proxied HLS m3u8 streams
-function getVsmovM3u8(linkEmbed) {
-    if (!linkEmbed || !linkEmbed.includes('/video/')) return null;
-    try {
-        const urlObj = new URL(linkEmbed);
-        const host = urlObj.host;
-        const parts = urlObj.pathname.split('/video/');
-        const hash = parts[1];
-        if (hash) {
-            if (window.location.protocol !== 'file:') {
-                return `/api/vsmov?host=${encodeURIComponent(host)}&hash=${encodeURIComponent(hash)}`;
-            }
-            return `https://${host}/stream/${hash}/master.m3u8`;
-        }
-    } catch (err) {
-        console.warn('Failed to parse VSMOV embed URL:', err);
-    }
-    return null;
-}
-
-// Fallback player for external iframe streams
 function playInIframe(url) {
     const hero = document.getElementById('modal-hero');
     if (!hero) return;
-
     hero.querySelectorAll('iframe, .vsmov-player-fallback').forEach(f => f.remove());
     if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
         VIPPlayer.deactivate();
@@ -2039,7 +2013,23 @@ function playInIframe(url) {
     if (modal) modal.classList.add('is-playing');
 }
 
-// Play selected episode
+function getVsmovM3u8(linkEmbed) {
+    if (!linkEmbed || !linkEmbed.includes('/video/')) return null;
+    try {
+        const urlObj = new URL(linkEmbed);
+        const host = urlObj.host;
+        const parts = urlObj.pathname.split('/video/');
+        const hash = parts[1];
+        if (hash) {
+            if (window.location.protocol !== 'file:') {
+                return `/api/vsmov?host=${encodeURIComponent(host)}&hash=${encodeURIComponent(hash)}`;
+            }
+            return `https://${host}/stream/${hash}/master.m3u8`;
+        }
+    } catch {}
+    return null;
+}
+
 function playEpisode(ep, movie) {
     _currentEpisode = ep;
     if (movie) _currentModalMovie = movie;
@@ -2073,10 +2063,11 @@ function playEpisode(ep, movie) {
         modalEl.focus();
     }
 
-    // Save watch progress & watch history
+    // Lưu tiến trình xem dở (tập nào)
     const slug = (movie && movie.slug) || _currentModalSlug;
     if (slug) STORAGE.saveProgress(slug, ep.name);
 
+    // Save to history
     if (movie) {
         STORAGE.addHistory({
             slug: movie.slug || _currentModalSlug,
@@ -2086,6 +2077,7 @@ function playEpisode(ep, movie) {
             episode: ep.name || ''
         });
         
+        // Hiện nút xóa lịch sử trong modal ngay lập tức
         const removeHistoryBtn = document.getElementById('modal-remove-history-btn');
         if (removeHistoryBtn) {
             removeHistoryBtn.onclick = () => {
@@ -2102,7 +2094,6 @@ function playEpisode(ep, movie) {
     }
 }
 
-// Render server tabs (Vietsub, Thuyết Minh, Lồng Tiếng, Server #1)
 function renderServers(serversData, movie, autoPlay) {
     const sec = document.getElementById('modal-servers-section');
     const list = document.getElementById('modal-servers-list');
@@ -2153,22 +2144,14 @@ function renderServers(serversData, movie, autoPlay) {
     });
 }
 
-// Render episode grid buttons
 function renderEpisodes(eps, movie) {
     const c = document.getElementById('modal-episodes-list');
     const sec = document.getElementById('modal-episodes-section');
-    if (!c || !sec) return;
-
     c.innerHTML = '';
-    if (!eps || !eps.length) { 
-        sec.style.display = 'none'; 
-        return; 
-    }
+    if (!eps.length) { sec.style.display = 'none'; return; }
     sec.style.display = '';
-
     eps.forEach(ep => {
-        const b = document.createElement('button'); 
-        b.className = 'ep-btn';
+        const b = document.createElement('button'); b.className = 'ep-btn';
         b.textContent = `Tập ${ep.name}`;
         b.onclick = () => {
             c.querySelectorAll('.ep-btn').forEach(x => x.classList.remove('active'));
@@ -2179,11 +2162,97 @@ function renderEpisodes(eps, movie) {
     });
 }
 
-// Close detail modal & deactivate video player
+async function renderRelatedMovies(movie, signal) {
+    const section = document.getElementById('modal-related-section');
+    const grid = document.getElementById('modal-related-grid');
+    if (!section || !grid) return;
+
+    section.style.display = 'none';
+    grid.innerHTML = '';
+
+    const categories = movie.category || [];
+    if (!categories.length) return;
+
+    const genreSlug = categories[0].slug;
+    if (!genreSlug) return;
+
+    try {
+        const d = await apiFetch(API.genre + genreSlug, { signal });
+        if (!d || !d.data || !d.data.items) return;
+
+        const items = d.data.items.filter(item => item.slug !== movie.slug).slice(0, 9);
+        if (!items.length) return;
+
+        section.style.display = 'block';
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'related-card';
+            
+            const poster = img(item.poster_url || item.thumb_url);
+            const duration = item.time || item.episode_current || '';
+            const year = item.year || '';
+            const quality = item.quality || 'HD';
+            const lang = item.lang || 'Vietsub';
+            const inList = STORAGE.isInMyList(item.slug);
+
+            card.innerHTML = `
+                <div class="related-card__img-container">
+                    <img class="related-card__img" src="${poster}" alt="${item.name}" loading="lazy" onerror="handleImgError(this)">
+                    ${duration ? `<span class="related-card__duration">${duration}</span>` : ''}
+                    <button class="related-card__play-overlay" type="button"><i class="fas fa-play"></i></button>
+                </div>
+                <div class="related-card__body">
+                    <div class="related-card__meta-row">
+                        <div class="related-card__meta-left">
+                            <span class="related-card__tag">${quality}</span>
+                            <span class="related-card__year">${year}</span>
+                        </div>
+                        <button class="card__mini-btn related-card__mylist-btn${inList ? ' in-list' : ''}" data-mylist-slug="${item.slug}" type="button" title="${inList ? 'Xóa khỏi danh sách' : 'Thêm vào danh sách'}"><i class="fas fa-${inList ? 'check' : 'plus'}"></i></button>
+                    </div>
+                    <h4 class="related-card__title">${item.name}</h4>
+                    <p class="related-card__genres">${(item.category || []).map(c => c.name).filter(Boolean).slice(0, 3).join(' • ')}</p>
+                </div>
+            `;
+
+            // Click handlers
+            card.querySelector('.related-card__img-container').onclick = () => {
+                openModal(item.slug);
+            };
+            card.querySelector('.related-card__title').onclick = () => {
+                openModal(item.slug);
+            };
+
+            const myListBtn = card.querySelector('[data-mylist-slug]');
+            if (myListBtn) {
+                myListBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const added = STORAGE.toggleMyList(item);
+                    myListBtn.classList.toggle('in-list', added);
+                    myListBtn.innerHTML = `<i class="fas fa-${added ? 'check' : 'plus'}"></i>`;
+                    updateAllMyListButtons(item.slug, added);
+                    showToast(
+                        added ? 'Đã thêm vào danh sách! ✓' : 'Đã xóa khỏi danh sách!',
+                        added ? `Đã lưu phim <b>${item.name}</b> vào Danh sách của tôi.` : `Đã xóa <b>${item.name}</b> khỏi Danh sách của tôi.`,
+                        added ? 'fa-heart' : 'fa-trash-can'
+                    );
+                };
+            }
+
+            grid.appendChild(card);
+        });
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            console.error('renderRelatedMovies:', err);
+        }
+    }
+}
+
 function closeModal() {
+    // Xóa Structured Data Movie Schema khi đóng modal
     const oldSchema = document.getElementById('movie-structured-data');
     if (oldSchema) oldSchema.remove();
 
+    // Cập nhật lại URL trình duyệt về trang chủ
     try {
         if (window.location.protocol !== 'file:' && window.location.pathname !== '/') {
             history.pushState(null, '', '/');
@@ -2195,34 +2264,22 @@ function closeModal() {
     if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
         VIPPlayer.deactivate();
     }
-
-    const modal = document.getElementById('modal');
-    const hero = document.getElementById('modal-hero');
-    if (hero) hero.querySelectorAll('iframe, .vsmov-player-fallback').forEach(f => f.remove());
-
-    const heroImg = document.getElementById('modal-hero-img');
-    if (heroImg) heroImg.style.opacity = '';
-
-    const gradient = hero ? hero.querySelector('.modal__hero-gradient') : null; 
-    if (gradient) gradient.style.opacity = '';
-
-    if (modal) {
-        modal.setAttribute('aria-hidden', 'true');
-        modal.classList.remove('is-playing');
-    }
+    const modal = document.getElementById('modal'), hero = document.getElementById('modal-hero');
+    hero.querySelectorAll('iframe').forEach(f => f.remove());
+    document.getElementById('modal-hero-img').style.opacity = '';
+    const g = hero.querySelector('.modal__hero-gradient'); if (g) g.style.opacity = '';
+    modal.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
-
-    if (_modalAbort) {
-        try { _modalAbort.abort(); } catch {}
-    }
-
+    if (_modalAbort) try { _modalAbort.abort(); } catch {}
     _currentModalSlug = null;
     _currentModalMovie = null;
     _currentEpisodesList = [];
 
+    modal.classList.remove('is-playing');
     const playerBar = document.getElementById('modal-player-bar');
     if (playerBar) playerBar.style.display = 'none';
 
+    // Tắt các class rạp chiếu, tắt đèn
     document.body.classList.remove('theater-light-off');
     const dialog = document.querySelector('.modal__dialog');
     if (dialog) dialog.classList.remove('theater-layout');
@@ -2233,15 +2290,17 @@ function closeModal() {
         theaterBtn.title = 'Chế độ rạp chiếu (Rộng hơn)';
     }
 
+    // Refresh history row if on home page
     if (!document.getElementById('home-view').style.display || document.getElementById('home-view').style.display !== 'none') {
         renderHistoryRow();
     }
+    // Refresh My List page if currently showing
     if (browseType === 'mylist') {
         openMyListPage();
     }
 }
 
-// Update all card My List buttons
+// Update all card mylist buttons when toggling from modal
 function updateAllMyListButtons(slug, added) {
     document.querySelectorAll(`[data-mylist-slug="${slug}"]`).forEach(btn => {
         btn.classList.toggle('in-list', added);
@@ -2253,13 +2312,13 @@ function updateAllMyListButtons(slug, added) {
 //  VIP CUSTOM HLS VIDEO PLAYER
 // ══════════════════════════════════════════════════════════
 const VIPPlayer = {
-    // Player State
+    // State
     hls: null,
     video: null,
     container: null,
     isActive: false,
     currentM3u8: null,
-    currentServer: 'vip',
+    currentServer: 'vip', // 'vip'
     hlsRetryCount: 0,
     _isReloading: false,
     controlsTimeout: null,
@@ -2273,10 +2332,7 @@ const VIPPlayer = {
     _seekOSDTimeout: null,
     _volumeOSDTimeout: null,
     _centerIndicatorTimeout: null,
-    _nextEpTimerInterval: null,
     _tvFocusActive: false,
-    _orientationHandler: null,
-    _lastTouchTime: 0,
 
     // Initialize - call once on DOMContentLoaded
     init() {
@@ -2290,20 +2346,22 @@ const VIPPlayer = {
         this._setupDoubleTap();
         this._setupSpeedMenu();
 
-        // Sync fullscreen icon with system fullscreen state
+        // Đồng bộ hóa trạng thái nút Fullscreen khi vào/ra chế độ toàn màn hình hệ thống
         const syncFullscreen = () => {
-            const isFS = !!(document.fullscreenElement || 
-                           document.webkitFullscreenElement || 
-                           document.mozFullScreenElement || 
-                           document.msFullscreenElement);
+            const isFS = document.fullscreenElement || 
+                         document.webkitFullscreenElement || 
+                         document.mozFullScreenElement || 
+                         document.msFullscreenElement;
             
             const fsIcon = document.querySelector('#vip-btn-fullscreen i');
             if (fsIcon) {
                 fsIcon.className = isFS ? 'fas fa-compress' : 'fas fa-expand';
             }
 
-            if (!isFS && screen.orientation && screen.orientation.unlock) {
-                screen.orientation.unlock().catch(() => {});
+            if (!isFS) {
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock().catch(() => {});
+                }
             }
         };
 
@@ -2313,7 +2371,7 @@ const VIPPlayer = {
         document.addEventListener('MSFullscreenChange', syncFullscreen);
     },
 
-    // Load HLS video stream source
+    // Load HLS source
     load(m3u8Url) {
         this.currentM3u8 = m3u8Url;
         this.currentServer = 'vip';
@@ -2323,7 +2381,7 @@ const VIPPlayer = {
         }
         this._isReloading = false;
 
-        // Cleanup previous HLS instance safely
+        // Clean up previous HLS instance
         if (this.hls) {
             this.hls.destroy();
             this.hls = null;
@@ -2337,12 +2395,12 @@ const VIPPlayer = {
         const speedBtn = document.getElementById('vip-btn-speed');
         if (speedBtn) speedBtn.textContent = '1x';
 
-        // If Hls.js is supported, initialize HLS engine
+        // If Hls.js is supported, load and play
         if (Hls.isSupported()) {
             this.hls = new Hls({
                 maxBufferLength: 30,
                 maxMaxBufferLength: 60,
-                maxBufferSize: 60 * 1024 * 1024, // 60MB RAM buffer limit
+                maxBufferSize: 60 * 1024 * 1024, // 60MB
                 enableWorker: true,
                 startFragPrefetch: true,
                 lowLatencyMode: false,
@@ -2350,28 +2408,13 @@ const VIPPlayer = {
                 levelLoadingMaxRetry: 6,
                 fragLoadingMaxRetry: 6
             });
-
             this.hls.loadSource(m3u8Url);
             this.hls.attachMedia(this.video);
 
             this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                const loadingEl = document.getElementById('vip-loading');
-                if (loadingEl) loadingEl.style.display = 'none';
-                
-                // Auto-enable HLS subtitle track if available in stream manifest
-                if (this.hls && this.hls.subtitleTracks && this.hls.subtitleTracks.length > 0) {
-                    console.log('HLS Subtitles found:', this.hls.subtitleTracks);
-                    this.hls.subtitleTrack = 0;
-                }
-
+                const loading = document.getElementById('vip-loading');
+                if (loading) loading.style.display = 'none';
                 if (this.video) this.video.play().catch(() => {});
-            });
-
-            this.hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
-                if (this.hls && this.hls.subtitleTracks && this.hls.subtitleTracks.length > 0 && this.hls.subtitleTrack === -1) {
-                    console.log('HLS Subtitle tracks updated, auto-selecting track 0');
-                    this.hls.subtitleTrack = 0;
-                }
             });
 
             let mediaErrorCount = 0;
@@ -2385,15 +2428,15 @@ const VIPPlayer = {
                         case Hls.ErrorTypes.MEDIA_ERROR:
                             mediaErrorCount++;
                             if (mediaErrorCount <= 2) {
-                                console.warn(`Fatal HLS media error (${mediaErrorCount}/2), recovering...`, data);
+                                console.warn(`Fatal HLS media error (${mediaErrorCount}/2), attempting recoverMediaError...`, data);
                                 this.hls.recoverMediaError();
                             } else {
-                                console.warn('HLS recoverMediaError failed twice, reloading stream...');
+                                console.warn('Hls recoverMediaError failed twice, attempting full stream reload...');
                                 this._handleFatalError();
                             }
                             break;
                         default:
-                            console.error('Fatal unrecoverable HLS error, reloading stream...', data);
+                            console.error('Fatal unrecoverable HLS error, attempting stream reload...', data);
                             this._handleFatalError();
                             break;
                     }
@@ -2408,7 +2451,7 @@ const VIPPlayer = {
                 }
             });
         } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Native HLS for Safari / iOS
+            // Safari/iOS native HLS
             this.video.src = m3u8Url;
         } else {
             console.warn('HLS not supported on this browser.');
@@ -2423,15 +2466,18 @@ const VIPPlayer = {
         if (this.hlsRetryCount < 2) {
             this.hlsRetryCount++;
             this._isReloading = true;
-            console.log(`Stream error. Auto-reloading stream (Attempt ${this.hlsRetryCount}/2)...`);
+            console.log(`Stream error. Auto-reloading stream (Attempt ${this.hlsRetryCount}/2) to recover...`);
             
+            // Save current playback position
             this._saveTimeProgress();
             
+            // Destroy HLS instance
             if (this.hls) {
                 this.hls.destroy();
                 this.hls = null;
             }
             
+            // Reload stream
             this.load(this.currentM3u8);
         } else {
             console.error('Stream reload attempt failed.');
@@ -2447,46 +2493,55 @@ const VIPPlayer = {
         this.isActive = true;
         this.container.style.display = '';
 
+        // Hide billboard/modal hero background elements
         const heroImg = document.getElementById('modal-hero-img');
         const heroGrad = document.querySelector('#modal-hero .modal__hero-gradient');
         if (heroImg) heroImg.style.opacity = '0';
         if (heroGrad) heroGrad.style.opacity = '0';
 
+        // Add active classes to modal
         const modal = document.getElementById('modal');
         if (modal) {
             modal.classList.add('vip-active');
             modal.classList.add('is-playing');
         }
 
+        // Remove any backup iframes
         const hero = document.getElementById('modal-hero');
         if (hero) {
             hero.querySelectorAll('iframe').forEach(f => f.remove());
         }
 
+        // Show the speed menu and hide it by default
         const speedMenu = document.getElementById('vip-speed-menu');
         if (speedMenu) speedMenu.style.display = 'none';
 
+        // Show controls initially, then autohide
         this.showControls();
         this.resetAutoHide();
 
+        // Start progress save interval (every 5 seconds)
         if (this._saveInterval) clearInterval(this._saveInterval);
         this._saveInterval = setInterval(() => this._saveTimeProgress(), 5000);
 
+        // Show light/theater buttons to let user toggle them while in HTML5 player
         const lightBtn = document.getElementById('modal-light-btn');
         const theaterBtn = document.getElementById('modal-theater-btn');
         if (lightBtn) lightBtn.style.display = 'inline-flex';
         if (theaterBtn) theaterBtn.style.display = 'inline-flex';
 
+        // Play the video
         this.video.play().catch(e => {
             console.log('Autoplay blocked or interrupted:', e);
             this._showCenterIndicator('play');
         });
     },
 
-    // Deactivate and cleanup VIP player completely
+    // Deactivate and cleanup VIP player
     deactivate() {
         this.isActive = false;
 
+        // Clear timeouts and intervals
         if (this._saveInterval) {
             clearInterval(this._saveInterval);
             this._saveInterval = null;
@@ -2497,8 +2552,10 @@ const VIPPlayer = {
         }
         this._removeNextEpisodeCountdown();
 
+        // Save last progress time
         this._saveTimeProgress();
 
+        // Pause and reset video
         if (this.video) {
             this.video.pause();
             this.video.src = '';
@@ -2506,11 +2563,13 @@ const VIPPlayer = {
             this.video.load();
         }
 
+        // Destroy HLS instance
         if (this.hls) {
             this.hls.destroy();
             this.hls = null;
         }
 
+        // Hide VIP UI container
         if (this.container) {
             this.container.style.display = 'none';
             this.container.classList.remove('pseudo-fullscreen');
@@ -2518,11 +2577,13 @@ const VIPPlayer = {
         }
         document.body.classList.remove('vip-pseudo-fs-active');
 
+        // Remove active classes
         const modal = document.getElementById('modal');
         if (modal) {
             modal.classList.remove('vip-active');
         }
 
+        // Blur any TV focus elements
         if (this._tvFocusActive) {
             this.getFocusables().forEach(el => {
                 el.classList.remove('tv-focus');
@@ -2532,7 +2593,7 @@ const VIPPlayer = {
         }
     },
 
-    // Set up HTML5 video event listeners
+    // Set up standard HTML5 video event listeners
     _setupVideoEvents() {
         if (!this.video) return;
 
@@ -2562,6 +2623,7 @@ const VIPPlayer = {
         });
 
         this.video.addEventListener('loadedmetadata', () => {
+            // Restore playback position if saved
             this._restoreTimeProgress();
             this._updateProgress();
             this._updateNextButton();
@@ -2570,26 +2632,83 @@ const VIPPlayer = {
             if (loading) loading.style.display = 'none';
         });
 
+        // ═══ BUFFER STARVATION GUARD — CHỐNG GIẬT HÌNH TRIỆT ĐỂ ═══
+        let stallTimer = null;
+        let bufferGuardInterval = null;
+        this._bufferGuardPaused = false;
+
         this.video.addEventListener('waiting', () => {
             const loading = document.getElementById('vip-loading');
             if (loading) loading.style.display = 'flex';
+            clearTimeout(stallTimer);
+            stallTimer = setTimeout(() => {
+                if (this.hls && this.video && !this.video.paused) {
+                    console.warn('Player waiting stall (2s), startLoad recovery + quality downgrade...');
+                    this.hls.startLoad();
+                    // Nếu đang ở quality cao, tự giảm 1 bậc để tránh giật tiếp
+                    if (this.hls.currentLevel > 0 && this.hls.autoLevelEnabled) {
+                        this.hls.nextLevel = this.hls.currentLevel - 1;
+                    }
+                }
+            }, 2000);
         });
 
         this.video.addEventListener('playing', () => {
+            clearTimeout(stallTimer);
+            this._bufferGuardPaused = false;
             const loading = document.getElementById('vip-loading');
             if (loading) loading.style.display = 'none';
         });
+
+        // Buffer Starvation Guard: kiểm tra mỗi 500ms, nếu buffer < 0.5s → tạm dừng chờ đệm đủ 3s mới phát lại
+        // Giúp loại bỏ hiện tượng giật hình micro-stutter do buffer chạy cạn
+        const startBufferGuard = () => {
+            if (bufferGuardInterval) return;
+            bufferGuardInterval = setInterval(() => {
+                if (!this.video || this.video.paused || !this.hls) return;
+                const ct = this.video.currentTime;
+                const buffered = this.video.buffered;
+                let bufferAhead = 0;
+                for (let i = 0; i < buffered.length; i++) {
+                    if (buffered.start(i) <= ct && ct <= buffered.end(i)) {
+                        bufferAhead = buffered.end(i) - ct;
+                        break;
+                    }
+                }
+                // Nếu buffer còn < 0.5s và video đang phát → tạm dừng chờ đệm
+                if (bufferAhead < 0.5 && !this._bufferGuardPaused && this.video.currentTime > 0.5) {
+                    this._bufferGuardPaused = true;
+                    this.video.pause();
+                    const loading = document.getElementById('vip-loading');
+                    if (loading) loading.style.display = 'flex';
+                    console.warn(`Buffer guard: buffer ${bufferAhead.toFixed(2)}s < 0.5s, pausing to accumulate...`);
+                }
+                // Khi đã đệm đủ 3s → tự phát lại
+                if (this._bufferGuardPaused && bufferAhead >= 3) {
+                    this._bufferGuardPaused = false;
+                    this.video.play().catch(() => {});
+                    const loading = document.getElementById('vip-loading');
+                    if (loading) loading.style.display = 'none';
+                    console.log(`Buffer guard: buffer ${bufferAhead.toFixed(2)}s >= 3s, resuming playback.`);
+                }
+            }, 500);
+        };
+        this.video.addEventListener('playing', startBufferGuard);
 
         this.video.addEventListener('ended', () => {
             this._onEnded();
         });
 
-        this.video.addEventListener('error', () => {
+        this.video.addEventListener('error', (e) => {
             const err = this.video.error;
-            if (err && err.code === 4) {
-                const loading = document.getElementById('vip-loading');
-                if (loading) loading.style.display = 'none';
-                showToast('Lỗi phát ⚠️', 'Định dạng video không được trình duyệt hỗ trợ.', 'fa-triangle-exclamation');
+            if (err) {
+                console.warn('Native video element error code:', err.code, err.message);
+                if (err.code === 4) { // MEDIA_ERR_SRC_NOT_SUPPORTED
+                    console.error('Fatal native src unsupported error');
+                    const loading = document.getElementById('vip-loading');
+                    if (loading) loading.style.display = 'none';
+                    showToast('Lỗi phát ⚠️', 'Định dạng video không được trình duyệt hỗ trợ.', 'fa-triangle-exclamation');
+                }
             }
         });
 
@@ -2610,7 +2729,7 @@ const VIPPlayer = {
         });
     },
 
-    // Set up mouse and touch control bar events
+    // Set up general mouse and touch control bar events
     _setupControls() {
         const playBtn = document.getElementById('vip-btn-play');
         const muteBtn = document.getElementById('vip-btn-mute');
@@ -2631,7 +2750,9 @@ const VIPPlayer = {
         if (nextBtn) {
             nextBtn.addEventListener('click', () => {
                 const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
-                if (nextBottomBtn) nextBottomBtn.click();
+                if (nextBottomBtn) {
+                    nextBottomBtn.click();
+                }
             });
         }
 
@@ -2641,15 +2762,19 @@ const VIPPlayer = {
             });
         }
 
+        // Show/hide controls on mouse hover / touch movement
         this.container.addEventListener('mousemove', () => {
             this.showControls();
             this.resetAutoHide();
         });
 
         this.container.addEventListener('mouseleave', () => {
-            if (!this.video.paused) this.hideControls();
+            if (!this.video.paused) {
+                this.hideControls();
+            }
         });
 
+        // Touch events for mobile to show controls
         this.container.addEventListener('touchstart', () => {
             this._lastTouchTime = Date.now();
             this.showControls();
@@ -2657,7 +2782,7 @@ const VIPPlayer = {
         }, { passive: true });
     },
 
-    // Set up floating progress scrubbing & time tooltip
+    // Set up floating time tooltip and scrubbing logic
     _setupProgress() {
         const progress = document.getElementById('vip-progress');
         const tooltip = document.getElementById('vip-progress-tooltip');
@@ -2674,7 +2799,9 @@ const VIPPlayer = {
         };
 
         const onMouseMove = (e) => {
-            if (this.isSeeking) seekTo(e);
+            if (this.isSeeking) {
+                seekTo(e);
+            }
             if (this.video && this.video.duration && tooltip) {
                 const rect = progress.getBoundingClientRect();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -2707,6 +2834,7 @@ const VIPPlayer = {
             }
         });
 
+        // Touch support for progress bar
         progress.addEventListener('touchstart', (e) => {
             this.isSeeking = true;
             seekTo(e);
@@ -2724,7 +2852,7 @@ const VIPPlayer = {
         });
     },
 
-    // Set up double-tap skip gestures
+    // Set up YouTube-style double-tap gestures
     _setupDoubleTap() {
         const leftZone = document.getElementById('vip-tap-left');
         const rightZone = document.getElementById('vip-tap-right');
@@ -2736,6 +2864,7 @@ const VIPPlayer = {
             this._tapTimers[direction] = now;
 
             if (now - lastTap < 300) {
+                // Double tap or subsequent multi-taps
                 this._tapCounts[direction]++;
                 
                 if (this._singleTapTimeout) {
@@ -2745,8 +2874,10 @@ const VIPPlayer = {
 
                 this.executeDoubleTapSeek(direction);
             } else {
+                // First tap
                 this._tapCounts[direction] = 1;
                 this._singleTapTimeout = setTimeout(() => {
+                    // Single tap: toggle play/pause on desktop click, toggle controls on touch
                     const isTouch = this._lastTouchTime && (Date.now() - this._lastTouchTime < 1000);
                     if (isTouch) {
                         this.toggleControls();
@@ -2774,12 +2905,14 @@ const VIPPlayer = {
         const sign = direction === 'left' ? -1 : 1;
         const delta = sign * 10;
 
+        // Perform seek
         this.seek(delta);
 
+        // Ripple and pop feedback
         const zone = document.getElementById(`vip-tap-${direction}`);
         if (zone) {
             zone.classList.remove('active');
-            void zone.offsetWidth;
+            void zone.offsetWidth; // force reflow
             zone.classList.add('active');
             
             const spanText = zone.querySelector('.vip-tap-feedback span');
@@ -2796,7 +2929,7 @@ const VIPPlayer = {
         }
     },
 
-    // Set up playback speed dropdown menu
+    // Set up video speed menus
     _setupSpeedMenu() {
         const speedBtn = document.getElementById('vip-btn-speed');
         const speedMenu = document.getElementById('vip-speed-menu');
@@ -2823,7 +2956,11 @@ const VIPPlayer = {
                 speedMenu.style.display = 'none';
                 this.resetAutoHide();
                 
-                showToast('Tốc độ phát ⚡', `Đã đổi tốc độ phát thành <b>${speed}x</b>.`, 'fa-gauge-high');
+                showToast(
+                    'Tốc độ phát ⚡',
+                    `Đã đổi tốc độ phát thành <b>${speed}x</b>.`,
+                    'fa-gauge-high'
+                );
             });
         });
 
@@ -2832,13 +2969,19 @@ const VIPPlayer = {
         });
     },
 
-    // Process keyboard shortcuts & Smart TV D-pad events
+
+
+    // Keyboard & D-pad key event processor (called from main keydown handler)
     handleKeyDown(e) {
         const k = e.key;
-        const isTV = /TV|SmartTV|Tizen|Web0S|WebOS|AppleTV|Roku|AFTB|AFTN|HbbTV|LG|Panasonic|Philips|Samsung|Sony|Toshiba|Vizio|XBox/i.test(navigator.userAgent);
+
+        // Smart TV Remote D-pad spatial navigation
+        const isTV = /TV|SmartTV|Tizen|Web0S|WebOS|MapGeek|Opera TV|Viera|NETTV|AppleTV|Roku|AFTB|AFTN|DLNA|HbbTV|LG Browser|LG-|Panasonic|Philips|Samsung|Sony|Toshiba|Vizio|XBox|Playstation/i.test(navigator.userAgent);
         
         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k) && (isTV || this._tvFocusActive)) {
             const controls = document.getElementById('vip-controls');
+            
+            // If controls are hidden, show controls first and don't navigate
             if (controls && controls.classList.contains('hidden')) {
                 e.preventDefault();
                 this.showControls();
@@ -2846,6 +2989,7 @@ const VIPPlayer = {
                 return true;
             }
 
+            // ArrowLeft / ArrowRight seeking on progress bar, OR spatial focus navigation
             if (document.activeElement && document.activeElement.id === 'vip-progress') {
                 if (k === 'ArrowLeft') {
                     e.preventDefault();
@@ -2858,6 +3002,7 @@ const VIPPlayer = {
                 }
             }
 
+            // Spatial navigation
             e.preventDefault();
             const direction = k.replace('Arrow', '').toLowerCase();
             this.navigateFocus(direction);
@@ -2865,11 +3010,13 @@ const VIPPlayer = {
             return true;
         }
 
+        // Enter key action
         if (k === 'Enter') {
             const activeEl = document.activeElement;
             const focusables = this.getFocusables();
-            const controls = document.getElementById('vip-controls');
             
+            // If controls are hidden, show them and play/pause
+            const controls = document.getElementById('vip-controls');
             if (controls && controls.classList.contains('hidden')) {
                 e.preventDefault();
                 this.showControls();
@@ -2878,13 +3025,18 @@ const VIPPlayer = {
                 return true;
             }
 
-            if (activeEl && focusables.includes(activeEl)) return false;
+            // If an element inside player is focused, let browser activate it natively
+            if (activeEl && focusables.includes(activeEl)) {
+                // native click activation by browser (let event bubble or trigger click)
+                return false;
+            }
 
             e.preventDefault();
             this.togglePlay();
             return true;
         }
 
+        // Standard hotkeys
         if (k === ' ') {
             e.preventDefault();
             this.togglePlay();
@@ -2933,6 +3085,7 @@ const VIPPlayer = {
         return false;
     },
 
+    // Get all currently visible and focusable items for spatial navigation
     getFocusables() {
         const els = [];
         const playBtn = document.getElementById('vip-btn-play');
@@ -2956,6 +3109,7 @@ const VIPPlayer = {
         return els;
     },
 
+    // Navigate focus between elements spatially for TV Remote
     navigateFocus(direction) {
         const focusables = this.getFocusables();
         if (focusables.length === 0) return;
@@ -2964,19 +3118,26 @@ const VIPPlayer = {
         let currentIndex = focusables.indexOf(current);
 
         if (currentIndex === -1) {
+            // Nothing is focused, select play button first
             focusables[0].focus();
             focusables[0].classList.add('tv-focus');
             this._tvFocusActive = true;
             return;
         }
 
+        // Remove highlight from old element
         focusables[currentIndex].classList.remove('tv-focus');
+
         let nextIndex = currentIndex;
 
-        if (direction === 'left' && currentIndex > 0) {
-            nextIndex = currentIndex - 1;
-        } else if (direction === 'right' && currentIndex < focusables.length - 1) {
-            nextIndex = currentIndex + 1;
+        if (direction === 'left') {
+            if (currentIndex > 0) {
+                nextIndex = currentIndex - 1;
+            }
+        } else if (direction === 'right') {
+            if (currentIndex < focusables.length - 1) {
+                nextIndex = currentIndex + 1;
+            }
         }
 
         const nextEl = focusables[nextIndex];
@@ -2987,6 +3148,7 @@ const VIPPlayer = {
         }
     },
 
+    // Play or pause the video
     togglePlay() {
         if (!this.video) return;
         if (this.video.paused) {
@@ -2997,9 +3159,11 @@ const VIPPlayer = {
         this.resetAutoHide();
     },
 
+    // Skip forward or backward by delta seconds
     seek(delta) {
         if (!this.video || !this.video.duration) return;
-        let targetTime = Math.max(0, Math.min(this.video.duration, this.video.currentTime + delta));
+        let targetTime = this.video.currentTime + delta;
+        targetTime = Math.max(0, Math.min(this.video.duration, targetTime));
         this.video.currentTime = targetTime;
 
         const label = delta > 0 ? `+${delta}s` : `${delta}s`;
@@ -3009,6 +3173,7 @@ const VIPPlayer = {
         this.resetAutoHide();
     },
 
+    // Mute or unmute the video
     toggleMute() {
         if (!this.video) return;
         if (this.video.muted) {
@@ -3023,6 +3188,7 @@ const VIPPlayer = {
         this.resetAutoHide();
     },
 
+    // Set precise volume value
     setVolume(value) {
         if (!this.video) return;
         this.video.volume = value;
@@ -3031,11 +3197,13 @@ const VIPPlayer = {
         this.resetAutoHide();
     },
 
+    // Cycle or change speed
     changeSpeed(direction) {
         if (!this.video) return;
         const speeds = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-        let index = speeds.indexOf(this.video.playbackRate);
-        if (index === -1) index = 3;
+        const currentSpeed = this.video.playbackRate;
+        let index = speeds.indexOf(currentSpeed);
+        if (index === -1) index = 3; // default to 1x
 
         index = index + direction;
         if (index >= 0 && index < speeds.length) {
@@ -3053,18 +3221,25 @@ const VIPPlayer = {
                 });
             }
 
-            showToast('Tốc độ phát ⚡', `Đã đổi tốc độ phát thành <b>${nextSpeed}x</b>.`, 'fa-gauge-high');
+            showToast(
+                'Tốc độ phát ⚡',
+                `Đã đổi tốc độ phát thành <b>${nextSpeed}x</b>.`,
+                'fa-gauge-high'
+            );
         }
         this.resetAutoHide();
     },
 
+    // Request fullscreen on container element with iOS iPhone Safari and restrictive webview fallbacks
     toggleFullscreen() {
         if (!this.container || !this.video) return;
 
+        // 1. Kiểm tra nếu là thiết bị iOS (iPhone/iPad không hỗ trợ Fullscreen API chuẩn trên DOM Element)
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         
         if (isIOS && this.video.webkitEnterFullscreen) {
+            // iOS iPhone/Safari bắt buộc dùng webkitEnterFullscreen trực tiếp trên video element
             try {
                 this.video.webkitEnterFullscreen();
             } catch (err) {
@@ -3075,11 +3250,12 @@ const VIPPlayer = {
             return;
         }
 
+        // 2. Với các trình duyệt hỗ trợ chuẩn Fullscreen API trên DOM Element (Android, Chrome, PC)
         const doc = document;
-        const isFullscreen = !!(doc.fullscreenElement || 
-                               doc.webkitFullscreenElement || 
-                               doc.mozFullScreenElement || 
-                               doc.msFullscreenElement);
+        const isFullscreen = doc.fullscreenElement || 
+                             doc.webkitFullscreenElement || 
+                             doc.mozFullScreenElement || 
+                             doc.msFullscreenElement;
 
         if (!isFullscreen) {
             const requestFS = this.container.requestFullscreen || 
@@ -3088,10 +3264,17 @@ const VIPPlayer = {
                                this.container.msRequestFullscreen;
             if (requestFS) {
                 requestFS.call(this.container).then(() => {
+                    // Cố gắng khóa hướng màn hình nằm ngang trên thiết bị di động
                     if (screen.orientation && screen.orientation.lock) {
-                        screen.orientation.lock('landscape').catch(() => {});
+                        screen.orientation.lock('landscape').catch(err => {
+                            console.log('Không thể khóa hướng màn hình:', err);
+                        });
                     }
-                }).catch(() => this.fallbackToPseudoFullscreen());
+                }).catch(err => {
+                    console.error('Fullscreen request failed:', err);
+                    // Nếu lỗi (do webview chặn chẳng hạn), dùng giả lập toàn màn hình CSS
+                    this.fallbackToPseudoFullscreen();
+                });
             } else if (this.video.webkitEnterFullscreen) {
                 this.video.webkitEnterFullscreen();
             } else {
@@ -3104,10 +3287,11 @@ const VIPPlayer = {
                            doc.msExitFullscreen;
             if (exitFS) {
                 exitFS.call(doc).then(() => {
+                    // Mở khóa hướng màn hình
                     if (screen.orientation && screen.orientation.unlock) {
                         screen.orientation.unlock().catch(() => {});
                     }
-                }).catch(() => {});
+                }).catch(err => console.error('Exit fullscreen failed:', err));
             } else {
                 this.fallbackToPseudoFullscreen();
             }
@@ -3115,17 +3299,20 @@ const VIPPlayer = {
         this.resetAutoHide();
     },
 
+    // Giả lập chế độ toàn màn hình bằng CSS khi trình duyệt/webview chặn Fullscreen API gốc (Facebook, Zalo, in-app)
     fallbackToPseudoFullscreen() {
         if (!this.container) return;
         const isPseudo = this.container.classList.toggle('pseudo-fullscreen');
         document.body.classList.toggle('vip-pseudo-fs-active', isPseudo);
         
+        // Kích hoạt/Hủy kiểm tra và xoay màn hình tự động cho điện thoại
         if (isPseudo) {
             this._setupOrientationCheck();
         } else {
             this._cleanupOrientationCheck();
         }
 
+        // Cập nhật biểu tượng nút Fullscreen tương ứng
         const fsIcon = document.querySelector('#vip-btn-fullscreen i');
         if (fsIcon) {
             fsIcon.className = isPseudo ? 'fas fa-compress' : 'fas fa-expand';
@@ -3133,11 +3320,12 @@ const VIPPlayer = {
 
         showToast(
             isPseudo ? 'Toàn màn hình 📱' : 'Chế độ thường 📺',
-            isPseudo ? 'Đã tối ưu chế độ xoay và hiển thị toàn màn hình!' : 'Đã quay lại chế độ thường.',
+            isPseudo ? 'Đã tối ưu chế độ xoay và hiển thị toàn màn hình cho thiết bị của bạn!' : 'Đã quay lại chế độ thường.',
             isPseudo ? 'fa-expand' : 'fa-compress'
         );
     },
 
+    // Kiểm tra và xoay ngang màn hình giả lập nếu điện thoại đang để dọc
     _setupOrientationCheck() {
         if (this._orientationHandler) return;
         
@@ -3153,6 +3341,8 @@ const VIPPlayer = {
 
         window.addEventListener('resize', this._orientationHandler);
         window.addEventListener('orientationchange', this._orientationHandler);
+        
+        // Gọi chạy ngay lập tức để áp dụng
         this._orientationHandler();
     },
 
@@ -3165,8 +3355,10 @@ const VIPPlayer = {
         }
     },
 
+    // Picture-in-Picture mode toggle
     togglePiP() {
         if (!this.video) return;
+        
         try {
             if (document.pictureInPictureElement) {
                 document.exitPictureInPicture();
@@ -3179,6 +3371,7 @@ const VIPPlayer = {
         this.resetAutoHide();
     },
 
+    // Reveal custom player controls bar
     showControls() {
         const controls = document.getElementById('vip-controls');
         if (controls) {
@@ -3187,6 +3380,7 @@ const VIPPlayer = {
         }
     },
 
+    // Hide custom player controls bar
     hideControls() {
         const controls = document.getElementById('vip-controls');
         if (controls) {
@@ -3205,6 +3399,7 @@ const VIPPlayer = {
         }
     },
 
+    // Hide or show controls bar based on current visibility state
     toggleControls() {
         const controls = document.getElementById('vip-controls');
         if (controls && !controls.classList.contains('hidden')) {
@@ -3215,15 +3410,17 @@ const VIPPlayer = {
         }
     },
 
+    // Reset controls auto-hide timer (3 seconds)
     resetAutoHide() {
         if (this.controlsTimeout) clearTimeout(this.controlsTimeout);
-        if (this.video && this.video.paused) return;
+        if (this.video && this.video.paused) return; // don't hide controls if video is paused
 
         this.controlsTimeout = setTimeout(() => {
             this.hideControls();
         }, 3000);
     },
 
+    // Update played progress indicators
     _updateProgress() {
         if (!this.video || this.isSeeking) return;
 
@@ -3248,6 +3445,7 @@ const VIPPlayer = {
         }
     },
 
+    // Update buffered progress indicators
     _updateBuffered() {
         if (!this.video || !this.video.duration) return;
         const buffered = document.getElementById('vip-progress-buffered');
@@ -3261,11 +3459,13 @@ const VIPPlayer = {
         }
     },
 
+    // Format time in seconds to HH:MM:SS or MM:SS
     _formatTime(seconds) {
         if (isNaN(seconds)) return '00:00';
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
         const s = Math.floor(seconds % 60);
+
         const pad = (n) => String(n).padStart(2, '0');
 
         if (h > 0) {
@@ -3274,6 +3474,7 @@ const VIPPlayer = {
         return `${pad(m)}:${pad(s)}`;
     },
 
+    // Display a high-end HUD overlay on top of player (Volume/Seek)
     _showOSD(type, text, duration = 800) {
         const seekOSD = document.getElementById('vip-seek-osd');
         const volOSD = document.getElementById('vip-volume-osd');
@@ -3323,6 +3524,7 @@ const VIPPlayer = {
         }
     },
 
+    // Animate a large play/pause graphic in center (OSD feedback)
     _showCenterIndicator(action) {
         const ind = document.getElementById('vip-center-indicator');
         if (!ind) return;
@@ -3335,7 +3537,7 @@ const VIPPlayer = {
             icon.className = action === 'play' ? 'fas fa-play' : 'fas fa-pause';
         }
 
-        void ind.offsetWidth;
+        void ind.offsetWidth; // force reflow
         ind.classList.add('animate-in');
 
         if (this._centerIndicatorTimeout) clearTimeout(this._centerIndicatorTimeout);
@@ -3345,6 +3547,7 @@ const VIPPlayer = {
         }, 500);
     },
 
+    // Event listener when video finishes
     _onEnded() {
         this._saveTimeProgress();
         const nextBottomBtn = document.getElementById('modal-next-bottom-btn');
@@ -3385,6 +3588,14 @@ const VIPPlayer = {
 
         playerContainer.appendChild(overlay);
 
+        // Setup spatial navigation focus
+        if (this.isTvMode) {
+            setTimeout(() => {
+                const nowBtn = document.getElementById('vip-btn-next-now');
+                if (nowBtn) nowBtn.focus();
+            }, 100);
+        }
+
         let timeLeft = 5;
         const numberDiv = document.getElementById('vip-timer-countdown-number');
         const progressBar = document.getElementById('vip-timer-progress-bar');
@@ -3410,6 +3621,7 @@ const VIPPlayer = {
             }
         }, 1000);
 
+        // Bind button actions
         const playNowBtn = document.getElementById('vip-btn-next-now');
         const cancelBtn = document.getElementById('vip-btn-next-cancel');
 
@@ -3446,6 +3658,7 @@ const VIPPlayer = {
         }
     },
 
+    // Save exact position progress
     _saveTimeProgress() {
         if (!this.video || !this.isActive) return;
         const slug = _currentModalSlug;
@@ -3466,6 +3679,7 @@ const VIPPlayer = {
         }
     },
 
+    // Restore exact position progress
     _restoreTimeProgress() {
         if (!this.video) return;
         const slug = _currentModalSlug;
@@ -3478,7 +3692,11 @@ const VIPPlayer = {
             if (saved && typeof saved.time === 'number') {
                 if (saved.duration && saved.time / saved.duration < 0.95) {
                     this.video.currentTime = saved.time;
-                    showToast('Tiếp tục xem ⏳', `Đang phát tiếp từ <b>${this._formatTime(saved.time)}</b>.`, 'fa-clock');
+                    showToast(
+                        'Tiếp tục xem ⏳',
+                        `Đang phát tiếp từ <b>${this._formatTime(saved.time)}</b>.`,
+                        'fa-clock'
+                    );
                 }
             }
         } catch (e) {
@@ -3486,6 +3704,7 @@ const VIPPlayer = {
         }
     },
 
+    // Update VIP player next episode button visibility
     _updateNextButton() {
         const nextBtn = document.getElementById('vip-btn-next');
         if (!nextBtn) return;
