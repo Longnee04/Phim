@@ -2632,68 +2632,15 @@ const VIPPlayer = {
             if (loading) loading.style.display = 'none';
         });
 
-        // ═══ BUFFER STARVATION GUARD — CHỐNG GIẬT HÌNH TRIỆT ĐỂ ═══
-        let stallTimer = null;
-        let bufferGuardInterval = null;
-        this._bufferGuardPaused = false;
-
         this.video.addEventListener('waiting', () => {
             const loading = document.getElementById('vip-loading');
             if (loading) loading.style.display = 'flex';
-            clearTimeout(stallTimer);
-            stallTimer = setTimeout(() => {
-                if (this.hls && this.video && !this.video.paused) {
-                    console.warn('Player waiting stall (2s), startLoad recovery + quality downgrade...');
-                    this.hls.startLoad();
-                    // Nếu đang ở quality cao, tự giảm 1 bậc để tránh giật tiếp
-                    if (this.hls.currentLevel > 0 && this.hls.autoLevelEnabled) {
-                        this.hls.nextLevel = this.hls.currentLevel - 1;
-                    }
-                }
-            }, 2000);
         });
 
         this.video.addEventListener('playing', () => {
-            clearTimeout(stallTimer);
-            this._bufferGuardPaused = false;
             const loading = document.getElementById('vip-loading');
             if (loading) loading.style.display = 'none';
         });
-
-        // Buffer Starvation Guard: kiểm tra mỗi 500ms, nếu buffer < 0.5s → tạm dừng chờ đệm đủ 3s mới phát lại
-        // Giúp loại bỏ hiện tượng giật hình micro-stutter do buffer chạy cạn
-        const startBufferGuard = () => {
-            if (bufferGuardInterval) return;
-            bufferGuardInterval = setInterval(() => {
-                if (!this.video || this.video.paused || !this.hls) return;
-                const ct = this.video.currentTime;
-                const buffered = this.video.buffered;
-                let bufferAhead = 0;
-                for (let i = 0; i < buffered.length; i++) {
-                    if (buffered.start(i) <= ct && ct <= buffered.end(i)) {
-                        bufferAhead = buffered.end(i) - ct;
-                        break;
-                    }
-                }
-                // Nếu buffer còn < 0.5s và video đang phát → tạm dừng chờ đệm
-                if (bufferAhead < 0.5 && !this._bufferGuardPaused && this.video.currentTime > 0.5) {
-                    this._bufferGuardPaused = true;
-                    this.video.pause();
-                    const loading = document.getElementById('vip-loading');
-                    if (loading) loading.style.display = 'flex';
-                    console.warn(`Buffer guard: buffer ${bufferAhead.toFixed(2)}s < 0.5s, pausing to accumulate...`);
-                }
-                // Khi đã đệm đủ 3s → tự phát lại
-                if (this._bufferGuardPaused && bufferAhead >= 3) {
-                    this._bufferGuardPaused = false;
-                    this.video.play().catch(() => {});
-                    const loading = document.getElementById('vip-loading');
-                    if (loading) loading.style.display = 'none';
-                    console.log(`Buffer guard: buffer ${bufferAhead.toFixed(2)}s >= 3s, resuming playback.`);
-                }
-            }, 500);
-        };
-        this.video.addEventListener('playing', startBufferGuard);
 
         this.video.addEventListener('ended', () => {
             this._onEnded();
