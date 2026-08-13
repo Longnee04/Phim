@@ -1978,9 +1978,35 @@ async function openModal(slug, autoPlay = false) {
     }
 }
 
+// ══════════════════════════════════════════════════════════
+//  VIDEO PLAYBACK & EPISODE ROUTING ENGINE
+// ══════════════════════════════════════════════════════════
+
+// Convert VSMOV embed URLs to direct or proxied HLS m3u8 streams
+function getVsmovM3u8(linkEmbed) {
+    if (!linkEmbed || !linkEmbed.includes('/video/')) return null;
+    try {
+        const urlObj = new URL(linkEmbed);
+        const host = urlObj.host;
+        const parts = urlObj.pathname.split('/video/');
+        const hash = parts[1];
+        if (hash) {
+            if (window.location.protocol !== 'file:') {
+                return `/api/vsmov?host=${encodeURIComponent(host)}&hash=${encodeURIComponent(hash)}`;
+            }
+            return `https://${host}/stream/${hash}/master.m3u8`;
+        }
+    } catch (err) {
+        console.warn('Failed to parse VSMOV embed URL:', err);
+    }
+    return null;
+}
+
+// Fallback player for external iframe streams
 function playInIframe(url) {
     const hero = document.getElementById('modal-hero');
     if (!hero) return;
+
     hero.querySelectorAll('iframe, .vsmov-player-fallback').forEach(f => f.remove());
     if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
         VIPPlayer.deactivate();
@@ -2013,23 +2039,7 @@ function playInIframe(url) {
     if (modal) modal.classList.add('is-playing');
 }
 
-function getVsmovM3u8(linkEmbed) {
-    if (!linkEmbed || !linkEmbed.includes('/video/')) return null;
-    try {
-        const urlObj = new URL(linkEmbed);
-        const host = urlObj.host;
-        const parts = urlObj.pathname.split('/video/');
-        const hash = parts[1];
-        if (hash) {
-            if (window.location.protocol !== 'file:') {
-                return `/api/vsmov?host=${encodeURIComponent(host)}&hash=${encodeURIComponent(hash)}`;
-            }
-            return `https://${host}/stream/${hash}/master.m3u8`;
-        }
-    } catch {}
-    return null;
-}
-
+// Play selected episode
 function playEpisode(ep, movie) {
     _currentEpisode = ep;
     if (movie) _currentModalMovie = movie;
@@ -2063,11 +2073,10 @@ function playEpisode(ep, movie) {
         modalEl.focus();
     }
 
-    // Lưu tiến trình xem dở (tập nào)
+    // Save watch progress & watch history
     const slug = (movie && movie.slug) || _currentModalSlug;
     if (slug) STORAGE.saveProgress(slug, ep.name);
 
-    // Save to history
     if (movie) {
         STORAGE.addHistory({
             slug: movie.slug || _currentModalSlug,
@@ -2077,7 +2086,6 @@ function playEpisode(ep, movie) {
             episode: ep.name || ''
         });
         
-        // Hiện nút xóa lịch sử trong modal ngay lập tức
         const removeHistoryBtn = document.getElementById('modal-remove-history-btn');
         if (removeHistoryBtn) {
             removeHistoryBtn.onclick = () => {
@@ -2094,6 +2102,7 @@ function playEpisode(ep, movie) {
     }
 }
 
+// Render server tabs (Vietsub, Thuyết Minh, Lồng Tiếng, Server #1)
 function renderServers(serversData, movie, autoPlay) {
     const sec = document.getElementById('modal-servers-section');
     const list = document.getElementById('modal-servers-list');
@@ -2144,14 +2153,22 @@ function renderServers(serversData, movie, autoPlay) {
     });
 }
 
+// Render episode grid buttons
 function renderEpisodes(eps, movie) {
     const c = document.getElementById('modal-episodes-list');
     const sec = document.getElementById('modal-episodes-section');
+    if (!c || !sec) return;
+
     c.innerHTML = '';
-    if (!eps.length) { sec.style.display = 'none'; return; }
+    if (!eps || !eps.length) { 
+        sec.style.display = 'none'; 
+        return; 
+    }
     sec.style.display = '';
+
     eps.forEach(ep => {
-        const b = document.createElement('button'); b.className = 'ep-btn';
+        const b = document.createElement('button'); 
+        b.className = 'ep-btn';
         b.textContent = `Tập ${ep.name}`;
         b.onclick = () => {
             c.querySelectorAll('.ep-btn').forEach(x => x.classList.remove('active'));
@@ -2162,97 +2179,11 @@ function renderEpisodes(eps, movie) {
     });
 }
 
-async function renderRelatedMovies(movie, signal) {
-    const section = document.getElementById('modal-related-section');
-    const grid = document.getElementById('modal-related-grid');
-    if (!section || !grid) return;
-
-    section.style.display = 'none';
-    grid.innerHTML = '';
-
-    const categories = movie.category || [];
-    if (!categories.length) return;
-
-    const genreSlug = categories[0].slug;
-    if (!genreSlug) return;
-
-    try {
-        const d = await apiFetch(API.genre + genreSlug, { signal });
-        if (!d || !d.data || !d.data.items) return;
-
-        const items = d.data.items.filter(item => item.slug !== movie.slug).slice(0, 9);
-        if (!items.length) return;
-
-        section.style.display = 'block';
-        items.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'related-card';
-            
-            const poster = img(item.poster_url || item.thumb_url);
-            const duration = item.time || item.episode_current || '';
-            const year = item.year || '';
-            const quality = item.quality || 'HD';
-            const lang = item.lang || 'Vietsub';
-            const inList = STORAGE.isInMyList(item.slug);
-
-            card.innerHTML = `
-                <div class="related-card__img-container">
-                    <img class="related-card__img" src="${poster}" alt="${item.name}" loading="lazy" onerror="handleImgError(this)">
-                    ${duration ? `<span class="related-card__duration">${duration}</span>` : ''}
-                    <button class="related-card__play-overlay" type="button"><i class="fas fa-play"></i></button>
-                </div>
-                <div class="related-card__body">
-                    <div class="related-card__meta-row">
-                        <div class="related-card__meta-left">
-                            <span class="related-card__tag">${quality}</span>
-                            <span class="related-card__year">${year}</span>
-                        </div>
-                        <button class="card__mini-btn related-card__mylist-btn${inList ? ' in-list' : ''}" data-mylist-slug="${item.slug}" type="button" title="${inList ? 'Xóa khỏi danh sách' : 'Thêm vào danh sách'}"><i class="fas fa-${inList ? 'check' : 'plus'}"></i></button>
-                    </div>
-                    <h4 class="related-card__title">${item.name}</h4>
-                    <p class="related-card__genres">${(item.category || []).map(c => c.name).filter(Boolean).slice(0, 3).join(' • ')}</p>
-                </div>
-            `;
-
-            // Click handlers
-            card.querySelector('.related-card__img-container').onclick = () => {
-                openModal(item.slug);
-            };
-            card.querySelector('.related-card__title').onclick = () => {
-                openModal(item.slug);
-            };
-
-            const myListBtn = card.querySelector('[data-mylist-slug]');
-            if (myListBtn) {
-                myListBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    const added = STORAGE.toggleMyList(item);
-                    myListBtn.classList.toggle('in-list', added);
-                    myListBtn.innerHTML = `<i class="fas fa-${added ? 'check' : 'plus'}"></i>`;
-                    updateAllMyListButtons(item.slug, added);
-                    showToast(
-                        added ? 'Đã thêm vào danh sách! ✓' : 'Đã xóa khỏi danh sách!',
-                        added ? `Đã lưu phim <b>${item.name}</b> vào Danh sách của tôi.` : `Đã xóa <b>${item.name}</b> khỏi Danh sách của tôi.`,
-                        added ? 'fa-heart' : 'fa-trash-can'
-                    );
-                };
-            }
-
-            grid.appendChild(card);
-        });
-    } catch (err) {
-        if (err.name !== 'AbortError') {
-            console.error('renderRelatedMovies:', err);
-        }
-    }
-}
-
+// Close detail modal & deactivate video player
 function closeModal() {
-    // Xóa Structured Data Movie Schema khi đóng modal
     const oldSchema = document.getElementById('movie-structured-data');
     if (oldSchema) oldSchema.remove();
 
-    // Cập nhật lại URL trình duyệt về trang chủ
     try {
         if (window.location.protocol !== 'file:' && window.location.pathname !== '/') {
             history.pushState(null, '', '/');
@@ -2264,22 +2195,34 @@ function closeModal() {
     if (typeof VIPPlayer !== 'undefined' && VIPPlayer.isActive) {
         VIPPlayer.deactivate();
     }
-    const modal = document.getElementById('modal'), hero = document.getElementById('modal-hero');
-    hero.querySelectorAll('iframe').forEach(f => f.remove());
-    document.getElementById('modal-hero-img').style.opacity = '';
-    const g = hero.querySelector('.modal__hero-gradient'); if (g) g.style.opacity = '';
-    modal.setAttribute('aria-hidden', 'true');
+
+    const modal = document.getElementById('modal');
+    const hero = document.getElementById('modal-hero');
+    if (hero) hero.querySelectorAll('iframe, .vsmov-player-fallback').forEach(f => f.remove());
+
+    const heroImg = document.getElementById('modal-hero-img');
+    if (heroImg) heroImg.style.opacity = '';
+
+    const gradient = hero ? hero.querySelector('.modal__hero-gradient') : null; 
+    if (gradient) gradient.style.opacity = '';
+
+    if (modal) {
+        modal.setAttribute('aria-hidden', 'true');
+        modal.classList.remove('is-playing');
+    }
     document.body.style.overflow = '';
-    if (_modalAbort) try { _modalAbort.abort(); } catch {}
+
+    if (_modalAbort) {
+        try { _modalAbort.abort(); } catch {}
+    }
+
     _currentModalSlug = null;
     _currentModalMovie = null;
     _currentEpisodesList = [];
 
-    modal.classList.remove('is-playing');
     const playerBar = document.getElementById('modal-player-bar');
     if (playerBar) playerBar.style.display = 'none';
 
-    // Tắt các class rạp chiếu, tắt đèn
     document.body.classList.remove('theater-light-off');
     const dialog = document.querySelector('.modal__dialog');
     if (dialog) dialog.classList.remove('theater-layout');
@@ -2290,17 +2233,15 @@ function closeModal() {
         theaterBtn.title = 'Chế độ rạp chiếu (Rộng hơn)';
     }
 
-    // Refresh history row if on home page
     if (!document.getElementById('home-view').style.display || document.getElementById('home-view').style.display !== 'none') {
         renderHistoryRow();
     }
-    // Refresh My List page if currently showing
     if (browseType === 'mylist') {
         openMyListPage();
     }
 }
 
-// Update all card mylist buttons when toggling from modal
+// Update all card My List buttons
 function updateAllMyListButtons(slug, added) {
     document.querySelectorAll(`[data-mylist-slug="${slug}"]`).forEach(btn => {
         btn.classList.toggle('in-list', added);
