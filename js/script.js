@@ -2357,7 +2357,21 @@ const VIPPlayer = {
             this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 const loadingEl = document.getElementById('vip-loading');
                 if (loadingEl) loadingEl.style.display = 'none';
+                
+                // Auto-enable HLS subtitle track if available in stream manifest
+                if (this.hls && this.hls.subtitleTracks && this.hls.subtitleTracks.length > 0) {
+                    console.log('HLS Subtitles found:', this.hls.subtitleTracks);
+                    this.hls.subtitleTrack = 0;
+                }
+
                 if (this.video) this.video.play().catch(() => {});
+            });
+
+            this.hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
+                if (this.hls && this.hls.subtitleTracks && this.hls.subtitleTracks.length > 0 && this.hls.subtitleTrack === -1) {
+                    console.log('HLS Subtitle tracks updated, auto-selecting track 0');
+                    this.hls.subtitleTrack = 0;
+                }
             });
 
             let mediaErrorCount = 0;
