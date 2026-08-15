@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useRef } from 'react';
+import Link from 'next/link';
 import { MovieItem } from '@/types/movie';
 import { getImageUrl } from '@/lib/api';
-import { useModal } from '@/context/ModalContext';
 
 interface TopRankRowProps {
   title: string;
@@ -12,7 +12,6 @@ interface TopRankRowProps {
 
 export default function TopRankRow({ title, movies }: TopRankRowProps) {
   const sliderRef = useRef<HTMLDivElement>(null);
-  const { openModal } = useModal();
 
   if (!movies || movies.length === 0) return null;
 
@@ -60,10 +59,11 @@ export default function TopRankRow({ title, movies }: TopRankRowProps) {
               const poster = getImageUrl(movie.poster_url || movie.thumb_url);
 
               return (
-                <div
+                <Link
                   key={movie.slug}
+                  href={`/phim/${movie.slug}`}
                   className="top10-card"
-                  onClick={() => openModal(movie.slug, false)}
+                  style={{ textDecoration: 'none' }}
                 >
                   <div className="top10-card__number">{rank}</div>
                   <img
@@ -71,8 +71,9 @@ export default function TopRankRow({ title, movies }: TopRankRowProps) {
                     src={poster}
                     alt={movie.name}
                     loading="lazy"
+                    style={{ objectFit: 'cover', objectPosition: 'center center' }}
                   />
-                </div>
+                </Link>
               );
             })}
           </div>

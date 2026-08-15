@@ -218,26 +218,16 @@ export default function MovieModal() {
 
               {/* Servers list */}
               {episodes.length > 1 && (
-                <div className="modal__servers-section" id="modal-servers-section" style={{ display: 'block', marginTop: 20 }}>
-                  <h3 className="modal__servers-title" style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--t2)', marginBottom: 8 }}>
-                    <i className="fas fa-server" style={{ marginRight: 6 }}></i> Nguồn phát (Servers):
+                <div className="modal__servers-section" id="modal-servers-section">
+                  <h3 className="modal__servers-title">
+                    <i className="fas fa-server"></i> Nguồn phát (Servers):
                   </h3>
-                  <div className="modal__servers-list" id="modal-servers-list" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <div className="modal__servers-list" id="modal-servers-list">
                     {episodes.map((server, idx) => (
                       <button
                         key={idx}
                         className={`server-btn ${selectedServerIndex === idx ? 'active' : ''}`}
                         onClick={() => setSelectedServerIndex(idx)}
-                        style={{
-                          background: selectedServerIndex === idx ? 'var(--red)' : 'rgba(255,255,255,0.06)',
-                          color: '#fff',
-                          border: '1px solid ' + (selectedServerIndex === idx ? 'var(--red)' : 'rgba(255,255,255,0.15)'),
-                          padding: '6px 14px',
-                          borderRadius: 20,
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
                       >
                         {server.server_name}
                       </button>
@@ -255,74 +245,38 @@ export default function MovieModal() {
                       Chọn tập để phát trực tiếp
                     </span>
                   </div>
-                  <div
-                    className="modal__episodes-list"
-                    id="modal-episodes-list"
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
-                      gap: 6,
-                      maxHeight: 240,
-                      overflowY: 'auto',
-                    }}
-                  >
-                    {serverEpisodes.map((ep, idx) => {
-                      return (
-                        <Link
-                          key={ep.slug || idx}
-                          href={`/xem-phim/${movie.slug}?tap=${ep.slug}`}
-                          onClick={closeModal}
-                          style={{
-                            background: 'rgba(255,255,255,0.06)',
-                            color: '#fff',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            padding: '8px 4px',
-                            borderRadius: 4,
-                            fontSize: '0.78rem',
-                            fontWeight: 600,
-                            textAlign: 'center',
-                            textDecoration: 'none',
-                            display: 'block',
-                            transition: 'all 0.2s ease',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'var(--red)';
-                            e.currentTarget.style.borderColor = 'var(--red)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-                          }}
-                        >
-                          {ep.name.startsWith('Tập') ? ep.name : `Tập ${ep.name}`}
-                        </Link>
-                      );
-                    })}
+                  <div className="modal__episodes-list" id="modal-episodes-list">
+                    {serverEpisodes.map((ep, idx) => (
+                      <Link
+                        key={ep.slug || idx}
+                        href={`/xem-phim/${movie.slug}?tap=${ep.slug}`}
+                        onClick={closeModal}
+                        className="modal__ep-link"
+                      >
+                        {ep.name.startsWith('Tập') ? ep.name : `Tập ${ep.name}`}
+                      </Link>
+                    ))}
                   </div>
                 </div>
               )}
 
               {/* Related movies */}
               {relatedMovies.length > 0 && (
-                <div className="modal__related-section" id="modal-related-section" style={{ display: 'block', marginTop: 28, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-                  <h3 className="modal__related-title" style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: 12 }}>
-                    Nội dung tương tự
-                  </h3>
-                  <div className="modal__related-grid" id="modal-related-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8 }}>
+                <div className="modal__related-section" id="modal-related-section">
+                  <h3 className="modal__related-title">Nội dung tương tự</h3>
+                  <div className="modal__related-grid" id="modal-related-grid">
                     {relatedMovies.map((rel) => (
                       <div
                         key={rel.slug}
+                        className="modal__related-card"
                         onClick={() => openModal(rel.slug, false)}
-                        style={{ cursor: 'pointer', position: 'relative', borderRadius: 4, overflow: 'hidden' }}
                       >
                         <img
                           src={getImageUrl(rel.poster_url || rel.thumb_url)}
                           alt={rel.name}
-                          style={{ width: '100%', aspectRatio: '2/3', objectFit: 'cover' }}
+                          className="modal__related-poster"
                         />
-                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff', padding: '4px 0', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                          {rel.name}
-                        </div>
+                        <div className="modal__related-name">{rel.name}</div>
                       </div>
                     ))}
                   </div>

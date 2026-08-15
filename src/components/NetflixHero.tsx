@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { MovieItem } from '@/types/movie';
 import { getImageUrl } from '@/lib/api';
-import { useModal } from '@/context/ModalContext';
 
 interface NetflixHeroProps {
   movies?: MovieItem[];
@@ -14,8 +13,6 @@ interface NetflixHeroProps {
 const BILLBOARD_MS = 8000;
 
 export default function NetflixHero({ movies = [], movie }: NetflixHeroProps) {
-  const { openModal } = useModal();
-
   const heroList = movies.length > 0 ? movies.slice(0, 6) : movie ? [movie] : [];
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -97,14 +94,13 @@ export default function NetflixHero({ movies = [], movie }: NetflixHeroProps) {
           >
             <i className="fas fa-play"></i> Phát
           </Link>
-          <button
+          <Link
+            href={`/phim/${currentMovie.slug}`}
             className="btn btn--more"
             id="billboard-info"
-            type="button"
-            onClick={() => openModal(currentMovie.slug, false)}
           >
-            <i className="fas fa-info-circle"></i> Thông tin khác
-          </button>
+            <i className="fas fa-circle-info"></i> Xem chi tiết
+          </Link>
         </div>
       </div>
 

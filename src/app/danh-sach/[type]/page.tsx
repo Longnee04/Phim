@@ -35,8 +35,8 @@ export default async function BrowseTypePage({ params, searchParams }: BrowseTyp
 
   const movies = data.data.items;
   const title = TYPE_TITLES[type] || data.data.titlePage || 'Danh sách phim';
-  const totalItems = data.data.params?.pagination?.totalItems || 240;
-  const totalPages = Math.ceil(totalItems / 24);
+  const totalItems = data.data.params?.pagination?.totalItems || 200;
+  const totalPages = Math.max(1, data.data.params?.pagination?.pageRanges || Math.ceil(totalItems / 20));
   const heroBackdrop = movies[0] ? getImageUrl(movies[0].thumb_url || movies[0].poster_url) : '';
 
   return (

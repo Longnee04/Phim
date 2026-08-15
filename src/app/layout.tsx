@@ -5,7 +5,6 @@ import Footer from "@/components/Footer";
 import AIAssistant from "@/components/AIAssistant";
 import { ChangelogModal } from "@/components/ChangelogModal";
 import MovieModal from "@/components/MovieModal";
-import SearchOverlay from "@/components/SearchOverlay";
 import { ModalProvider } from "@/context/ModalContext";
 
 export const metadata: Metadata = {
@@ -45,7 +44,6 @@ export default function RootLayout({
           {children}
           <Footer />
           <MovieModal />
-          <SearchOverlay />
           <AIAssistant />
           <ChangelogModal />
         </ModalProvider>

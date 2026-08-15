@@ -1,12 +1,10 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { MovieItem } from '@/types/movie';
 import { getImageUrl } from '@/lib/api';
 import { useMyList } from '@/hooks/useMyList';
-import { useModal } from '@/context/ModalContext';
 
 interface NetflixMovieCardProps {
   movie: MovieItem;
@@ -15,7 +13,6 @@ interface NetflixMovieCardProps {
 export default function NetflixMovieCard({ movie }: NetflixMovieCardProps) {
   const router = useRouter();
   const { isInMyList, toggleMyList } = useMyList();
-  const { openModal } = useModal();
   const isSaved = isInMyList(movie.slug);
 
   const poster = getImageUrl(movie.poster_url || movie.thumb_url);
@@ -38,7 +35,7 @@ export default function NetflixMovieCard({ movie }: NetflixMovieCardProps) {
 
   const handleCardClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    openModal(movie.slug, false);
+    router.push(`/phim/${movie.slug}`);
   };
 
   const handlePlayClick = (e: React.MouseEvent) => {
@@ -48,63 +45,144 @@ export default function NetflixMovieCard({ movie }: NetflixMovieCardProps) {
   };
 
   return (
-    <div className="card" onClick={handleCardClick}>
+    <div
+      className="card"
+      onClick={handleCardClick}
+      style={{
+        position: 'relative',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        background: '#181822',
+        cursor: 'pointer',
+        aspectRatio: '2/3',
+        border: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+        transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s, border-color 0.3s',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-6px) scale(1.03)';
+        e.currentTarget.style.boxShadow = '0 16px 36px rgba(229,9,20,0.25), 0 0 0 1px rgba(229,9,20,0.4)';
+        e.currentTarget.style.borderColor = 'rgba(229,9,20,0.5)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+        e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.6)';
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+      }}
+    >
+      {/* Poster Image */}
       <img
-        className="card__img"
         src={poster}
         alt={movie.name}
         loading="lazy"
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center center',
+          display: 'block',
+        }}
       />
 
-      {/* Episode label at bottom if available */}
-      {movie.episode_current && (
-        <div className="card__history-ep">
-          {movie.episode_current}
-        </div>
-      )}
+      {/* Top Badges (Quality & Episode) */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '8px',
+          left: '8px',
+          right: '8px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          zIndex: 2,
+          pointerEvents: 'none',
+        }}
+      >
+        {movie.quality ? (
+          <span
+            style={{
+              background: 'var(--red, #e50914)',
+              color: '#fff',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '0.68rem',
+              fontWeight: 800,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.6)',
+            }}
+          >
+            {movie.quality}
+          </span>
+        ) : <span />}
 
-      {/* Expand Info Panel */}
-      <div className="card__info">
-        <div className="card__info-row">
-          <div className="card__info-left">
-            <button
-              className="card__mini-btn card__mini-btn--play"
-              type="button"
-              title="Phát ngay"
-              onClick={handlePlayClick}
-            >
-              <i className="fas fa-play"></i>
-            </button>
-            <button
-              className={`card__mini-btn ${isSaved ? 'in-list' : ''}`}
-              type="button"
-              title={isSaved ? 'Đã lưu' : 'Thêm vào danh sách'}
-              onClick={handleBookmark}
-            >
-              <i className={`fas ${isSaved ? 'fa-check' : 'fa-plus'}`}></i>
-            </button>
-          </div>
-          <div className="card__info-right">
-            <button
-              className="card__mini-btn"
-              type="button"
-              title="Chi tiết"
-              onClick={handleCardClick}
-            >
-              <i className="fas fa-chevron-down"></i>
-            </button>
-          </div>
+        {movie.episode_current ? (
+          <span
+            style={{
+              background: 'rgba(0,0,0,0.75)',
+              backdropFilter: 'blur(6px)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              color: '#46d369',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '0.68rem',
+              fontWeight: 700,
+            }}
+          >
+            {movie.episode_current}
+          </span>
+        ) : null}
+      </div>
+
+      {/* ALWAYS-VISIBLE Gradient Caption at Bottom */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: '36px 10px 10px',
+          background: 'linear-gradient(180deg, transparent 0%, rgba(10,10,15,0.7) 35%, rgba(10,10,15,0.98) 100%)',
+          zIndex: 3,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-end',
+        }}
+      >
+        {/* Vietnamese Movie Title (Always Visible) */}
+        <div
+          style={{
+            fontSize: '0.88rem',
+            fontWeight: 800,
+            color: '#fff',
+            lineHeight: 1.3,
+            marginBottom: '4px',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            textShadow: '0 2px 8px rgba(0,0,0,0.9)',
+          }}
+          title={movie.name}
+        >
+          {movie.name}
         </div>
 
-        <div className="card__info-meta">
-          <span className="card__match">98% Trùng khớp</span>
-          {movie.quality && <span className="card__tag">{movie.quality}</span>}
-          {movie.year && <span className="card__tag">{movie.year}</span>}
-        </div>
-
-        <div className="card__info-title">{movie.name}</div>
-        <div className="card__info-genres">
-          {movie.category?.map((c) => c.name).join(' • ') || movie.lang || 'Vietsub'}
+        {/* Subtitle / Meta row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.72rem',
+            color: 'var(--t2, #a3a3a3)',
+            fontWeight: 600,
+          }}
+        >
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '75%' }}>
+            {movie.origin_name || (movie.category?.[0]?.name || 'Phim HD')}
+          </span>
+          {movie.year && (
+            <span style={{ color: '#888' }}>{movie.year}</span>
+          )}
         </div>
       </div>
     </div>

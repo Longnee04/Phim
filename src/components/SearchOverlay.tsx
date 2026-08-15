@@ -1,18 +1,18 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { searchMovies, getMoviesByType, getImageUrl } from '@/lib/api';
 import { MovieItem } from '@/types/movie';
-import { useModal } from '@/context/ModalContext';
 
 export default function SearchOverlay() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [searchType, setSearchType] = useState<'all' | 'year'>('all');
   const [results, setResults] = useState<MovieItem[]>([]);
   const [historyTags, setHistoryTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { openModal } = useModal();
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -207,7 +207,10 @@ export default function SearchOverlay() {
             <div
               key={movie.slug}
               className="search-card"
-              onClick={() => openModal(movie.slug, false)}
+              onClick={() => {
+                setIsOpen(false);
+                router.push(`/phim/${movie.slug}`);
+              }}
             >
               <img
                 src={getImageUrl(movie.poster_url || movie.thumb_url)}
