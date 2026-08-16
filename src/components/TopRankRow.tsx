@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { MovieItem } from '@/types/movie';
 import { getImageUrl } from '@/lib/api';
+import { useDraggableScroll } from '@/hooks/useDraggableScroll';
 
 interface TopRankRowProps {
   title: string;
@@ -11,22 +12,11 @@ interface TopRankRowProps {
 }
 
 export default function TopRankRow({ title, movies }: TopRankRowProps) {
-  const sliderRef = useRef<HTMLDivElement>(null);
+  const { ref: sliderRef, scroll, isGrabbing } = useDraggableScroll<HTMLDivElement>();
 
   if (!movies || movies.length === 0) return null;
 
   const top10 = movies.slice(0, 10);
-
-  const scroll = (direction: 'left' | 'right') => {
-    if (sliderRef.current) {
-      const { scrollLeft, clientWidth } = sliderRef.current;
-      const scrollAmount = clientWidth * 0.85;
-      sliderRef.current.scrollTo({
-        left: direction === 'left' ? scrollLeft - scrollAmount : scrollLeft + scrollAmount,
-        behavior: 'smooth',
-      });
-    }
-  };
 
   return (
     <section className="row row--top10" id="section-top10">
@@ -51,7 +41,13 @@ export default function TopRankRow({ title, movies }: TopRankRowProps) {
         <div
           ref={sliderRef}
           className="row__slider"
-          style={{ overflowX: 'auto', scrollBehavior: 'smooth', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+          style={{
+            overflowX: 'auto',
+            scrollBehavior: 'smooth',
+            WebkitOverflowScrolling: 'touch',
+            cursor: isGrabbing ? 'grabbing' : 'grab',
+            userSelect: 'none',
+          }}
         >
           <div className="row__track" style={{ display: 'flex', gap: 12 }}>
             {top10.map((movie, idx) => {

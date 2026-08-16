@@ -1,28 +1,17 @@
 'use client';
 
-import React, { useRef } from 'react';
-import Link from 'next/link';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useWatchHistory } from '@/hooks/useWatchHistory';
 import { getImageUrl } from '@/lib/api';
+import { useDraggableScroll } from '@/hooks/useDraggableScroll';
 
 export function ContinueWatching() {
   const router = useRouter();
   const { history, isLoaded, removeFromHistory } = useWatchHistory();
-  const sliderRef = useRef<HTMLDivElement>(null);
+  const { ref: sliderRef, scroll, isGrabbing } = useDraggableScroll<HTMLDivElement>();
 
   if (!isLoaded || history.length === 0) return null;
-
-  const scroll = (direction: 'left' | 'right') => {
-    if (sliderRef.current) {
-      const { scrollLeft, clientWidth } = sliderRef.current;
-      const scrollAmount = clientWidth * 0.8;
-      sliderRef.current.scrollTo({
-        left: direction === 'left' ? scrollLeft - scrollAmount : scrollLeft + scrollAmount,
-        behavior: 'smooth',
-      });
-    }
-  };
 
   const formatTime = (seconds: number) => {
     if (!seconds || seconds <= 0) return '';
@@ -56,7 +45,14 @@ export function ContinueWatching() {
         <div
           ref={sliderRef}
           className="row__slider"
-          style={{ overflowX: 'auto', scrollBehavior: 'smooth', padding: '10px var(--row-pad, 24px)', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+          style={{
+            overflowX: 'auto',
+            scrollBehavior: 'smooth',
+            padding: '10px var(--row-pad, 24px)',
+            WebkitOverflowScrolling: 'touch',
+            cursor: isGrabbing ? 'grabbing' : 'grab',
+            userSelect: 'none',
+          }}
         >
           <div className="row__track" style={{ display: 'flex', gap: '14px' }}>
             {history.map((item) => {
@@ -99,23 +95,24 @@ export function ContinueWatching() {
                   }}
                   onClick={() => router.push(targetUrl)}
                 >
-                  {/* Poster Aspect 16:9 or 2:3 */}
-                  <div style={{ position: 'relative', width: '100%', aspectRatio: '16/10', overflow: 'hidden', background: '#000' }}>
+                  {/* Poster Image Container */}
+                  <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
                     <img
                       src={poster}
                       alt={item.name}
-                      loading="lazy"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }}
                     />
+
+                    {/* Dark gradient overlay */}
                     <div
                       style={{
                         position: 'absolute',
                         inset: 0,
-                        background: 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 100%)',
+                        background: 'linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 100%)',
                       }}
                     />
 
-                    {/* Big Center Play Icon */}
+                    {/* Quick Play Icon in Center */}
                     <div
                       style={{
                         position: 'absolute',
@@ -127,26 +124,27 @@ export function ContinueWatching() {
                     >
                       <div
                         style={{
-                          width: '40px',
-                          height: '40px',
+                          width: '42px',
+                          height: '42px',
                           borderRadius: '50%',
-                          background: 'rgba(229,9,20,0.9)',
+                          background: 'rgba(229,9,20,0.85)',
                           color: '#fff',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: '0.9rem',
-                          boxShadow: '0 4px 14px rgba(0,0,0,0.6)',
+                          fontSize: '1rem',
+                          boxShadow: '0 4px 16px rgba(229,9,20,0.6)',
+                          transition: 'transform 0.2s',
                         }}
                       >
                         <i className="fas fa-play" style={{ marginLeft: '2px' }}></i>
                       </div>
                     </div>
 
-                    {/* Delete / Remove Button Top-Right */}
+                    {/* Remove button at Top-Right */}
                     <button
                       type="button"
-                      title="Xóa khỏi lịch sử"
+                      title="Xóa khỏi danh sách xem dở"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
