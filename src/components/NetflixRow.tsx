@@ -57,9 +57,9 @@ export default function NetflixRow({ title, viewAllLink, movies }: NetflixRowPro
         <div
           ref={sliderRef}
           className="row__slider"
-          style={{ overflowX: 'auto', scrollBehavior: 'smooth' }}
+          style={{ overflowX: 'auto', scrollBehavior: 'smooth', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
         >
-          <div className="row__track" style={{ display: 'flex', gap: 6 }}>
+          <div className="row__track" style={{ display: 'flex', gap: 10 }}>
             {movies.map((movie) => (
               <NetflixMovieCard key={movie.slug} movie={movie} />
             ))}

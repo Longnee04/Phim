@@ -4652,7 +4652,7 @@ body, p, span, div, a, button, input, textarea, select, li, label, h1, h2, h3, h
 
 @media (max-width: 768px) {
   .nav__search-box-left {
-    width: 180px;
+    width: 170px;
   }
   
   .daophim-search-dropdown {
@@ -4660,6 +4660,112 @@ body, p, span, div, a, button, input, textarea, select, li, label, h1, h2, h3, h
     width: calc(100vw - 32px);
   }
 }
+
+/* ==================== MOBILE TOUCH SWIPING & UX ENHANCEMENTS ==================== */
+@media (max-width: 1024px) {
+  .nav__menu {
+    display: none !important;
+  }
+
+  .nav__mobile-toggle {
+    display: inline-flex !important;
+  }
+}
+
+.row__slider {
+  overflow-x: auto !important;
+  scroll-behavior: smooth !important;
+  -webkit-overflow-scrolling: touch !important;
+  scroll-snap-type: x mandatory !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.row__slider::-webkit-scrollbar {
+  display: none !important;
+}
+
+.row__track {
+  display: flex !important;
+  scroll-snap-type: x mandatory !important;
+}
+
+.card {
+  scroll-snap-align: start !important;
+  flex: 0 0 155px !important;
+  min-width: 140px !important;
+}
+
+.top10-card {
+  scroll-snap-align: start !important;
+  flex: 0 0 160px !important;
+  min-width: 140px !important;
+}
+
+.continue-card {
+  scroll-snap-align: start !important;
+  flex: 0 0 200px !important;
+  min-width: 180px !important;
+}
+
+@media (max-width: 768px) {
+  .card {
+    flex: 0 0 130px !important;
+    min-width: 120px !important;
+  }
+
+  .top10-card {
+    flex: 0 0 145px !important;
+    min-width: 130px !important;
+  }
+
+  .continue-card {
+    flex: 0 0 175px !important;
+    min-width: 160px !important;
+  }
+
+  .row__arrow {
+    display: none !important; /* Hide intrusive desktop arrow buttons on touch devices */
+  }
+
+  .row {
+    padding: 0 16px !important;
+    margin-bottom: 24px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    flex: 0 0 115px !important;
+    min-width: 105px !important;
+  }
+
+  .top10-card {
+    flex: 0 0 130px !important;
+    min-width: 115px !important;
+  }
+
+  .continue-card {
+    flex: 0 0 160px !important;
+    min-width: 145px !important;
+  }
+}
+
+/* Animations for Mobile Drawer */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.mobile-drawer-content {
+  animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 
 
 

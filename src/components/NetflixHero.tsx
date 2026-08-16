@@ -40,6 +40,32 @@ export default function NetflixHero({ movies = [], movie }: NetflixHeroProps) {
     return () => clearInterval(timer);
   }, [heroList.length, isPaused, currentIndex]);
 
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+    setIsPaused(true);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    setIsPaused(false);
+    if (touchStartX === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX - touchEndX;
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) {
+        // Swipe left -> Next movie
+        setCurrentIndex((idx) => (idx + 1) % heroList.length);
+        setProgress(0);
+      } else {
+        // Swipe right -> Previous movie
+        setCurrentIndex((idx) => (idx - 1 + heroList.length) % heroList.length);
+        setProgress(0);
+      }
+    }
+    setTouchStartX(null);
+  };
+
   if (!currentMovie) return null;
 
   const backdrop = getImageUrl(currentMovie.thumb_url || currentMovie.poster_url);
@@ -50,6 +76,8 @@ export default function NetflixHero({ movies = [], movie }: NetflixHeroProps) {
       id="billboard"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <div
         className="billboard__bg"

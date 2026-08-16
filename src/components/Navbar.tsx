@@ -7,47 +7,47 @@ import { MovieItem } from '@/types/movie';
 import { getImageUrl, searchMovies } from '@/lib/api';
 
 const GENRES = [
-  { name: 'Hành Động', slug: 'hanh-dong' },
-  { name: 'Tình Cảm', slug: 'tinh-cam' },
-  { name: 'Hài Hước', slug: 'hai-huoc' },
-  { name: 'Cổ Trang', slug: 'co-trang' },
-  { name: 'Tâm Lý', slug: 'tam-ly' },
-  { name: 'Hình Sự', slug: 'hinh-su' },
-  { name: 'Chiến Tranh', slug: 'chien-tranh' },
-  { name: 'Thể Thao', slug: 'the-thao' },
-  { name: 'Võ Thuật', slug: 'vo-thuat' },
-  { name: 'Viễn Tưởng', slug: 'vien-tuong' },
-  { name: 'Phiêu Lưu', slug: 'phieu-luu' },
-  { name: 'Khoa Học', slug: 'khoa-hoc' },
-  { name: 'Kinh Dị', slug: 'kinh-di' },
-  { name: 'Âm Nhạc', slug: 'am-nhac' },
-  { name: 'Thần Thoại', slug: 'than-thoai' },
-  { name: 'Tài Liệu', slug: 'tai-lieu' },
-  { name: 'Gia Đình', slug: 'gia-dinh' },
-  { name: 'Chính Kịch', slug: 'chinh-kich' },
-  { name: 'Bí Ẩn', slug: 'bi-an' },
-  { name: 'Học Đường', slug: 'hoc-duong' },
-  { name: 'Kinh Điển', slug: 'kinh-dien' },
-  { name: 'Anime', slug: 'anime' },
+  { name: 'Hành Động', slug: 'hanh-dong', icon: 'fa-bolt' },
+  { name: 'Tình Cảm', slug: 'tinh-cam', icon: 'fa-heart' },
+  { name: 'Hài Hước', slug: 'hai-huoc', icon: 'fa-face-laugh-beam' },
+  { name: 'Cổ Trang', slug: 'co-trang', icon: 'fa-fan' },
+  { name: 'Tâm Lý', slug: 'tam-ly', icon: 'fa-brain' },
+  { name: 'Hình Sự', slug: 'hinh-su', icon: 'fa-handcuffs' },
+  { name: 'Chiến Tranh', slug: 'chien-tranh', icon: 'fa-shield' },
+  { name: 'Thể Thao', slug: 'the-thao', icon: 'fa-futbol' },
+  { name: 'Võ Thuật', slug: 'vo-thuat', icon: 'fa-hand-fist' },
+  { name: 'Viễn Tưởng', slug: 'vien-tuong', icon: 'fa-rocket' },
+  { name: 'Phiêu Lưu', slug: 'phieu-luu', icon: 'fa-compass' },
+  { name: 'Khoa Học', slug: 'khoa-hoc', icon: 'fa-atom' },
+  { name: 'Kinh Dị', slug: 'kinh-di', icon: 'fa-ghost' },
+  { name: 'Âm Nhạc', slug: 'am-nhac', icon: 'fa-music' },
+  { name: 'Thần Thoại', slug: 'than-thoai', icon: 'fa-wand-magic-sparkles' },
+  { name: 'Tài Liệu', slug: 'tai-lieu', icon: 'fa-book-open' },
+  { name: 'Gia Đình', slug: 'gia-dinh', icon: 'fa-house-chimney-user' },
+  { name: 'Chính Kịch', slug: 'chinh-kich', icon: 'fa-masks-theater' },
+  { name: 'Bí Ẩn', slug: 'bi-an', icon: 'fa-eye' },
+  { name: 'Học Đường', slug: 'hoc-duong', icon: 'fa-graduation-cap' },
+  { name: 'Kinh Điển', slug: 'kinh-dien', icon: 'fa-crown' },
+  { name: 'Anime', slug: 'anime', icon: 'fa-dragon' },
 ];
 
 const COUNTRIES = [
-  { name: 'Trung Quốc', slug: 'trung-quoc' },
-  { name: 'Hàn Quốc', slug: 'han-quoc' },
-  { name: 'Nhật Bản', slug: 'nhat-ban' },
-  { name: 'Thái Lan', slug: 'thai-lan' },
-  { name: 'Âu Mỹ', slug: 'au-my' },
-  { name: 'Đài Loan', slug: 'dai-loan' },
-  { name: 'Hồng Kông', slug: 'hong-kong' },
-  { name: 'Ấn Độ', slug: 'an-do' },
-  { name: 'Anh', slug: 'anh' },
-  { name: 'Pháp', slug: 'phap' },
-  { name: 'Canada', slug: 'canada' },
-  { name: 'Đức', slug: 'duc' },
-  { name: 'Tây Ban Nha', slug: 'tay-ban-nha' },
-  { name: 'Thổ Nhĩ Kỳ', slug: 'tho-nhi-ky' },
-  { name: 'Hà Lan', slug: 'ha-lan' },
-  { name: 'Indonesia', slug: 'indonesia' },
+  { name: 'Trung Quốc', slug: 'trung-quoc', flag: '🇨🇳' },
+  { name: 'Hàn Quốc', slug: 'han-quoc', flag: '🇰🇷' },
+  { name: 'Nhật Bản', slug: 'nhat-ban', flag: '🇯🇵' },
+  { name: 'Thái Lan', slug: 'thai-lan', flag: '🇹🇭' },
+  { name: 'Âu Mỹ', slug: 'au-my', flag: '🇺🇸' },
+  { name: 'Đài Loan', slug: 'dai-loan', flag: '🇹🇼' },
+  { name: 'Hồng Kông', slug: 'hong-kong', flag: '🇭🇰' },
+  { name: 'Ấn Độ', slug: 'an-do', flag: '🇮🇳' },
+  { name: 'Anh', slug: 'anh', flag: '🇬🇧' },
+  { name: 'Pháp', slug: 'phap', flag: '🇫🇷' },
+  { name: 'Canada', slug: 'canada', flag: '🇨🇦' },
+  { name: 'Đức', slug: 'duc', flag: '🇩🇪' },
+  { name: 'Tây Ban Nha', slug: 'tay-ban-nha', flag: '🇪🇸' },
+  { name: 'Thổ Nhĩ Kỳ', slug: 'tho-nhi-ky', flag: '🇹🇷' },
+  { name: 'Hà Lan', slug: 'ha-lan', flag: '🇳🇱' },
+  { name: 'Indonesia', slug: 'indonesia', flag: '🇮🇩' },
 ];
 
 const YEARS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016];
@@ -63,8 +63,31 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Mobile drawer accordion toggles
+  const [mobileGenreOpen, setMobileGenreOpen] = useState(false);
+  const [mobileCountryOpen, setMobileCountryOpen] = useState(false);
+  const [mobileYearOpen, setMobileYearOpen] = useState(false);
+
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setIsSearchOpen(false);
+  }, [pathname]);
+
+  // Lock background scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
 
   // Navbar background on scroll
   useEffect(() => {
@@ -121,6 +144,7 @@ export default function Navbar() {
     if (e) e.preventDefault();
     if (keyword.trim()) {
       setIsSearchOpen(false);
+      setIsMobileMenuOpen(false);
       router.push(`/tim-kiem?q=${encodeURIComponent(keyword.trim())}`);
     }
   };
@@ -128,14 +152,24 @@ export default function Navbar() {
   return (
     <>
       <nav className={`nav ${isScrolled ? 'nav--solid' : ''}`} id="navbar">
-        {/* ==================== LEFT: LOGO + RECTANGULAR SEARCH BOX + MENU (TIGHT, CONTINUOUS) ==================== */}
+        {/* ==================== LEFT: HAMBURGER + LOGO + RECTANGULAR SEARCH BOX + MENU ==================== */}
         <div className="nav__left" style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 auto', minWidth: 0 }}>
-          {/* Mobile hamburger */}
+          {/* Mobile hamburger button */}
           <button
             className="nav__mobile-toggle"
             type="button"
             aria-label="Menu"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            onClick={() => setIsMobileMenuOpen(true)}
+            style={{
+              display: 'none',
+              background: 'none',
+              border: 'none',
+              color: '#fff',
+              fontSize: '1.25rem',
+              cursor: 'pointer',
+              padding: '6px 8px',
+              borderRadius: '6px',
+            }}
           >
             <i className="fas fa-bars"></i>
           </button>
@@ -148,7 +182,7 @@ export default function Navbar() {
           </Link>
 
           {/* Rectangular Search Box (Always Open, Next to Logo) */}
-          <div ref={searchContainerRef} className="nav__search-box-left" style={{ width: '230px', minWidth: '190px', flexShrink: 0 }}>
+          <div ref={searchContainerRef} className="nav__search-box-left" style={{ width: '230px', minWidth: '160px', flexShrink: 0 }}>
             <form onSubmit={handleSearchSubmit} style={{ position: 'relative', width: '100%', margin: 0 }}>
               <i
                 className="fas fa-search"
@@ -240,6 +274,7 @@ export default function Navbar() {
                             width: '44px',
                             height: '62px',
                             objectFit: 'cover',
+                            objectPosition: 'center center',
                             borderRadius: '6px',
                             flexShrink: 0,
                             background: '#111',
@@ -248,7 +283,7 @@ export default function Navbar() {
 
                         {/* Info Column */}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          {/* Vietnamese Name (Mint Green / White) */}
+                          {/* Vietnamese Name */}
                           <div
                             style={{
                               fontSize: '0.88rem',
@@ -361,7 +396,7 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Navigation Menu Right Next to Search Box */}
+          {/* Desktop Navigation Menu Links */}
           <ul className="nav__menu" id="nav-menu" style={{ display: 'flex', alignItems: 'center', gap: '3px', margin: 0, padding: 0 }}>
             <li>
               <Link href="/" className={`nav__link ${pathname === '/' ? 'active' : ''}`} id="link-home">
@@ -454,9 +489,8 @@ export default function Navbar() {
           </ul>
         </div>
 
-        {/* ==================== RIGHT: NOTIFICATION BELL ONLY ==================== */}
+        {/* ==================== RIGHT: NOTIFICATION BELL ==================== */}
         <div className="nav__right" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {/* Notification Bell */}
           <button
             className="nav__notification"
             id="notification-btn"
@@ -469,54 +503,415 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile Navigation Drawer */}
+      {/* ==================== FULL-FEATURED MOBILE DRAWER MENU ==================== */}
       {isMobileMenuOpen && (
         <div
+          className="mobile-drawer-overlay"
           style={{
             position: 'fixed',
             inset: 0,
-            zIndex: 999,
-            background: 'rgba(10, 10, 15, 0.98)',
-            padding: '80px 24px 40px',
-            overflowY: 'auto',
+            zIndex: 1100,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            animation: 'fadeIn 0.25s ease',
           }}
+          onClick={() => setIsMobileMenuOpen(false)}
         >
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen(false)}
+          <div
+            className="mobile-drawer-content"
             style={{
-              position: 'absolute',
-              top: '20px',
-              right: '20px',
-              background: 'none',
-              border: 'none',
-              color: '#fff',
-              fontSize: '1.4rem',
-              cursor: 'pointer',
+              width: '85%',
+              maxWidth: '340px',
+              height: '100%',
+              background: '#12121a',
+              borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '10px 0 40px rgba(0,0,0,0.8)',
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <i className="fas fa-times"></i>
-          </button>
+            {/* Drawer Header */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '20px 18px',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(18, 18, 26, 0.95)',
+                position: 'sticky',
+                top: 0,
+                zIndex: 10,
+              }}
+            >
+              <Link
+                href="/"
+                onClick={() => setIsMobileMenuOpen(false)}
+                style={{
+                  fontSize: '1.35rem',
+                  fontWeight: 900,
+                  color: '#fff',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <i className="fas fa-play" style={{ color: 'var(--red, #e50914)', fontSize: '1rem' }}></i>
+                <span>L</span>
+                <span style={{ color: 'var(--red, #e50914)' }}>PHIM</span>
+              </Link>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '1.1rem', fontWeight: 700 }}>
-            <Link href="/" onClick={() => setIsMobileMenuOpen(false)} style={{ color: '#fff', textDecoration: 'none' }}>
-              Trang chủ
-            </Link>
-            <Link href="/danh-sach/phim-bo" onClick={() => setIsMobileMenuOpen(false)} style={{ color: '#fff', textDecoration: 'none' }}>
-              Phim Bộ
-            </Link>
-            <Link href="/danh-sach/phim-le" onClick={() => setIsMobileMenuOpen(false)} style={{ color: '#fff', textDecoration: 'none' }}>
-              Phim Lẻ
-            </Link>
-            <Link href="/danh-sach/hoat-hinh" onClick={() => setIsMobileMenuOpen(false)} style={{ color: '#fff', textDecoration: 'none' }}>
-              Hoạt Hình
-            </Link>
-            <Link href="/danh-sach/tv-shows" onClick={() => setIsMobileMenuOpen(false)} style={{ color: '#fff', textDecoration: 'none' }}>
-              TV Shows
-            </Link>
-            <Link href="/danh-sach-cua-toi" onClick={() => setIsMobileMenuOpen(false)} style={{ color: '#fff', textDecoration: 'none' }}>
-              Danh sách của tôi
-            </Link>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.08)',
+                  border: 'none',
+                  color: '#fff',
+                  fontSize: '1.1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+                aria-label="Đóng menu"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+
+            {/* Main Menu Links */}
+            <div style={{ padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <Link
+                href="/"
+                onClick={() => setIsMobileMenuOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  color: pathname === '/' ? 'var(--red, #e50914)' : '#fff',
+                  background: pathname === '/' ? 'rgba(229,9,20,0.12)' : 'transparent',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                }}
+              >
+                <i className="fas fa-house" style={{ width: '20px', color: 'var(--red, #e50914)' }}></i>
+                <span>Trang Chủ</span>
+              </Link>
+
+              <Link
+                href="/danh-sach/phim-bo"
+                onClick={() => setIsMobileMenuOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  color: pathname === '/danh-sach/phim-bo' ? 'var(--red, #e50914)' : '#fff',
+                  background: pathname === '/danh-sach/phim-bo' ? 'rgba(229,9,20,0.12)' : 'transparent',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                }}
+              >
+                <i className="fas fa-tv" style={{ width: '20px', color: '#38bdf8' }}></i>
+                <span>Phim Bộ</span>
+              </Link>
+
+              <Link
+                href="/danh-sach/phim-le"
+                onClick={() => setIsMobileMenuOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  color: pathname === '/danh-sach/phim-le' ? 'var(--red, #e50914)' : '#fff',
+                  background: pathname === '/danh-sach/phim-le' ? 'rgba(229,9,20,0.12)' : 'transparent',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                }}
+              >
+                <i className="fas fa-film" style={{ width: '20px', color: '#f59e0b' }}></i>
+                <span>Phim Lẻ</span>
+              </Link>
+
+              <Link
+                href="/danh-sach/hoat-hinh"
+                onClick={() => setIsMobileMenuOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  color: pathname === '/danh-sach/hoat-hinh' ? 'var(--red, #e50914)' : '#fff',
+                  background: pathname === '/danh-sach/hoat-hinh' ? 'rgba(229,9,20,0.12)' : 'transparent',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                }}
+              >
+                <i className="fas fa-dragon" style={{ width: '20px', color: '#ec4899' }}></i>
+                <span>Hoạt Hình & Anime</span>
+              </Link>
+
+              <Link
+                href="/danh-sach/tv-shows"
+                onClick={() => setIsMobileMenuOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  color: pathname === '/danh-sach/tv-shows' ? 'var(--red, #e50914)' : '#fff',
+                  background: pathname === '/danh-sach/tv-shows' ? 'rgba(229,9,20,0.12)' : 'transparent',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                }}
+              >
+                <i className="fas fa-masks-theater" style={{ width: '20px', color: '#a855f7' }}></i>
+                <span>TV Shows</span>
+              </Link>
+
+              <Link
+                href="/danh-sach-cua-toi"
+                onClick={() => setIsMobileMenuOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  color: pathname === '/danh-sach-cua-toi' ? 'var(--red, #e50914)' : '#fff',
+                  background: pathname === '/danh-sach-cua-toi' ? 'rgba(229,9,20,0.12)' : 'transparent',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                }}
+              >
+                <i className="fas fa-bookmark" style={{ width: '20px', color: '#4ade80' }}></i>
+                <span>Tủ Phim & Xem Dở</span>
+              </Link>
+            </div>
+
+            {/* Accordion: THỂ LOẠI (22 Thể Loại Đầy Đủ) */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 14px' }}>
+              <button
+                type="button"
+                onClick={() => setMobileGenreOpen(!mobileGenreOpen)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 8px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#fff',
+                  fontWeight: 800,
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <i className="fas fa-layer-group" style={{ color: 'var(--red, #e50914)' }}></i>
+                  <span>Thể Loại ({GENRES.length})</span>
+                </span>
+                <i
+                  className={`fas fa-chevron-${mobileGenreOpen ? 'up' : 'down'}`}
+                  style={{ fontSize: '0.8rem', color: '#888' }}
+                ></i>
+              </button>
+
+              {mobileGenreOpen && (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '6px',
+                    padding: '8px 0 12px',
+                    animation: 'fadeIn 0.2s ease',
+                  }}
+                >
+                  {GENRES.map((g) => (
+                    <Link
+                      key={g.slug}
+                      href={`/the-loai/${g.slug}`}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        background: pathname === `/the-loai/${g.slug}` ? 'var(--red, #e50914)' : 'rgba(255,255,255,0.05)',
+                        color: '#fff',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      <i className={`fas ${g.icon}`} style={{ fontSize: '0.75rem', opacity: 0.7 }}></i>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Accordion: QUỐC GIA (16 Quốc Gia Đầy Đủ) */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 14px' }}>
+              <button
+                type="button"
+                onClick={() => setMobileCountryOpen(!mobileCountryOpen)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 8px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#fff',
+                  fontWeight: 800,
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <i className="fas fa-globe" style={{ color: '#38bdf8' }}></i>
+                  <span>Quốc Gia ({COUNTRIES.length})</span>
+                </span>
+                <i
+                  className={`fas fa-chevron-${mobileCountryOpen ? 'up' : 'down'}`}
+                  style={{ fontSize: '0.8rem', color: '#888' }}
+                ></i>
+              </button>
+
+              {mobileCountryOpen && (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '6px',
+                    padding: '8px 0 12px',
+                    animation: 'fadeIn 0.2s ease',
+                  }}
+                >
+                  {COUNTRIES.map((c) => (
+                    <Link
+                      key={c.slug}
+                      href={`/quoc-gia/${c.slug}`}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        background: pathname === `/quoc-gia/${c.slug}` ? 'var(--red, #e50914)' : 'rgba(255,255,255,0.05)',
+                        color: '#fff',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <span>{c.flag}</span>
+                      <span>{c.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Accordion: NĂM PHÁT HÀNH */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '10px 14px' }}>
+              <button
+                type="button"
+                onClick={() => setMobileYearOpen(!mobileYearOpen)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 8px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#fff',
+                  fontWeight: 800,
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <i className="fas fa-calendar" style={{ color: '#f59e0b' }}></i>
+                  <span>Năm Phát Hành</span>
+                </span>
+                <i
+                  className={`fas fa-chevron-${mobileYearOpen ? 'up' : 'down'}`}
+                  style={{ fontSize: '0.8rem', color: '#888' }}
+                ></i>
+              </button>
+
+              {mobileYearOpen && (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: '6px',
+                    padding: '8px 0 12px',
+                    animation: 'fadeIn 0.2s ease',
+                  }}
+                >
+                  {YEARS.map((y) => (
+                    <Link
+                      key={y}
+                      href={`/tim-kiem?q=${y}`}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      style={{
+                        padding: '8px 4px',
+                        borderRadius: '6px',
+                        background: 'rgba(255,255,255,0.05)',
+                        color: '#fff',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        textAlign: 'center',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      {y}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Drawer Footer */}
+            <div style={{ marginTop: 'auto', padding: '24px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+              <p style={{ fontSize: '0.78rem', color: '#666', margin: 0 }}>
+                LPhim © 2026 • Xem phim HD Vietsub miễn phí
+              </p>
+            </div>
           </div>
         </div>
       )}

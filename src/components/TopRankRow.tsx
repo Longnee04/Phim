@@ -51,7 +51,7 @@ export default function TopRankRow({ title, movies }: TopRankRowProps) {
         <div
           ref={sliderRef}
           className="row__slider"
-          style={{ overflowX: 'auto', scrollBehavior: 'smooth' }}
+          style={{ overflowX: 'auto', scrollBehavior: 'smooth', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
         >
           <div className="row__track" style={{ display: 'flex', gap: 12 }}>
             {top10.map((movie, idx) => {

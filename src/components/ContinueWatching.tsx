@@ -33,7 +33,7 @@ export function ContinueWatching() {
 
   return (
     <section className="row continue-watching-section" style={{ display: 'block', margin: '20px 0 36px' }}>
-      <div className="row__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 48px', marginBottom: '14px' }}>
+      <div className="row__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 var(--row-pad, 24px)', marginBottom: '14px' }}>
         <h2 className="row__title" style={{ fontSize: '1.35rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <i className="fas fa-clock-rotate-left" style={{ color: 'var(--red, #e50914)' }}></i>
           <span>Tiếp tục xem</span>
@@ -56,7 +56,7 @@ export function ContinueWatching() {
         <div
           ref={sliderRef}
           className="row__slider"
-          style={{ overflowX: 'auto', scrollBehavior: 'smooth', padding: '10px 48px' }}
+          style={{ overflowX: 'auto', scrollBehavior: 'smooth', padding: '10px var(--row-pad, 24px)', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
         >
           <div className="row__track" style={{ display: 'flex', gap: '14px' }}>
             {history.map((item) => {
