@@ -100,6 +100,14 @@ export function ContinueWatching() {
                     <img
                       src={poster}
                       alt={item.name}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (item.thumb_url && target.src !== item.thumb_url) {
+                          target.src = item.thumb_url;
+                        } else {
+                          target.src = 'https://placehold.co/300x450/141414/e50914?text=LPHIM';
+                        }
+                      }}
                       style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }}
                     />
 

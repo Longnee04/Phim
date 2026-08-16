@@ -5,7 +5,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 /**
  * useDraggableScroll
  * Enables butter-smooth drag-to-scroll on Desktop (mouse)
- * and frictionless momentum swipe on Mobile (touch).
+ * and leaves native touch scrolling 100% free and responsive on Mobile.
  */
 export function useDraggableScroll<T extends HTMLElement = HTMLDivElement>() {
   const ref = useRef<T>(null);
@@ -19,8 +19,11 @@ export function useDraggableScroll<T extends HTMLElement = HTMLDivElement>() {
     const slider = ref.current;
     if (!slider) return;
 
+    // Only attach mouse drag on devices with a mouse cursor (pointer: fine)
+    const isMouseDevice = window.matchMedia('(pointer: fine)').matches;
+    if (!isMouseDevice) return;
+
     const handleMouseDown = (e: MouseEvent) => {
-      // Only handle left mouse click
       if (e.button !== 0) return;
       isDown.current = true;
       isDragging.current = false;
@@ -32,9 +35,9 @@ export function useDraggableScroll<T extends HTMLElement = HTMLDivElement>() {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDown.current) return;
       const x = e.pageX - slider.offsetLeft;
-      const walk = (x - startX.current) * 1.4; // smooth swipe multiplier
+      const walk = (x - startX.current) * 1.5;
 
-      if (Math.abs(walk) > 5) {
+      if (Math.abs(walk) > 6) {
         isDragging.current = true;
       }
 
@@ -44,7 +47,6 @@ export function useDraggableScroll<T extends HTMLElement = HTMLDivElement>() {
     const handleMouseUp = () => {
       isDown.current = false;
       setIsGrabbing(false);
-      // Small timeout so click handlers know we dragged
       setTimeout(() => {
         isDragging.current = false;
       }, 50);
@@ -56,7 +58,6 @@ export function useDraggableScroll<T extends HTMLElement = HTMLDivElement>() {
       isDragging.current = false;
     };
 
-    // Prevent accidental clicks on movie cards when user was dragging/swiping
     const handleClickCapture = (e: MouseEvent) => {
       if (isDragging.current) {
         e.preventDefault();
@@ -82,7 +83,7 @@ export function useDraggableScroll<T extends HTMLElement = HTMLDivElement>() {
   const scroll = useCallback((direction: 'left' | 'right') => {
     if (ref.current) {
       const { scrollLeft: currentLeft, clientWidth } = ref.current;
-      const scrollAmount = Math.max(300, clientWidth * 0.75);
+      const scrollAmount = Math.max(220, clientWidth * 0.7);
       ref.current.scrollTo({
         left: direction === 'left' ? currentLeft - scrollAmount : currentLeft + scrollAmount,
         behavior: 'smooth',

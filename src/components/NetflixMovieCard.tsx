@@ -75,6 +75,14 @@ export default function NetflixMovieCard({ movie }: NetflixMovieCardProps) {
         src={poster}
         alt={movie.name}
         loading="lazy"
+        onError={(e) => {
+          const target = e.currentTarget;
+          if (movie.thumb_url && target.src !== movie.thumb_url) {
+            target.src = movie.thumb_url;
+          } else {
+            target.src = 'https://placehold.co/300x450/141414/e50914?text=LPHIM';
+          }
+        }}
         style={{
           width: '100%',
           height: '100%',

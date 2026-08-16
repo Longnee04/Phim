@@ -41,23 +41,35 @@ export function getImageUrl(path: string | undefined, source: SourceType = 'nguo
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }
-  const cdn = SOURCES[source]?.imgCdn || SOURCES.nguonc.imgCdn;
-  return `${cdn}${path.replace(/^\//, '')}`;
+  const clean = path.replace(/^\//, '');
+  if (clean.startsWith('upload/') || clean.startsWith('uploads/')) {
+    if (clean.startsWith('uploads/movies/')) {
+      return `https://img.ophim.live/${clean}`;
+    }
+    return `https://phimimg.com/${clean}`;
+  }
+  if (clean.startsWith('public/images/')) {
+    return `https://phim.nguonc.com/${clean}`;
+  }
+  const cdn = SOURCES[source]?.imgCdn || 'https://phimimg.com/';
+  return `${cdn}${clean}`;
 }
 
 /**
  * Normalize NguonC list item to MovieItem
- * NOTE: In NguonC API, item.thumb_url is the vertical 2:3 poster (ratio ~0.70)
- * while item.poster_url is the horizontal 16:9 backdrop (ratio ~1.78)
+ * In NguonC API, item.thumb_url is the 2:3 vertical poster and item.poster_url is the 16:9 backdrop
  */
 function normalizeNguonCItem(item: any): MovieItem {
+  const poster = item.thumb_url || item.poster_url || '';
+  const thumb = item.poster_url || item.thumb_url || '';
+
   return {
     _id: item.id || item.slug,
     name: item.name || '',
     slug: item.slug || '',
     origin_name: item.original_name || item.name || '',
-    poster_url: item.thumb_url || item.poster_url || '',
-    thumb_url: item.poster_url || item.thumb_url || '',
+    poster_url: getImageUrl(poster, 'nguonc'),
+    thumb_url: getImageUrl(thumb, 'nguonc'),
     content: item.description || '',
     quality: item.quality || 'FHD',
     lang: item.language || 'Vietsub',
@@ -65,6 +77,36 @@ function normalizeNguonCItem(item: any): MovieItem {
     time: item.time || '',
     episode_current: item.current_episode || '',
     episode_total: item.total_episodes || '',
+  };
+}
+
+/**
+ * Normalize KKPhim list item to MovieItem
+ */
+function normalizeKKItem(item: any): MovieItem {
+  const posterPath = item.poster_url || item.thumb_url || '';
+  const thumbPath = item.thumb_url || item.poster_url || '';
+
+  const poster = getImageUrl(posterPath, 'kkphim');
+  const thumb = getImageUrl(thumbPath, 'kkphim');
+
+  return {
+    _id: item._id || item.slug,
+    name: item.name || '',
+    slug: item.slug || '',
+    origin_name: item.origin_name || item.name || '',
+    poster_url: poster,
+    thumb_url: thumb,
+    content: item.content || item.description || '',
+    quality: item.quality || 'FHD',
+    lang: item.lang || 'Vietsub',
+    year: item.year || 2026,
+    time: item.time || '',
+    episode_current: item.episode_current || '',
+    episode_total: item.episode_total || '',
+    type: item.type || 'series',
+    category: Array.isArray(item.category) ? item.category : [],
+    country: Array.isArray(item.country) ? item.country : [],
   };
 }
 
@@ -119,8 +161,8 @@ function normalizeNguonCMovieDetail(data: any): MovieDetailResponse | null {
     origin_name: m.original_name || m.name || '',
     content: m.description || '',
     type,
-    poster_url: m.thumb_url || m.poster_url || '',
-    thumb_url: m.poster_url || m.thumb_url || '',
+    poster_url: getImageUrl(m.thumb_url || m.poster_url, 'nguonc'),
+    thumb_url: getImageUrl(m.poster_url || m.thumb_url, 'nguonc'),
     quality: m.quality || 'FHD',
     lang: m.language || 'Vietsub',
     time: m.time || '',
@@ -209,7 +251,7 @@ export async function getLatestMovies(page: number = 1): Promise<MovieListRespon
       msg: 'success',
       data: {
         titlePage: 'Phim Mới Cập Nhật',
-        items: kkData.items,
+        items: kkData.items.map(normalizeKKItem),
         params: kkData.pagination,
       },
     };
@@ -272,7 +314,17 @@ export async function getMoviesByType(type: string, page: number = 1): Promise<M
 
   // Fallback to KKPhim
   const kkData = await fetchRaw<any>(`https://phimapi.com/v1/api/danh-sach/${type}?page=${page}&limit=24`);
-  if (kkData?.data?.items) return kkData;
+  if (kkData?.data?.items) {
+    return {
+      status: 'success',
+      msg: 'success',
+      data: {
+        titlePage: kkData.data.titlePage || 'Danh Sách Phim',
+        items: kkData.data.items.map(normalizeKKItem),
+        params: kkData.data.params,
+      },
+    };
+  }
   return null;
 }
 
@@ -313,7 +365,17 @@ export async function getMoviesByGenre(genreSlug: string, page: number = 1): Pro
 
   // Fallback to KKPhim
   const kkData = await fetchRaw<any>(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${page}&limit=24`);
-  if (kkData?.data?.items) return kkData;
+  if (kkData?.data?.items) {
+    return {
+      status: 'success',
+      msg: 'success',
+      data: {
+        titlePage: kkData.data.titlePage || `Thể Loại: ${genreSlug}`,
+        items: kkData.data.items.map(normalizeKKItem),
+        params: kkData.data.params,
+      },
+    };
+  }
   return null;
 }
 
@@ -354,7 +416,17 @@ export async function getMoviesByCountry(countrySlug: string, page: number = 1):
 
   // Fallback to KKPhim
   const kkData = await fetchRaw<any>(`https://phimapi.com/v1/api/quoc-gia/${countrySlug}?page=${page}&limit=24`);
-  if (kkData?.data?.items) return kkData;
+  if (kkData?.data?.items) {
+    return {
+      status: 'success',
+      msg: 'success',
+      data: {
+        titlePage: kkData.data.titlePage || `Quốc Gia: ${countrySlug}`,
+        items: kkData.data.items.map(normalizeKKItem),
+        params: kkData.data.params,
+      },
+    };
+  }
   return null;
 }
 
@@ -365,10 +437,18 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
   // If explicitly requesting a secondary source
   if (source === 'kkphim') {
     const data = await fetchRaw<MovieDetailResponse>(`https://phimapi.com/phim/${slug}`, 300);
-    if (data?.movie) return data;
+    if (data?.movie) {
+      data.movie.poster_url = getImageUrl(data.movie.poster_url, 'kkphim');
+      data.movie.thumb_url = getImageUrl(data.movie.thumb_url, 'kkphim');
+      return data;
+    }
   } else if (source === 'ophim') {
     const data = await fetchRaw<MovieDetailResponse>(`https://ophim1.com/phim/${slug}`, 300);
-    if (data?.movie) return data;
+    if (data?.movie) {
+      data.movie.poster_url = getImageUrl(data.movie.poster_url, 'ophim');
+      data.movie.thumb_url = getImageUrl(data.movie.thumb_url, 'ophim');
+      return data;
+    }
   } else if (source === 'vsmov') {
     const data = await fetchRaw<MovieDetailResponse>(`https://vsmov.com/api/phim/${slug}`, 300);
     if (data?.movie) return data;
@@ -383,11 +463,19 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
 
   // Fallback 1: KKPhim
   const kkData = await fetchRaw<MovieDetailResponse>(`https://phimapi.com/phim/${slug}`, 300);
-  if (kkData?.movie) return kkData;
+  if (kkData?.movie) {
+    kkData.movie.poster_url = getImageUrl(kkData.movie.poster_url, 'kkphim');
+    kkData.movie.thumb_url = getImageUrl(kkData.movie.thumb_url, 'kkphim');
+    return kkData;
+  }
 
   // Fallback 2: OPhim
   const ophimData = await fetchRaw<MovieDetailResponse>(`https://ophim1.com/phim/${slug}`, 300);
-  if (ophimData?.movie) return ophimData;
+  if (ophimData?.movie) {
+    ophimData.movie.poster_url = getImageUrl(ophimData.movie.poster_url, 'ophim');
+    ophimData.movie.thumb_url = getImageUrl(ophimData.movie.thumb_url, 'ophim');
+    return ophimData;
+  }
 
   return null;
 }
@@ -418,7 +506,15 @@ export async function searchMovies(keyword: string, limit: number = 12): Promise
 
   // Fallback to KKPhim
   const kkData = await fetchRaw<MovieListResponse>(`https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(keyword)}&limit=${limit}`, 60);
-  if (kkData?.data?.items) return kkData;
+  if (kkData?.data?.items) {
+    return {
+      ...kkData,
+      data: {
+        ...kkData.data,
+        items: kkData.data.items.map(normalizeKKItem),
+      },
+    };
+  }
   return null;
 }
 

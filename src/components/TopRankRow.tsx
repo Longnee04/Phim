@@ -67,6 +67,14 @@ export default function TopRankRow({ title, movies }: TopRankRowProps) {
                     src={poster}
                     alt={movie.name}
                     loading="lazy"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (movie.thumb_url && target.src !== movie.thumb_url) {
+                        target.src = movie.thumb_url;
+                      } else {
+                        target.src = 'https://placehold.co/300x450/141414/e50914?text=LPHIM';
+                      }
+                    }}
                     style={{ objectFit: 'cover', objectPosition: 'center center' }}
                   />
                 </Link>
