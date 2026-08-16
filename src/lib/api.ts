@@ -42,17 +42,11 @@ export function getImageUrl(path: string | undefined, source: SourceType = 'nguo
     return path;
   }
   const clean = path.replace(/^\//, '');
-  if (clean.startsWith('upload/') || clean.startsWith('uploads/')) {
-    if (clean.startsWith('uploads/movies/')) {
-      return `https://img.ophim.live/${clean}`;
-    }
-    return `https://phimimg.com/${clean}`;
+  if (clean.startsWith('public/images/') || clean.startsWith('images/Post/') || clean.startsWith('images/Film/')) {
+    return `https://phim.nguonc.com/public/${clean.replace(/^public\//, '')}`;
   }
-  if (clean.startsWith('public/images/')) {
-    return `https://phim.nguonc.com/${clean}`;
-  }
-  const cdn = SOURCES[source]?.imgCdn || 'https://phimimg.com/';
-  return `${cdn}${clean}`;
+  // All relative paths from KKPhim (upload/vod/..., uploads/movies/..., etc.) use phimimg.com
+  return `https://phimimg.com/${clean}`;
 }
 
 /**
