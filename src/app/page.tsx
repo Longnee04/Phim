@@ -45,10 +45,20 @@ export default async function HomePage() {
   const romanceMovies = romanceRes?.data?.items || [];
   const historicalMovies = historicalRes?.data?.items || [];
 
+  // Master fallback pool to ensure the home page is never empty
+  const heroMovies =
+    latestMovies.length > 0
+      ? latestMovies
+      : seriesMovies.length > 0
+      ? seriesMovies
+      : singleMovies.length > 0
+      ? singleMovies
+      : [];
+
   return (
     <div id="home-view">
       {/* Billboard Hero Banner with multi-slide */}
-      <NetflixHero movies={latestMovies} />
+      {heroMovies.length > 0 && <NetflixHero movies={heroMovies} />}
 
       {/* Main Rows Container */}
       <main className="rows-container" id="rows-container">
@@ -56,91 +66,83 @@ export default async function HomePage() {
         <ContinueWatching />
 
         {/* Top 10 phim hot nhất 🔥 */}
-        {latestMovies.length > 0 && (
+        {heroMovies.length > 0 && (
           <TopRankRow
             title="Top 10 phim hot nhất 🔥"
-            movies={latestMovies}
+            movies={heroMovies}
           />
         )}
 
         {/* Mới cập nhật */}
-        <NetflixRow
-          title="Mới cập nhật"
-          viewAllLink="/danh-sach/phim-moi-cap-nhat"
-          movies={latestMovies.slice(0, 15)}
-        />
-
-        {/* Phim Chiếu Rạp Bom Tấn */}
-        {actionMovies.length > 0 && (
+        {latestMovies.length > 0 && (
           <NetflixRow
-            title="Phim Chiếu Rạp & Hành Động Bom Tấn 🎬"
-            viewAllLink="/the-loai/hanh-dong"
-            movies={actionMovies}
+            title="Mới cập nhật"
+            viewAllLink="/danh-sach/phim-moi-cap-nhat"
+            movies={latestMovies.slice(0, 16)}
           />
         )}
+
+        {/* Phim Chiếu Rạp Bom Tấn */}
+        <NetflixRow
+          title="Phim Chiếu Rạp & Hành Động Bom Tấn 🎬"
+          viewAllLink="/the-loai/hanh-dong"
+          movies={actionMovies.length > 0 ? actionMovies : singleMovies}
+        />
 
         {/* Phim Bộ đáng xem */}
         <NetflixRow
           title="Phim Bộ đáng xem"
           viewAllLink="/danh-sach/phim-bo"
-          movies={seriesMovies}
+          movies={seriesMovies.length > 0 ? seriesMovies : heroMovies}
         />
 
         {/* Phim Hàn Quốc Đặc Sắc */}
-        {koreaMovies.length > 0 && (
-          <NetflixRow
-            title="Phim Hàn Quốc Đặc Sắc 🇰🇷"
-            viewAllLink="/quoc-gia/han-quoc"
-            movies={koreaMovies}
-          />
-        )}
+        <NetflixRow
+          title="Phim Hàn Quốc Đặc Sắc 🇰🇷"
+          viewAllLink="/quoc-gia/han-quoc"
+          movies={koreaMovies.length > 0 ? koreaMovies : heroMovies}
+        />
 
         {/* Phim Lẻ tuyển chọn */}
         <NetflixRow
           title="Phim Lẻ tuyển chọn"
           viewAllLink="/danh-sach/phim-le"
-          movies={singleMovies}
+          movies={singleMovies.length > 0 ? singleMovies : heroMovies}
         />
 
         {/* Anime Nhật Bản Đỉnh Cao */}
-        {japanMovies.length > 0 && (
-          <NetflixRow
-            title="Anime & Phim Nhật Bản Đỉnh Cao 🇯🇵"
-            viewAllLink="/quoc-gia/nhat-ban"
-            movies={japanMovies}
-          />
-        )}
+        <NetflixRow
+          title="Anime & Phim Nhật Bản Đỉnh Cao 🇯🇵"
+          viewAllLink="/quoc-gia/nhat-ban"
+          movies={japanMovies.length > 0 ? japanMovies : animeMovies}
+        />
 
         {/* Hoạt Hình & Anime */}
         <NetflixRow
           title="Hoạt Hình Chọn Lọc"
           viewAllLink="/danh-sach/hoat-hinh"
-          movies={animeMovies}
+          movies={animeMovies.length > 0 ? animeMovies : heroMovies}
         />
 
         {/* Phim Tình Cảm Lãng Mạn */}
-        {romanceMovies.length > 0 && (
-          <NetflixRow
-            title="Phim Tình Cảm Lãng Mạn 💕"
-            viewAllLink="/the-loai/tinh-cam"
-            movies={romanceMovies}
-          />
-        )}
+        <NetflixRow
+          title="Phim Tình Cảm Lãng Mạn 💕"
+          viewAllLink="/the-loai/tinh-cam"
+          movies={romanceMovies.length > 0 ? romanceMovies : seriesMovies}
+        />
 
         {/* Phim Cổ Trang */}
-        {historicalMovies.length > 0 && (
-          <NetflixRow
-            title="Phim Cổ Trang Kịch Tính ⚔️"
-            viewAllLink="/the-loai/co-trang"
-            movies={historicalMovies}
-          />
-        )}
+        <NetflixRow
+          title="Phim Cổ Trang Kịch Tính ⚔️"
+          viewAllLink="/the-loai/co-trang"
+          movies={historicalMovies.length > 0 ? historicalMovies : seriesMovies}
+        />
 
         {/* TV Shows */}
         <NetflixRow
           title="TV Shows & Truyền Hình Thực Tế"
           viewAllLink="/danh-sach/tv-shows"
-          movies={tvShowsMovies}
+          movies={tvShowsMovies.length > 0 ? tvShowsMovies : seriesMovies}
         />
 
         {/* Phim Vietsub */}

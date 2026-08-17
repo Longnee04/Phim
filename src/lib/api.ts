@@ -45,7 +45,7 @@ export function getImageUrl(path: string | undefined, source: SourceType = 'nguo
   if (clean.startsWith('public/images/') || clean.startsWith('images/Post/') || clean.startsWith('images/Film/')) {
     return `https://phim.nguonc.com/public/${clean.replace(/^public\//, '')}`;
   }
-  // All relative paths from KKPhim (upload/vod/..., uploads/movies/..., etc.) use phimimg.com
+  // All relative paths from KKPhim/OPhim (upload/vod/..., uploads/movies/..., etc.) use phimimg.com
   return `https://phimimg.com/${clean}`;
 }
 
@@ -83,6 +83,36 @@ function normalizeKKItem(item: any): MovieItem {
 
   const poster = getImageUrl(posterPath, 'kkphim');
   const thumb = getImageUrl(thumbPath, 'kkphim');
+
+  return {
+    _id: item._id || item.slug,
+    name: item.name || '',
+    slug: item.slug || '',
+    origin_name: item.origin_name || item.name || '',
+    poster_url: poster,
+    thumb_url: thumb,
+    content: item.content || item.description || '',
+    quality: item.quality || 'FHD',
+    lang: item.lang || 'Vietsub',
+    year: item.year || 2026,
+    time: item.time || '',
+    episode_current: item.episode_current || '',
+    episode_total: item.episode_total || '',
+    type: item.type || 'series',
+    category: Array.isArray(item.category) ? item.category : [],
+    country: Array.isArray(item.country) ? item.country : [],
+  };
+}
+
+/**
+ * Normalize OPhim list item to MovieItem
+ */
+function normalizeOPhimItem(item: any): MovieItem {
+  const posterPath = item.poster_url || item.thumb_url || '';
+  const thumbPath = item.thumb_url || item.poster_url || '';
+
+  const poster = getImageUrl(posterPath, 'ophim');
+  const thumb = getImageUrl(thumbPath, 'ophim');
 
   return {
     _id: item._id || item.slug,
@@ -178,7 +208,7 @@ function normalizeNguonCMovieDetail(data: any): MovieDetailResponse | null {
 }
 
 /**
- * Fetch raw JSON with caching
+ * Fetch raw JSON with caching & timeout protection
  */
 export async function fetchRaw<T>(url: string, revalidateTime: number = 180): Promise<T | null> {
   const cached = _cache.get(url);
@@ -187,74 +217,103 @@ export async function fetchRaw<T>(url: string, revalidateTime: number = 180): Pr
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500); // 4.5s fast timeout
+
     const res = await fetch(url, {
       next: { revalidate: revalidateTime },
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     if (!res.ok) return null;
     const data = await res.json();
     _cache.set(url, { data, expiry: Date.now() + CACHE_TTL });
     return data as T;
   } catch (err) {
-    console.error(`API Fetch Exception: ${url}`, err);
     return null;
   }
 }
 
 /**
- * 1. Get Latest Movies (NguonC Primary - 20 items per app page)
+ * 1. Get Latest Movies (NguonC Primary with KKPhim/OPhim Fallback)
  */
 export async function getLatestMovies(page: number = 1): Promise<MovieListResponse | null> {
-  const p1 = (page - 1) * 2 + 1;
-  const p2 = (page - 1) * 2 + 2;
+  // 1. Try NguonC
+  try {
+    const p1 = (page - 1) * 2 + 1;
+    const p2 = (page - 1) * 2 + 2;
 
-  // Try NguonC with 2 sub-pages in parallel
-  const [d1, d2] = await Promise.all([
-    fetchRaw<any>(`https://phim.nguonc.com/api/films/phim-moi-cap-nhat?page=${p1}`),
-    fetchRaw<any>(`https://phim.nguonc.com/api/films/phim-moi-cap-nhat?page=${p2}`),
-  ]);
+    const [d1, d2] = await Promise.all([
+      fetchRaw<any>(`https://phim.nguonc.com/api/films/phim-moi-cap-nhat?page=${p1}`),
+      fetchRaw<any>(`https://phim.nguonc.com/api/films/phim-moi-cap-nhat?page=${p2}`),
+    ]);
 
-  if (d1 && d1.items && d1.items.length > 0) {
-    const combined = [...d1.items, ...(d2?.items || [])];
-    const totalItems = d1.paginate?.total_items || 300;
-    const totalPages = Math.ceil(totalItems / 20);
+    if (d1 && d1.items && d1.items.length > 0) {
+      const combined = [...d1.items, ...(d2?.items || [])];
+      const totalItems = d1.paginate?.total_items || 300;
+      const totalPages = Math.ceil(totalItems / 20);
 
-    return {
-      status: 'success',
-      msg: 'success',
-      data: {
-        titlePage: 'Phim Mới Cập Nhật',
-        items: combined.map(normalizeNguonCItem),
-        params: {
-          pagination: {
-            totalItems,
-            totalItemsPerPage: 20,
-            currentPage: page,
-            pageRanges: totalPages,
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: 'Phim Mới Cập Nhật',
+          items: combined.map(normalizeNguonCItem),
+          params: {
+            pagination: {
+              totalItems,
+              totalItemsPerPage: 20,
+              currentPage: page,
+              pageRanges: totalPages,
+            },
           },
         },
-      },
-    };
-  }
+      };
+    }
+  } catch (e) {}
 
-  // Fallback to KKPhim
-  const kkData = await fetchRaw<any>(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=${page}`);
-  if (kkData && kkData.items) {
-    return {
-      status: 'success',
-      msg: 'success',
-      data: {
-        titlePage: 'Phim Mới Cập Nhật',
-        items: kkData.items.map(normalizeKKItem),
-        params: kkData.pagination,
-      },
-    };
-  }
+  // 2. Fallback to KKPhim
+  try {
+    const kkData = await fetchRaw<any>(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=${page}`);
+    if (kkData && kkData.items && kkData.items.length > 0) {
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: 'Phim Mới Cập Nhật',
+          items: kkData.items.map(normalizeKKItem),
+          params: kkData.pagination,
+        },
+      };
+    }
+  } catch (e) {}
+
+  // 3. Fallback to OPhim
+  try {
+    const ophimData = await fetchRaw<any>(`https://ophim1.com/danh-sach/phim-moi-cap-nhat?page=${page}`);
+    if (ophimData && ophimData.items && ophimData.items.length > 0) {
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: 'Phim Mới Cập Nhật',
+          items: ophimData.items.map(normalizeOPhimItem),
+          params: ophimData.pagination,
+        },
+      };
+    }
+  } catch (e) {}
+
   return null;
 }
 
 /**
- * 2. Get Movies By Type (phim-bo, phim-le, hoat-hinh, tv-shows - 20 items per app page)
+ * 2. Get Movies By Type (phim-bo, phim-le, hoat-hinh, tv-shows)
  */
 export async function getMoviesByType(type: string, page: number = 1): Promise<MovieListResponse | null> {
   const typeMap: Record<string, string> = {
@@ -266,161 +325,228 @@ export async function getMoviesByType(type: string, page: number = 1): Promise<M
   };
 
   const nguoncType = typeMap[type] || type;
-  const p1 = (page - 1) * 2 + 1;
-  const p2 = (page - 1) * 2 + 2;
 
-  const [d1, d2] = await Promise.all([
-    fetchRaw<any>(`https://phim.nguonc.com/api/films/danh-sach/${nguoncType}?page=${p1}`),
-    fetchRaw<any>(`https://phim.nguonc.com/api/films/danh-sach/${nguoncType}?page=${p2}`),
-  ]);
+  // 1. Try NguonC
+  try {
+    const p1 = (page - 1) * 2 + 1;
+    const p2 = (page - 1) * 2 + 2;
 
-  if (d1 && d1.items && d1.items.length > 0) {
-    const combined = [...d1.items, ...(d2?.items || [])];
-    const totalItems = d1.paginate?.total_items || 200;
-    const totalPages = Math.ceil(totalItems / 20);
+    const [d1, d2] = await Promise.all([
+      fetchRaw<any>(`https://phim.nguonc.com/api/films/danh-sach/${nguoncType}?page=${p1}`),
+      fetchRaw<any>(`https://phim.nguonc.com/api/films/danh-sach/${nguoncType}?page=${p2}`),
+    ]);
 
-    return {
-      status: 'success',
-      msg: 'success',
-      data: {
-        titlePage:
-          type === 'phim-bo'
-            ? 'Phim Bộ'
-            : type === 'phim-le'
-            ? 'Phim Lẻ'
-            : type === 'hoat-hinh'
-            ? 'Hoạt Hình & Anime'
-            : type === 'tv-shows'
-            ? 'TV Shows'
-            : 'Danh Sách Phim',
-        items: combined.map(normalizeNguonCItem),
-        params: {
-          pagination: {
-            totalItems,
-            totalItemsPerPage: 20,
-            currentPage: page,
-            pageRanges: totalPages,
+    if (d1 && d1.items && d1.items.length > 0) {
+      const combined = [...d1.items, ...(d2?.items || [])];
+      const totalItems = d1.paginate?.total_items || 200;
+      const totalPages = Math.ceil(totalItems / 20);
+
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage:
+            type === 'phim-bo'
+              ? 'Phim Bộ'
+              : type === 'phim-le'
+              ? 'Phim Lẻ'
+              : type === 'hoat-hinh'
+              ? 'Hoạt Hình & Anime'
+              : type === 'tv-shows'
+              ? 'TV Shows'
+              : 'Danh Sách Phim',
+          items: combined.map(normalizeNguonCItem),
+          params: {
+            pagination: {
+              totalItems,
+              totalItemsPerPage: 20,
+              currentPage: page,
+              pageRanges: totalPages,
+            },
           },
         },
-      },
-    };
-  }
+      };
+    }
+  } catch (e) {}
 
-  // Fallback to KKPhim
-  const kkData = await fetchRaw<any>(`https://phimapi.com/v1/api/danh-sach/${type}?page=${page}&limit=24`);
-  if (kkData?.data?.items) {
-    return {
-      status: 'success',
-      msg: 'success',
-      data: {
-        titlePage: kkData.data.titlePage || 'Danh Sách Phim',
-        items: kkData.data.items.map(normalizeKKItem),
-        params: kkData.data.params,
-      },
-    };
-  }
+  // 2. Fallback to KKPhim
+  try {
+    const kkData = await fetchRaw<any>(`https://phimapi.com/v1/api/danh-sach/${type}?page=${page}&limit=24`);
+    if (kkData?.data?.items && kkData.data.items.length > 0) {
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: kkData.data.titlePage || 'Danh Sách Phim',
+          items: kkData.data.items.map(normalizeKKItem),
+          params: kkData.data.params,
+        },
+      };
+    }
+  } catch (e) {}
+
+  // 3. Fallback to OPhim
+  try {
+    const ophimData = await fetchRaw<any>(`https://ophim1.com/v1/api/danh-sach/${type}?page=${page}&limit=24`);
+    if (ophimData?.data?.items && ophimData.data.items.length > 0) {
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: ophimData.data.titlePage || 'Danh Sách Phim',
+          items: ophimData.data.items.map(normalizeOPhimItem),
+          params: ophimData.data.params,
+        },
+      };
+    }
+  } catch (e) {}
+
   return null;
 }
 
 /**
- * 3. Get Movies By Genre (20 items per app page)
+ * 3. Get Movies By Genre
  */
 export async function getMoviesByGenre(genreSlug: string, page: number = 1): Promise<MovieListResponse | null> {
-  const p1 = (page - 1) * 2 + 1;
-  const p2 = (page - 1) * 2 + 2;
+  // 1. Try NguonC
+  try {
+    const p1 = (page - 1) * 2 + 1;
+    const p2 = (page - 1) * 2 + 2;
 
-  const [d1, d2] = await Promise.all([
-    fetchRaw<any>(`https://phim.nguonc.com/api/films/the-loai/${genreSlug}?page=${p1}`),
-    fetchRaw<any>(`https://phim.nguonc.com/api/films/the-loai/${genreSlug}?page=${p2}`),
-  ]);
+    const [d1, d2] = await Promise.all([
+      fetchRaw<any>(`https://phim.nguonc.com/api/films/the-loai/${genreSlug}?page=${p1}`),
+      fetchRaw<any>(`https://phim.nguonc.com/api/films/the-loai/${genreSlug}?page=${p2}`),
+    ]);
 
-  if (d1 && d1.items && d1.items.length > 0) {
-    const combined = [...d1.items, ...(d2?.items || [])];
-    const totalItems = d1.paginate?.total_items || 200;
-    const totalPages = Math.ceil(totalItems / 20);
+    if (d1 && d1.items && d1.items.length > 0) {
+      const combined = [...d1.items, ...(d2?.items || [])];
+      const totalItems = d1.paginate?.total_items || 200;
+      const totalPages = Math.ceil(totalItems / 20);
 
-    return {
-      status: 'success',
-      msg: 'success',
-      data: {
-        titlePage: `Thể Loại: ${genreSlug}`,
-        items: combined.map(normalizeNguonCItem),
-        params: {
-          pagination: {
-            totalItems,
-            totalItemsPerPage: 20,
-            currentPage: page,
-            pageRanges: totalPages,
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: `Thể Loại: ${genreSlug}`,
+          items: combined.map(normalizeNguonCItem),
+          params: {
+            pagination: {
+              totalItems,
+              totalItemsPerPage: 20,
+              currentPage: page,
+              pageRanges: totalPages,
+            },
           },
         },
-      },
-    };
-  }
+      };
+    }
+  } catch (e) {}
 
-  // Fallback to KKPhim
-  const kkData = await fetchRaw<any>(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${page}&limit=24`);
-  if (kkData?.data?.items) {
-    return {
-      status: 'success',
-      msg: 'success',
-      data: {
-        titlePage: kkData.data.titlePage || `Thể Loại: ${genreSlug}`,
-        items: kkData.data.items.map(normalizeKKItem),
-        params: kkData.data.params,
-      },
-    };
-  }
+  // 2. Fallback to KKPhim
+  try {
+    const kkData = await fetchRaw<any>(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${page}&limit=24`);
+    if (kkData?.data?.items && kkData.data.items.length > 0) {
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: kkData.data.titlePage || `Thể Loại: ${genreSlug}`,
+          items: kkData.data.items.map(normalizeKKItem),
+          params: kkData.data.params,
+        },
+      };
+    }
+  } catch (e) {}
+
+  // 3. Fallback to OPhim
+  try {
+    const ophimData = await fetchRaw<any>(`https://ophim1.com/v1/api/the-loai/${genreSlug}?page=${page}&limit=24`);
+    if (ophimData?.data?.items && ophimData.data.items.length > 0) {
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: ophimData.data.titlePage || `Thể Loại: ${genreSlug}`,
+          items: ophimData.data.items.map(normalizeOPhimItem),
+          params: ophimData.data.params,
+        },
+      };
+    }
+  } catch (e) {}
+
   return null;
 }
 
 /**
- * 4. Get Movies By Country (20 items per app page)
+ * 4. Get Movies By Country
  */
 export async function getMoviesByCountry(countrySlug: string, page: number = 1): Promise<MovieListResponse | null> {
-  const p1 = (page - 1) * 2 + 1;
-  const p2 = (page - 1) * 2 + 2;
+  // 1. Try NguonC
+  try {
+    const p1 = (page - 1) * 2 + 1;
+    const p2 = (page - 1) * 2 + 2;
 
-  const [d1, d2] = await Promise.all([
-    fetchRaw<any>(`https://phim.nguonc.com/api/films/quoc-gia/${countrySlug}?page=${p1}`),
-    fetchRaw<any>(`https://phim.nguonc.com/api/films/quoc-gia/${countrySlug}?page=${p2}`),
-  ]);
+    const [d1, d2] = await Promise.all([
+      fetchRaw<any>(`https://phim.nguonc.com/api/films/quoc-gia/${countrySlug}?page=${p1}`),
+      fetchRaw<any>(`https://phim.nguonc.com/api/films/quoc-gia/${countrySlug}?page=${p2}`),
+    ]);
 
-  if (d1 && d1.items && d1.items.length > 0) {
-    const combined = [...d1.items, ...(d2?.items || [])];
-    const totalItems = d1.paginate?.total_items || 200;
-    const totalPages = Math.ceil(totalItems / 20);
+    if (d1 && d1.items && d1.items.length > 0) {
+      const combined = [...d1.items, ...(d2?.items || [])];
+      const totalItems = d1.paginate?.total_items || 200;
+      const totalPages = Math.ceil(totalItems / 20);
 
-    return {
-      status: 'success',
-      msg: 'success',
-      data: {
-        titlePage: `Quốc Gia: ${countrySlug}`,
-        items: combined.map(normalizeNguonCItem),
-        params: {
-          pagination: {
-            totalItems,
-            totalItemsPerPage: 20,
-            currentPage: page,
-            pageRanges: totalPages,
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: `Quốc Gia: ${countrySlug}`,
+          items: combined.map(normalizeNguonCItem),
+          params: {
+            pagination: {
+              totalItems,
+              totalItemsPerPage: 20,
+              currentPage: page,
+              pageRanges: totalPages,
+            },
           },
         },
-      },
-    };
-  }
+      };
+    }
+  } catch (e) {}
 
-  // Fallback to KKPhim
-  const kkData = await fetchRaw<any>(`https://phimapi.com/v1/api/quoc-gia/${countrySlug}?page=${page}&limit=24`);
-  if (kkData?.data?.items) {
-    return {
-      status: 'success',
-      msg: 'success',
-      data: {
-        titlePage: kkData.data.titlePage || `Quốc Gia: ${countrySlug}`,
-        items: kkData.data.items.map(normalizeKKItem),
-        params: kkData.data.params,
-      },
-    };
-  }
+  // 2. Fallback to KKPhim
+  try {
+    const kkData = await fetchRaw<any>(`https://phimapi.com/v1/api/quoc-gia/${countrySlug}?page=${page}&limit=24`);
+    if (kkData?.data?.items && kkData.data.items.length > 0) {
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: kkData.data.titlePage || `Quốc Gia: ${countrySlug}`,
+          items: kkData.data.items.map(normalizeKKItem),
+          params: kkData.data.params,
+        },
+      };
+    }
+  } catch (e) {}
+
+  // 3. Fallback to OPhim
+  try {
+    const ophimData = await fetchRaw<any>(`https://ophim1.com/v1/api/quoc-gia/${countrySlug}?page=${page}&limit=24`);
+    if (ophimData?.data?.items && ophimData.data.items.length > 0) {
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: ophimData.data.titlePage || `Quốc Gia: ${countrySlug}`,
+          items: ophimData.data.items.map(normalizeOPhimItem),
+          params: ophimData.data.params,
+        },
+      };
+    }
+  } catch (e) {}
+
   return null;
 }
 
@@ -449,27 +575,33 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
   }
 
   // Primary: NguonC
-  const nguoncData = await fetchRaw<any>(`https://phim.nguonc.com/api/film/${slug}`, 300);
-  if (nguoncData?.movie) {
-    const normalized = normalizeNguonCMovieDetail(nguoncData);
-    if (normalized) return normalized;
-  }
+  try {
+    const nguoncData = await fetchRaw<any>(`https://phim.nguonc.com/api/film/${slug}`, 300);
+    if (nguoncData?.movie) {
+      const normalized = normalizeNguonCMovieDetail(nguoncData);
+      if (normalized) return normalized;
+    }
+  } catch (e) {}
 
   // Fallback 1: KKPhim
-  const kkData = await fetchRaw<MovieDetailResponse>(`https://phimapi.com/phim/${slug}`, 300);
-  if (kkData?.movie) {
-    kkData.movie.poster_url = getImageUrl(kkData.movie.poster_url, 'kkphim');
-    kkData.movie.thumb_url = getImageUrl(kkData.movie.thumb_url, 'kkphim');
-    return kkData;
-  }
+  try {
+    const kkData = await fetchRaw<MovieDetailResponse>(`https://phimapi.com/phim/${slug}`, 300);
+    if (kkData?.movie) {
+      kkData.movie.poster_url = getImageUrl(kkData.movie.poster_url, 'kkphim');
+      kkData.movie.thumb_url = getImageUrl(kkData.movie.thumb_url, 'kkphim');
+      return kkData;
+    }
+  } catch (e) {}
 
   // Fallback 2: OPhim
-  const ophimData = await fetchRaw<MovieDetailResponse>(`https://ophim1.com/phim/${slug}`, 300);
-  if (ophimData?.movie) {
-    ophimData.movie.poster_url = getImageUrl(ophimData.movie.poster_url, 'ophim');
-    ophimData.movie.thumb_url = getImageUrl(ophimData.movie.thumb_url, 'ophim');
-    return ophimData;
-  }
+  try {
+    const ophimData = await fetchRaw<MovieDetailResponse>(`https://ophim1.com/phim/${slug}`, 300);
+    if (ophimData?.movie) {
+      ophimData.movie.poster_url = getImageUrl(ophimData.movie.poster_url, 'ophim');
+      ophimData.movie.thumb_url = getImageUrl(ophimData.movie.thumb_url, 'ophim');
+      return ophimData;
+    }
+  } catch (e) {}
 
   return null;
 }
@@ -478,37 +610,42 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
  * 6. Search Movies (NguonC primary)
  */
 export async function searchMovies(keyword: string, limit: number = 12): Promise<MovieListResponse | null> {
-  const nguoncData = await fetchRaw<any>(`https://phim.nguonc.com/api/films/search?keyword=${encodeURIComponent(keyword)}`, 60);
-  if (nguoncData && nguoncData.items && nguoncData.items.length > 0) {
-    return {
-      status: 'success',
-      msg: 'success',
-      data: {
-        titlePage: `Kết quả tìm kiếm: ${keyword}`,
-        items: nguoncData.items.slice(0, limit).map(normalizeNguonCItem),
-        params: {
-          pagination: {
-            totalItems: nguoncData.items.length,
-            totalItemsPerPage: limit,
-            currentPage: 1,
-            pageRanges: 1,
+  try {
+    const nguoncData = await fetchRaw<any>(`https://phim.nguonc.com/api/films/search?keyword=${encodeURIComponent(keyword)}`, 60);
+    if (nguoncData && nguoncData.items && nguoncData.items.length > 0) {
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: `Kết quả tìm kiếm: ${keyword}`,
+          items: nguoncData.items.slice(0, limit).map(normalizeNguonCItem),
+          params: {
+            pagination: {
+              totalItems: nguoncData.items.length,
+              totalItemsPerPage: limit,
+              currentPage: 1,
+              pageRanges: 1,
+            },
           },
         },
-      },
-    };
-  }
+      };
+    }
+  } catch (e) {}
 
   // Fallback to KKPhim
-  const kkData = await fetchRaw<MovieListResponse>(`https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(keyword)}&limit=${limit}`, 60);
-  if (kkData?.data?.items) {
-    return {
-      ...kkData,
-      data: {
-        ...kkData.data,
-        items: kkData.data.items.map(normalizeKKItem),
-      },
-    };
-  }
+  try {
+    const kkData = await fetchRaw<MovieListResponse>(`https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(keyword)}&limit=${limit}`, 60);
+    if (kkData?.data?.items && kkData.data.items.length > 0) {
+      return {
+        ...kkData,
+        data: {
+          ...kkData.data,
+          items: kkData.data.items.map(normalizeKKItem),
+        },
+      };
+    }
+  } catch (e) {}
+
   return null;
 }
 
