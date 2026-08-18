@@ -70,10 +70,10 @@ export default function WatchClient({
     return serverEpisodes[0]?.slug || 'tap-01';
   });
 
-  // Toggles
+  // Toggles (Iframe Embed is default as requested)
   const [autoNext, setAutoNext] = useState(true);
   const [theaterMode, setTheaterMode] = useState(false);
-  const [forceEmbed, setForceEmbed] = useState(false);
+  const [forceEmbed, setForceEmbed] = useState(true);
   const [showServerModal, setShowServerModal] = useState(false);
 
   // Watch history & My List
@@ -377,9 +377,9 @@ export default function WatchClient({
               type="button"
               onClick={() => setForceEmbed(!forceEmbed)}
               style={{
-                background: forceEmbed ? 'rgba(229,9,20,0.2)' : 'rgba(255,255,255,0.06)',
-                border: '1px solid ' + (forceEmbed ? 'var(--red, #e50914)' : 'rgba(255,255,255,0.12)'),
-                color: forceEmbed ? 'var(--red, #e50914)' : '#fff',
+                background: forceEmbed ? 'rgba(70,211,105,0.18)' : 'rgba(255,255,255,0.06)',
+                border: '1px solid ' + (forceEmbed ? '#46d369' : 'rgba(255,255,255,0.12)'),
+                color: forceEmbed ? '#46d369' : '#fff',
                 padding: '4px 12px',
                 borderRadius: '6px',
                 cursor: 'pointer',
@@ -388,7 +388,7 @@ export default function WatchClient({
               }}
             >
               <i className="fas fa-circle-play" style={{ marginRight: 6 }}></i>
-              {forceEmbed ? 'Chế độ: Iframe Embed' : 'Chế độ: Direct Player'}
+              {forceEmbed ? 'Chế độ: Iframe Embed' : 'Chế độ: Direct (HLS)'}
             </button>
           </div>
 

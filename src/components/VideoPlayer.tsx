@@ -34,8 +34,8 @@ export default function VideoPlayer({
     return '';
   }, [m3u8Url, embedUrl]);
 
-  // If no m3u8 stream is available, default directly to embed mode!
-  const [useEmbed, setUseEmbed] = useState<boolean>(() => !m3u8Url && !!(embedUrl || officialPlayerUrl));
+  // Default to Iframe Embed mode as requested by user
+  const [useEmbed, setUseEmbed] = useState<boolean>(() => !m3u8Url || !!(embedUrl || officialPlayerUrl));
   const [isPlaying, setIsPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
