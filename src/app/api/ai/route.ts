@@ -4,12 +4,15 @@ import { searchMovies, getMoviesByGenre, getMoviesByCountry, getLatestMovies, ge
 const SYSTEM_INSTRUCTION = `Bạn là "Trợ lý AI LPhim" - trợ lý ảo thông minh, vui vẻ và am hiểu sâu sắc về điện ảnh trên nền tảng xem phim trực tuyến LPhim.
 
 Quy tắc ứng xử và trả lời:
-1. TRẢ LỜI ĐÚNG TRỌNG TÂM CÂU HỎI:
+1. NGUYÊN TẮC AN TOÀN NỘI DUNG (18+ RESTRICTION):
+   - Tuyệt đối KHÔNG tìm kiếm, giới thiệu, quảng bá hoặc cung cấp liên kết tới bất kỳ nội dung khiêu dâm, phim 18+ đồi trụy, phim cấp 3 hay phim có yếu tố tình dục trần trụi nào.
+   - Khi người dùng hỏi về phim 18+ hoặc phim người lớn, hãy từ chối một cách lịch sự, văn minh và hướng người dùng sang các thể loại phim giải trí chất lượng, lành mạnh (như tình cảm lãng mạn, hài hước, hành động, trinh thám, anime...).
+2. TRẢ LỜI ĐÚNG TRỌNG TÂM CÂU HỎI:
    - Nếu người dùng chào hỏi, hỏi thăm, trò chuyện thông thường: Hãy chào lại một cách thân thiện, hài hước, giới thiệu bản thân là Trợ lý AI LPhim và hỏi xem bạn có thể giúp gì về phim ảnh.
    - Nếu người dùng hỏi hướng dẫn sử dụng web LPhim (lưu phim, xem tiếp, phím tắt, đổi server, báo lỗi, bỏ qua quảng cáo): Hãy hướng dẫn chi tiết, dễ hiểu các tính năng của trang web LPhim.
    - Nếu người dùng hỏi về thông tin phim, diễn viên, đạo diễn, tóm tắt cốt truyện: Trả lời chính xác, hấp dẫn, ngắn gọn và TUYỆT ĐỐI KHÔNG spoil (không tiết lộ kết thúc).
    - Nếu người dùng yêu cầu gợi ý/tư vấn phim theo tâm trạng, thể loại, quốc gia: Hãy gợi ý 3-5 bộ phim hay nhất kèm 1-2 câu tóm tắt điểm đặc sắc của từng phim.
-2. ĐỊNH DẠNG:
+3. ĐỊNH DẠNG:
    - Dùng tiếng Việt tự nhiên, định dạng Markdown rõ ràng (in đậm tên phim, gạch đầu dòng).
    - Khi có gợi ý phim cụ thể mà người dùng có thể xem trên web, hãy đính kèm dòng sau ở cuối cùng:
 GỢI Ý: Tên Phim 1 | Tên Phim 2 | Tên Phim 3`;
@@ -127,6 +130,27 @@ export async function POST(req: NextRequest) {
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase();
     const lowerNonAccent = normalize(userQuery);
+
+    // -------------------------------------------------------------------------
+    // 18+ / ADULT CONTENT INTERCEPTOR & SAFE REFUSAL
+    // -------------------------------------------------------------------------
+    const isAdultQuery =
+      /\b(18\+|18 cộng|18-cong|phim 18|phim-18|phim sex|phim-sex|phim cap 3|phim cấp 3|hentai|khiêu dâm|khêu dâm|tình dục|khỏa thân|porn|jav|gợi dục)\b/i.test(
+        lower
+      );
+
+    if (isAdultQuery) {
+      return NextResponse.json({
+        content: `Chào bạn! Nhằm duy trì môi trường giải trí lành mạnh, an toàn và phù hợp cho mọi lứa tuổi, **LPhim hoàn toàn hạn chế và không cung cấp các bộ phim 18+, phim khiêu dâm hoặc phim có yếu tố tình dục trần trụi**.\n\nThay vào đó, mình có thể gợi ý cho bạn rất nhiều bộ phim tình cảm lãng mạn, phim chiếu rạp bom tấn hoặc anime cực kỳ hấp dẫn bên dưới nhé! ❤️🎬`,
+        recommendations: [
+          { name: '💖 Phim Tình Cảm Lãng Mạn', slug: 'the-loai/tinh-cam' },
+          { name: '🔥 Phim Chiếu Rạp Bom Tấn', slug: 'the-loai/hanh-dong' },
+          { name: '🍿 Anime Hấp Dẫn', slug: 'the-loai/anime' },
+          { name: '🎭 Phim Bộ Hot', slug: 'danh-sach/phim-bo' },
+        ],
+        source: 'lphim-safe-filter',
+      });
+    }
 
     // -------------------------------------------------------------------------
     // A. GREETING & CHIT-CHAT (Chào hỏi, hỏi thăm, danh tính)

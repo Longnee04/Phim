@@ -45,13 +45,136 @@ export function getImageUrl(path: string | undefined, source: SourceType = 'nguo
   if (clean.startsWith('public/images/') || clean.startsWith('images/Post/') || clean.startsWith('images/Film/')) {
     return `https://phim.nguonc.com/public/${clean.replace(/^public\//, '')}`;
   }
-  // All relative paths from KKPhim/OPhim (upload/vod/..., uploads/movies/..., etc.) use phimimg.com
+  // All relative paths from KKPhim/OPhim use phimimg.com
   return `https://phimimg.com/${clean}`;
+}
+
+// =============================================================================
+// 18+ & ADULT CONTENT RESTRICTION ENGINE
+// =============================================================================
+export const ADULT_GENRE_SLUGS = new Set([
+  'phim-18',
+  'phim-18-cong',
+  '18-cong',
+  '18-plus',
+  'phim-cap-3',
+  'cap-3',
+  'hentai',
+  'ecchi',
+  'erotic',
+  'erotica',
+  'adult',
+  'khieu-dam',
+  'khiêudâm',
+  'tinh-duc',
+  'tìnhdục',
+  'sex',
+  'jav',
+  'phim-sex',
+  'nguoi-lon',
+]);
+
+const ADULT_KEYWORDS = [
+  '18+',
+  '18 cộng',
+  '18-cong',
+  '18-plus',
+  'phim 18',
+  'phim 18+',
+  'phim-18',
+  'phim sex',
+  'phim-sex',
+  'phim cấp 3',
+  'phim cap 3',
+  'cấp 3',
+  'cap 3',
+  'hentai',
+  'ecchi',
+  'erotic',
+  'erotica',
+  'adult',
+  'khêu dâm',
+  'khiêu dâm',
+  'khieu dam',
+  'tình dục',
+  'tinh duc',
+  'khỏa thân',
+  'khoa than',
+  'porn',
+  'jav',
+  'softcore',
+  'hardcore',
+  'gợi dục',
+  'nude',
+  'uncensored',
+];
+
+export function isAdultMovie(movie: any): boolean {
+  if (!movie) return false;
+
+  // 1. Check categories
+  if (Array.isArray(movie.category)) {
+    for (const cat of movie.category) {
+      const catSlug = (cat.slug || '').toLowerCase().trim();
+      const catName = (cat.name || '').toLowerCase().trim();
+      if (ADULT_GENRE_SLUGS.has(catSlug)) return true;
+      if (ADULT_KEYWORDS.some((kw) => catName.includes(kw) || catSlug.includes(kw))) return true;
+    }
+  }
+
+  // 2. Check Name / Origin Name / Slug
+  const name = (movie.name || '').toLowerCase();
+  const origin = (movie.origin_name || '').toLowerCase();
+  const slug = (movie.slug || '').toLowerCase();
+
+  const titlePatterns = [
+    /\b18\+\b/i,
+    /\[18\+\]/i,
+    /\(18\+\)/i,
+    /\bphim\s*18\+?\b/i,
+    /\bphim\s*cấp\s*3\b/i,
+    /\bphim\s*cap\s*3\b/i,
+    /\bhentai\b/i,
+    /\bphim\s*sex\b/i,
+    /\bkhiêu\s*dâm\b/i,
+    /\bkhêu\s*dâm\b/i,
+    /\btình\s*dục\b/i,
+    /\bjav\b/i,
+    /\buncensored\b/i,
+    /\berotic\b/i,
+    /\berotica\b/i,
+    /\bporn\b/i,
+    /\bsoftcore\b/i,
+    /\bhardcore\b/i,
+  ];
+
+  for (const pattern of titlePatterns) {
+    if (pattern.test(name) || pattern.test(origin) || pattern.test(slug)) {
+      return true;
+    }
+  }
+
+  if (
+    slug.includes('phim-18') ||
+    slug.includes('18-plus') ||
+    slug.includes('18-cong') ||
+    slug.includes('phim-cap-3') ||
+    slug.includes('hentai') ||
+    slug.includes('erotic')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export function filterSafeMovies<T extends MovieItem>(movies: T[]): T[] {
+  if (!Array.isArray(movies)) return [];
+  return movies.filter((m) => !isAdultMovie(m));
 }
 
 /**
  * Normalize NguonC list item to MovieItem
- * In NguonC API, item.thumb_url is the 2:3 vertical poster and item.poster_url is the 16:9 backdrop
  */
 function normalizeNguonCItem(item: any): MovieItem {
   const poster = item.thumb_url || item.poster_url || '';
@@ -161,10 +284,13 @@ function normalizeNguonCMovieDetail(data: any): MovieDetailResponse | null {
     }
   }
 
+  let poster = m.thumb_url || m.poster_url || '';
+  let thumb = m.poster_url || m.thumb_url || '';
+
   const episodes: MovieServer[] = [];
   if (Array.isArray(m.episodes)) {
     for (const s of m.episodes) {
-      const sData = (s.items || []).map((ep: any) => ({
+      const serverData = (s.items || []).map((ep: any) => ({
         name: ep.name ? (ep.name.startsWith('Tập') ? ep.name : `Tập ${ep.name}`) : 'Full',
         slug: ep.slug || `tap-${ep.name}`,
         filename: `${m.name} - ${ep.name}`,
@@ -173,20 +299,21 @@ function normalizeNguonCMovieDetail(data: any): MovieDetailResponse | null {
       }));
       episodes.push({
         server_name: s.server_name || 'Vietsub #1',
-        server_data: sData,
+        server_data: serverData,
       });
     }
   }
 
-  const movie: MovieItem = {
-    _id: m.id || m.slug,
+  const movie: any = {
+    _id: String(m.id || m.slug),
     name: m.name || '',
     slug: m.slug || '',
     origin_name: m.original_name || m.name || '',
     content: m.description || '',
     type,
-    poster_url: getImageUrl(m.thumb_url || m.poster_url, 'nguonc'),
-    thumb_url: getImageUrl(m.poster_url || m.thumb_url, 'nguonc'),
+    status: m.current_episode?.includes('Hoàn tất') || m.current_episode?.includes('Full') ? 'completed' : 'ongoing',
+    thumb_url: getImageUrl(thumb, 'nguonc'),
+    poster_url: getImageUrl(poster, 'nguonc'),
     quality: m.quality || 'FHD',
     lang: m.language || 'Vietsub',
     time: m.time || '',
@@ -240,7 +367,7 @@ export async function fetchRaw<T>(url: string, revalidateTime: number = 180): Pr
 }
 
 /**
- * 1. Get Latest Movies (NguonC Primary with KKPhim/OPhim Fallback)
+ * 1. Get Latest Movies (NguonC Primary with KKPhim/OPhim Fallback) - Filtered Safe
  */
 export async function getLatestMovies(page: number = 1): Promise<MovieListResponse | null> {
   // 1. Try NguonC
@@ -255,6 +382,7 @@ export async function getLatestMovies(page: number = 1): Promise<MovieListRespon
 
     if (d1 && d1.items && d1.items.length > 0) {
       const combined = [...d1.items, ...(d2?.items || [])];
+      const safeItems = filterSafeMovies(combined.map(normalizeNguonCItem));
       const totalItems = d1.paginate?.total_items || 300;
       const totalPages = Math.ceil(totalItems / 20);
 
@@ -263,7 +391,7 @@ export async function getLatestMovies(page: number = 1): Promise<MovieListRespon
         msg: 'success',
         data: {
           titlePage: 'Phim Mới Cập Nhật',
-          items: combined.map(normalizeNguonCItem),
+          items: safeItems,
           params: {
             pagination: {
               totalItems,
@@ -286,7 +414,7 @@ export async function getLatestMovies(page: number = 1): Promise<MovieListRespon
         msg: 'success',
         data: {
           titlePage: 'Phim Mới Cập Nhật',
-          items: kkData.items.map(normalizeKKItem),
+          items: filterSafeMovies(kkData.items.map(normalizeKKItem)),
           params: kkData.pagination,
         },
       };
@@ -302,7 +430,7 @@ export async function getLatestMovies(page: number = 1): Promise<MovieListRespon
         msg: 'success',
         data: {
           titlePage: 'Phim Mới Cập Nhật',
-          items: ophimData.items.map(normalizeOPhimItem),
+          items: filterSafeMovies(ophimData.items.map(normalizeOPhimItem)),
           params: ophimData.pagination,
         },
       };
@@ -313,7 +441,7 @@ export async function getLatestMovies(page: number = 1): Promise<MovieListRespon
 }
 
 /**
- * 2. Get Movies By Type (phim-bo, phim-le, hoat-hinh, tv-shows)
+ * 2. Get Movies By Type (phim-bo, phim-le, hoat-hinh, tv-shows) - Filtered Safe
  */
 export async function getMoviesByType(type: string, page: number = 1): Promise<MovieListResponse | null> {
   const typeMap: Record<string, string> = {
@@ -338,6 +466,7 @@ export async function getMoviesByType(type: string, page: number = 1): Promise<M
 
     if (d1 && d1.items && d1.items.length > 0) {
       const combined = [...d1.items, ...(d2?.items || [])];
+      const safeItems = filterSafeMovies(combined.map(normalizeNguonCItem));
       const totalItems = d1.paginate?.total_items || 200;
       const totalPages = Math.ceil(totalItems / 20);
 
@@ -355,7 +484,7 @@ export async function getMoviesByType(type: string, page: number = 1): Promise<M
               : type === 'tv-shows'
               ? 'TV Shows'
               : 'Danh Sách Phim',
-          items: combined.map(normalizeNguonCItem),
+          items: safeItems,
           params: {
             pagination: {
               totalItems,
@@ -378,7 +507,7 @@ export async function getMoviesByType(type: string, page: number = 1): Promise<M
         msg: 'success',
         data: {
           titlePage: kkData.data.titlePage || 'Danh Sách Phim',
-          items: kkData.data.items.map(normalizeKKItem),
+          items: filterSafeMovies(kkData.data.items.map(normalizeKKItem)),
           params: kkData.data.params,
         },
       };
@@ -394,7 +523,7 @@ export async function getMoviesByType(type: string, page: number = 1): Promise<M
         msg: 'success',
         data: {
           titlePage: ophimData.data.titlePage || 'Danh Sách Phim',
-          items: ophimData.data.items.map(normalizeOPhimItem),
+          items: filterSafeMovies(ophimData.data.items.map(normalizeOPhimItem)),
           params: ophimData.data.params,
         },
       };
@@ -405,9 +534,13 @@ export async function getMoviesByType(type: string, page: number = 1): Promise<M
 }
 
 /**
- * 3. Get Movies By Genre
+ * 3. Get Movies By Genre - Block Adult Genres & Filter Safe
  */
 export async function getMoviesByGenre(genreSlug: string, page: number = 1): Promise<MovieListResponse | null> {
+  if (ADULT_GENRE_SLUGS.has(genreSlug.toLowerCase())) {
+    return null; // Block adult genre endpoints entirely
+  }
+
   // 1. Try NguonC
   try {
     const p1 = (page - 1) * 2 + 1;
@@ -420,6 +553,7 @@ export async function getMoviesByGenre(genreSlug: string, page: number = 1): Pro
 
     if (d1 && d1.items && d1.items.length > 0) {
       const combined = [...d1.items, ...(d2?.items || [])];
+      const safeItems = filterSafeMovies(combined.map(normalizeNguonCItem));
       const totalItems = d1.paginate?.total_items || 200;
       const totalPages = Math.ceil(totalItems / 20);
 
@@ -428,7 +562,7 @@ export async function getMoviesByGenre(genreSlug: string, page: number = 1): Pro
         msg: 'success',
         data: {
           titlePage: `Thể Loại: ${genreSlug}`,
-          items: combined.map(normalizeNguonCItem),
+          items: safeItems,
           params: {
             pagination: {
               totalItems,
@@ -451,7 +585,7 @@ export async function getMoviesByGenre(genreSlug: string, page: number = 1): Pro
         msg: 'success',
         data: {
           titlePage: kkData.data.titlePage || `Thể Loại: ${genreSlug}`,
-          items: kkData.data.items.map(normalizeKKItem),
+          items: filterSafeMovies(kkData.data.items.map(normalizeKKItem)),
           params: kkData.data.params,
         },
       };
@@ -467,7 +601,7 @@ export async function getMoviesByGenre(genreSlug: string, page: number = 1): Pro
         msg: 'success',
         data: {
           titlePage: ophimData.data.titlePage || `Thể Loại: ${genreSlug}`,
-          items: ophimData.data.items.map(normalizeOPhimItem),
+          items: filterSafeMovies(ophimData.data.items.map(normalizeOPhimItem)),
           params: ophimData.data.params,
         },
       };
@@ -478,7 +612,7 @@ export async function getMoviesByGenre(genreSlug: string, page: number = 1): Pro
 }
 
 /**
- * 4. Get Movies By Country
+ * 4. Get Movies By Country - Filtered Safe
  */
 export async function getMoviesByCountry(countrySlug: string, page: number = 1): Promise<MovieListResponse | null> {
   // 1. Try NguonC
@@ -493,6 +627,7 @@ export async function getMoviesByCountry(countrySlug: string, page: number = 1):
 
     if (d1 && d1.items && d1.items.length > 0) {
       const combined = [...d1.items, ...(d2?.items || [])];
+      const safeItems = filterSafeMovies(combined.map(normalizeNguonCItem));
       const totalItems = d1.paginate?.total_items || 200;
       const totalPages = Math.ceil(totalItems / 20);
 
@@ -501,7 +636,7 @@ export async function getMoviesByCountry(countrySlug: string, page: number = 1):
         msg: 'success',
         data: {
           titlePage: `Quốc Gia: ${countrySlug}`,
-          items: combined.map(normalizeNguonCItem),
+          items: safeItems,
           params: {
             pagination: {
               totalItems,
@@ -524,7 +659,7 @@ export async function getMoviesByCountry(countrySlug: string, page: number = 1):
         msg: 'success',
         data: {
           titlePage: kkData.data.titlePage || `Quốc Gia: ${countrySlug}`,
-          items: kkData.data.items.map(normalizeKKItem),
+          items: filterSafeMovies(kkData.data.items.map(normalizeKKItem)),
           params: kkData.data.params,
         },
       };
@@ -540,7 +675,7 @@ export async function getMoviesByCountry(countrySlug: string, page: number = 1):
         msg: 'success',
         data: {
           titlePage: ophimData.data.titlePage || `Quốc Gia: ${countrySlug}`,
-          items: ophimData.data.items.map(normalizeOPhimItem),
+          items: filterSafeMovies(ophimData.data.items.map(normalizeOPhimItem)),
           params: ophimData.data.params,
         },
       };
@@ -551,13 +686,26 @@ export async function getMoviesByCountry(countrySlug: string, page: number = 1):
 }
 
 /**
- * 5. Get Movie Detail (NguonC primary, with automatic KKPhim/OPhim fallback)
+ * 5. Get Movie Detail (NguonC primary, with automatic KKPhim/OPhim fallback) - Block 18+ content
  */
 export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'): Promise<MovieDetailResponse | null> {
+  // If slug is an explicit 18+ pattern, block immediately
+  if (
+    slug.includes('phim-18') ||
+    slug.includes('18-plus') ||
+    slug.includes('18-cong') ||
+    slug.includes('phim-cap-3') ||
+    slug.includes('hentai') ||
+    slug.includes('phim-sex')
+  ) {
+    return null;
+  }
+
   // If explicitly requesting a secondary source
   if (source === 'kkphim') {
     const data = await fetchRaw<MovieDetailResponse>(`https://phimapi.com/phim/${slug}`, 300);
     if (data?.movie) {
+      if (isAdultMovie(data.movie)) return null;
       data.movie.poster_url = getImageUrl(data.movie.poster_url, 'kkphim');
       data.movie.thumb_url = getImageUrl(data.movie.thumb_url, 'kkphim');
       return data;
@@ -565,13 +713,17 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
   } else if (source === 'ophim') {
     const data = await fetchRaw<MovieDetailResponse>(`https://ophim1.com/phim/${slug}`, 300);
     if (data?.movie) {
+      if (isAdultMovie(data.movie)) return null;
       data.movie.poster_url = getImageUrl(data.movie.poster_url, 'ophim');
       data.movie.thumb_url = getImageUrl(data.movie.thumb_url, 'ophim');
       return data;
     }
   } else if (source === 'vsmov') {
     const data = await fetchRaw<MovieDetailResponse>(`https://vsmov.com/api/phim/${slug}`, 300);
-    if (data?.movie) return data;
+    if (data?.movie) {
+      if (isAdultMovie(data.movie)) return null;
+      return data;
+    }
   }
 
   // Primary: NguonC
@@ -579,7 +731,10 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
     const nguoncData = await fetchRaw<any>(`https://phim.nguonc.com/api/film/${slug}`, 300);
     if (nguoncData?.movie) {
       const normalized = normalizeNguonCMovieDetail(nguoncData);
-      if (normalized) return normalized;
+      if (normalized && normalized.movie) {
+        if (isAdultMovie(normalized.movie)) return null;
+        return normalized;
+      }
     }
   } catch (e) {}
 
@@ -587,6 +742,7 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
   try {
     const kkData = await fetchRaw<MovieDetailResponse>(`https://phimapi.com/phim/${slug}`, 300);
     if (kkData?.movie) {
+      if (isAdultMovie(kkData.movie)) return null;
       kkData.movie.poster_url = getImageUrl(kkData.movie.poster_url, 'kkphim');
       kkData.movie.thumb_url = getImageUrl(kkData.movie.thumb_url, 'kkphim');
       return kkData;
@@ -597,6 +753,7 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
   try {
     const ophimData = await fetchRaw<MovieDetailResponse>(`https://ophim1.com/phim/${slug}`, 300);
     if (ophimData?.movie) {
+      if (isAdultMovie(ophimData.movie)) return null;
       ophimData.movie.poster_url = getImageUrl(ophimData.movie.poster_url, 'ophim');
       ophimData.movie.thumb_url = getImageUrl(ophimData.movie.thumb_url, 'ophim');
       return ophimData;
@@ -607,9 +764,30 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
 }
 
 /**
- * 6. Search Movies (KKPhim / NguonC)
+ * 6. Search Movies (KKPhim / NguonC) - Filtered Safe
  */
 export async function searchMovies(keyword: string, limit: number = 24, page: number = 1): Promise<MovieListResponse | null> {
+  const kwLower = keyword.toLowerCase();
+  // If search query is explicitly searching for porn / 18+ content, block
+  if (ADULT_KEYWORDS.some((kw) => kwLower.includes(kw) && kw.length > 2)) {
+    return {
+      status: 'success',
+      msg: 'success',
+      data: {
+        titlePage: `Kết quả tìm kiếm: ${keyword}`,
+        items: [],
+        params: {
+          pagination: {
+            totalItems: 0,
+            totalItemsPerPage: limit,
+            currentPage: 1,
+            pageRanges: 1,
+          },
+        },
+      },
+    };
+  }
+
   // Try KKPhim first for rich pagination and search
   try {
     const kkData = await fetchRaw<MovieListResponse>(
@@ -621,7 +799,7 @@ export async function searchMovies(keyword: string, limit: number = 24, page: nu
         ...kkData,
         data: {
           ...kkData.data,
-          items: kkData.data.items.map(normalizeKKItem),
+          items: filterSafeMovies(kkData.data.items.map(normalizeKKItem)),
         },
       };
     }
@@ -634,18 +812,19 @@ export async function searchMovies(keyword: string, limit: number = 24, page: nu
       60
     );
     if (nguoncData && nguoncData.items && nguoncData.items.length > 0) {
+      const safeItems = filterSafeMovies(nguoncData.items.map(normalizeNguonCItem));
       return {
         status: 'success',
         msg: 'success',
         data: {
           titlePage: `Kết quả tìm kiếm: ${keyword}`,
-          items: nguoncData.items.slice(0, limit).map(normalizeNguonCItem),
+          items: safeItems.slice(0, limit),
           params: {
             pagination: {
-              totalItems: nguoncData.paginate?.total_items || nguoncData.items.length,
+              totalItems: safeItems.length,
               totalItemsPerPage: limit,
               currentPage: page,
-              pageRanges: nguoncData.paginate?.total_page || 1,
+              pageRanges: Math.ceil(safeItems.length / limit) || 1,
             },
           },
         },
@@ -667,6 +846,7 @@ export async function fetchEpisodesFromSource(
     if (source === 'nguonc') {
       const nguoncData = await fetchRaw<any>(`https://phim.nguonc.com/api/film/${slug}`, 300);
       if (nguoncData?.movie?.episodes) {
+        if (isAdultMovie(nguoncData.movie)) return { episodes: [], ok: false };
         const episodes: MovieServer[] = [];
         for (const s of nguoncData.movie.episodes) {
           const sData = (s.items || []).map((ep: any) => ({
@@ -688,6 +868,7 @@ export async function fetchEpisodesFromSource(
 
     const detail = await getMovieDetail(slug, source);
     if (detail && detail.episodes && detail.episodes.length > 0) {
+      if (isAdultMovie(detail.movie)) return { episodes: [], ok: false };
       return { episodes: detail.episodes, ok: true };
     }
     return { episodes: [], ok: false };
