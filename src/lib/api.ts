@@ -607,11 +607,32 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
 }
 
 /**
- * 6. Search Movies (NguonC primary)
+ * 6. Search Movies (KKPhim / NguonC)
  */
-export async function searchMovies(keyword: string, limit: number = 12): Promise<MovieListResponse | null> {
+export async function searchMovies(keyword: string, limit: number = 24, page: number = 1): Promise<MovieListResponse | null> {
+  // Try KKPhim first for rich pagination and search
   try {
-    const nguoncData = await fetchRaw<any>(`https://phim.nguonc.com/api/films/search?keyword=${encodeURIComponent(keyword)}`, 60);
+    const kkData = await fetchRaw<MovieListResponse>(
+      `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(keyword)}&limit=${limit}&page=${page}`,
+      60
+    );
+    if (kkData?.data?.items && kkData.data.items.length > 0) {
+      return {
+        ...kkData,
+        data: {
+          ...kkData.data,
+          items: kkData.data.items.map(normalizeKKItem),
+        },
+      };
+    }
+  } catch (e) {}
+
+  // Fallback to NguonC
+  try {
+    const nguoncData = await fetchRaw<any>(
+      `https://phim.nguonc.com/api/films/search?keyword=${encodeURIComponent(keyword)}&page=${page}`,
+      60
+    );
     if (nguoncData && nguoncData.items && nguoncData.items.length > 0) {
       return {
         status: 'success',
@@ -621,26 +642,12 @@ export async function searchMovies(keyword: string, limit: number = 12): Promise
           items: nguoncData.items.slice(0, limit).map(normalizeNguonCItem),
           params: {
             pagination: {
-              totalItems: nguoncData.items.length,
+              totalItems: nguoncData.paginate?.total_items || nguoncData.items.length,
               totalItemsPerPage: limit,
-              currentPage: 1,
-              pageRanges: 1,
+              currentPage: page,
+              pageRanges: nguoncData.paginate?.total_page || 1,
             },
           },
-        },
-      };
-    }
-  } catch (e) {}
-
-  // Fallback to KKPhim
-  try {
-    const kkData = await fetchRaw<MovieListResponse>(`https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(keyword)}&limit=${limit}`, 60);
-    if (kkData?.data?.items && kkData.data.items.length > 0) {
-      return {
-        ...kkData,
-        data: {
-          ...kkData.data,
-          items: kkData.data.items.map(normalizeKKItem),
         },
       };
     }

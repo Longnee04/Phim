@@ -16,7 +16,15 @@ export interface MyListItem {
 }
 
 export function useMyList() {
-  const [list, setList] = useState<MyListItem[]>([]);
+  const [list, setList] = useState<MyListItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const item = window.localStorage.getItem('lphim_mylist');
+      return item ? JSON.parse(item) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -32,14 +40,14 @@ export function useMyList() {
     }
   }, []);
 
-  const saveList = (newList: MyListItem[]) => {
+  const saveList = useCallback((newList: MyListItem[]) => {
     setList(newList);
     try {
       window.localStorage.setItem('lphim_mylist', JSON.stringify(newList));
     } catch (e) {
       console.error(e);
     }
-  };
+  }, []);
 
   const isInMyList = useCallback(
     (slug: string) => {
@@ -48,15 +56,24 @@ export function useMyList() {
     [list]
   );
 
-  const toggleMyList = (movie: Omit<MyListItem, 'addedAt'>) => {
-    if (isInMyList(movie.slug)) {
-      const filtered = list.filter((item) => item.slug !== movie.slug);
-      saveList(filtered);
-    } else {
-      const newItem: MyListItem = { ...movie, addedAt: Date.now() };
-      saveList([newItem, ...list]);
-    }
-  };
+  const toggleMyList = useCallback((movie: Omit<MyListItem, 'addedAt'>) => {
+    setList((prev) => {
+      const exists = prev.some((item) => item.slug === movie.slug);
+      let updated: MyListItem[] = [];
+      if (exists) {
+        updated = prev.filter((item) => item.slug !== movie.slug);
+      } else {
+        const newItem: MyListItem = { ...movie, addedAt: Date.now() };
+        updated = [newItem, ...prev];
+      }
+      try {
+        window.localStorage.setItem('lphim_mylist', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+  }, []);
 
   return { list, isLoaded, isInMyList, toggleMyList };
 }

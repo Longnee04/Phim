@@ -7,9 +7,10 @@ interface PaginationProps {
   currentPage: number;
   totalPages: number;
   basePath: string;
+  isTop?: boolean;
 }
 
-export function Pagination({ currentPage, totalPages, basePath }: PaginationProps) {
+export function Pagination({ currentPage, totalPages, basePath, isTop = false }: PaginationProps) {
   if (totalPages <= 1) return null;
 
   const pages: (number | string)[] = [];
@@ -38,7 +39,11 @@ export function Pagination({ currentPage, totalPages, basePath }: PaginationProp
   };
 
   return (
-    <div className="browse__pager" id="browse-pager">
+    <div
+      className={`browse__pager ${isTop ? 'browse__pager--top' : ''}`}
+      id={isTop ? 'browse-pager-top' : 'browse-pager'}
+      style={isTop ? { padding: '10px var(--row-pad, 24px) 24px', justifyContent: 'center' } : undefined}
+    >
       <Link
         href={getPageUrl(1)}
         className={`browse__pager-btn ${currentPage <= 1 ? 'disabled' : ''}`}
@@ -57,7 +62,7 @@ export function Pagination({ currentPage, totalPages, basePath }: PaginationProp
         <i className="fas fa-chevron-left"></i>
       </Link>
 
-      <div className="browse__pager-numbers" id="browse-pager-numbers">
+      <div className="browse__pager-numbers" id={isTop ? 'browse-pager-numbers-top' : 'browse-pager-numbers'}>
         {pages.map((p, idx) => {
           if (p === '...') {
             return (

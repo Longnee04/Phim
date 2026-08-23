@@ -60,12 +60,21 @@ export default async function CountryPage({ params, searchParams }: CountryPageP
         </span>
       </div>
 
+      {/* Top Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        basePath={`/quoc-gia/${slug}`}
+        isTop={true}
+      />
+
       <div className="browse__grid" id="browse-grid">
         {movies.map((movie) => (
           <BrowseCard key={movie.slug} movie={movie} />
         ))}
       </div>
 
+      {/* Bottom Pagination */}
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}

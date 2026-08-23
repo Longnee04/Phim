@@ -68,12 +68,21 @@ export default async function BrowseTypePage({ params, searchParams }: BrowseTyp
         </span>
       </div>
 
+      {/* Top Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        basePath={`/danh-sach/${type}`}
+        isTop={true}
+      />
+
       <div className="browse__grid" id="browse-grid">
         {movies.map((movie) => (
           <BrowseCard key={movie.slug} movie={movie} />
         ))}
       </div>
 
+      {/* Bottom Pagination */}
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}

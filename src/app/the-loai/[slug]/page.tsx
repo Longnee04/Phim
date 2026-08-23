@@ -85,12 +85,21 @@ export default async function GenrePage({ params, searchParams }: GenrePageProps
         </span>
       </div>
 
+      {/* Top Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        basePath={`/the-loai/${slug}`}
+        isTop={true}
+      />
+
       <div className="browse__grid" id="browse-grid">
         {movies.map((movie) => (
           <BrowseCard key={movie.slug} movie={movie} />
         ))}
       </div>
 
+      {/* Bottom Pagination */}
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}

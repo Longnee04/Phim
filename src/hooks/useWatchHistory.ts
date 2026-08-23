@@ -16,7 +16,15 @@ export interface WatchHistoryItem {
 }
 
 export function useWatchHistory() {
-  const [history, setHistory] = useState<WatchHistoryItem[]>([]);
+  const [history, setHistory] = useState<WatchHistoryItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const item = window.localStorage.getItem('lphim_history');
+      return item ? JSON.parse(item) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -32,49 +40,87 @@ export function useWatchHistory() {
     }
   }, []);
 
-  const saveHistory = (newHistory: WatchHistoryItem[]) => {
+  const saveHistory = useCallback((newHistory: WatchHistoryItem[]) => {
     setHistory(newHistory);
     try {
       window.localStorage.setItem('lphim_history', JSON.stringify(newHistory));
     } catch (e) {
       console.error(e);
     }
-  };
+  }, []);
 
   const addToHistory = useCallback(
     (item: Omit<WatchHistoryItem, 'updated_at'>) => {
-      const existingIdx = history.findIndex((h) => h.slug === item.slug);
-      let updated: WatchHistoryItem[] = [];
+      setHistory((prev) => {
+        // Read latest from localStorage if available to prevent stale closure race conditions
+        let currentList = prev;
+        try {
+          const itemRaw = window.localStorage.getItem('lphim_history');
+          if (itemRaw) {
+            const parsed = JSON.parse(itemRaw);
+            if (Array.isArray(parsed) && parsed.length > currentList.length) {
+              currentList = parsed;
+            }
+          }
+        } catch {}
 
-      const newItem: WatchHistoryItem = {
-        ...item,
-        updated_at: Date.now(),
-      };
+        const existingIdx = currentList.findIndex((h) => h.slug === item.slug);
+        const newItem: WatchHistoryItem = {
+          ...item,
+          updated_at: Date.now(),
+        };
 
-      if (existingIdx >= 0) {
-        updated = [...history];
-        updated.splice(existingIdx, 1);
-        updated.unshift(newItem);
-      } else {
-        updated = [newItem, ...history.slice(0, 29)];
-      }
+        let updated: WatchHistoryItem[] = [];
+        if (existingIdx >= 0) {
+          updated = [...currentList];
+          updated.splice(existingIdx, 1);
+          updated.unshift(newItem);
+        } else {
+          updated = [newItem, ...currentList.slice(0, 49)];
+        }
 
-      saveHistory(updated);
+        try {
+          window.localStorage.setItem('lphim_history', JSON.stringify(updated));
+        } catch (e) {
+          console.error(e);
+        }
+
+        return updated;
+      });
     },
-    [history]
+    []
   );
 
   const getMovieProgress = useCallback(
     (slug: string): WatchHistoryItem | undefined => {
-      return history.find((h) => h.slug === slug);
+      const found = history.find((h) => h.slug === slug);
+      if (found) return found;
+
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = window.localStorage.getItem('lphim_history');
+          if (raw) {
+            const list: WatchHistoryItem[] = JSON.parse(raw);
+            return list.find((h) => h.slug === slug);
+          }
+        } catch {}
+      }
+      return undefined;
     },
     [history]
   );
 
-  const removeFromHistory = (slug: string) => {
-    const filtered = history.filter((h) => h.slug !== slug);
-    saveHistory(filtered);
-  };
+  const removeFromHistory = useCallback((slug: string) => {
+    setHistory((prev) => {
+      const filtered = prev.filter((h) => h.slug !== slug);
+      try {
+        window.localStorage.setItem('lphim_history', JSON.stringify(filtered));
+      } catch (e) {
+        console.error(e);
+      }
+      return filtered;
+    });
+  }, []);
 
   return { history, isLoaded, addToHistory, getMovieProgress, removeFromHistory };
 }
