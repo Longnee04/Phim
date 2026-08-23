@@ -246,7 +246,7 @@ export default function AIAssistant() {
                       fontWeight: 700,
                     }}
                   >
-                    Gemini
+                    Gemini 2.5
                   </span>
                 )}
               </h4>

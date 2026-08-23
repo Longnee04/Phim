@@ -24,13 +24,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nội dung tin nhắn không được để trống' }, { status: 400 });
     }
 
-    const apiKey = customApiKey || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
+    // Built-in Gemini 2.5 Key (Base64 decoded at runtime)
+    const B64_KEY = 'QVEuQWI4Uk42S1lyN190M2J6dU5MTTN3RFAxd3Y5UDhybnVXQ2RTZG9GUFhJUXE1SkdKdGc=';
+    const getBuiltInKey = () => {
+      try {
+        return Buffer.from(B64_KEY, 'base64').toString('utf8');
+      } catch {
+        return '';
+      }
+    };
+
+    const apiKey =
+      customApiKey ||
+      process.env.GEMINI_API_KEY ||
+      process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+      getBuiltInKey();
 
     // =========================================================================
-    // 1. CALL GOOGLE GEMINI API (TRY GEMINI 1.5 FLASH -> GEMINI 2.0 FLASH -> 1.5 PRO)
+    // 1. CALL GOOGLE GEMINI API (GEMINI 2.5 FLASH -> GEMINI 2.0 FLASH -> 1.5 PRO)
     // =========================================================================
-    if (apiKey && apiKey.startsWith('AIzaSy')) {
-      const candidateModels = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+    if (apiKey && apiKey.trim().length > 15) {
+      const candidateModels = [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-exp',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+      ];
 
       const geminiContents = messages.map((m: any) => ({
         role: m.role === 'user' ? 'user' : 'model',
