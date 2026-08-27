@@ -4833,6 +4833,142 @@ body, p, span, div, a, button, input, textarea, select, li, label, h1, h2, h3, h
   animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* ==========================================================================
+   MULTI-DEVICE & PROJECTOR / TV / MOBILE OPTIMIZATIONS
+   ========================================================================== */
+
+/* 1. Mobile Phone Optimizations (< 768px) */
+@media (max-width: 768px) {
+  :root {
+    --row-pad: 14px;
+    --nav-h: 58px;
+  }
+
+  .netflix-watch-page {
+    padding-top: 58px !important;
+    padding-bottom: env(safe-area-inset-bottom, 32px) !important;
+  }
+
+  .watch-player-wrapper {
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+
+  .watch-controls-toolbar {
+    padding: 12px 10px !important;
+    gap: 8px !important;
+  }
+
+  .watch-episodes-grid {
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  .watch-ep-btn {
+    padding: 9px 4px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .watch__info-grid {
+    grid-template-columns: 1fr !important;
+    padding: 18px 14px !important;
+    gap: 20px !important;
+  }
+
+  .watch__info-grid > div:last-child {
+    border-left: none !important;
+    padding-left: 0 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding-top: 18px !important;
+  }
+}
+
+/* 2. Projector Cinema Mode (.watch-projector-mode) */
+.watch-projector-mode {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+.watch-projector-mode .watch-player-wrapper {
+  box-shadow: 0 0 100px rgba(229, 9, 20, 0.45), 0 0 180px rgba(0, 0, 0, 1) !important;
+  border: none !important;
+}
+
+.watch-projector-mode .watch-ep-btn {
+  font-size: 0.92rem !important;
+  font-weight: 800 !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.watch-projector-mode .watch-ep-btn--active {
+  background: var(--red, #e50914) !important;
+  color: #fff !important;
+  box-shadow: 0 0 20px rgba(229, 9, 20, 0.9), 0 0 40px rgba(229, 9, 20, 0.5) !important;
+  transform: scale(1.05);
+}
+
+.watch-projector-mode .watch-controls-toolbar button {
+  font-size: 0.88rem !important;
+}
+
+/* 3. Smart TV & 10-Foot UI (Remote Navigation & 4K Displays) */
+@media (min-width: 1921px) {
+  :root {
+    --row-pad: 80px;
+  }
+
+  body {
+    font-size: 18px;
+  }
+
+  .netflix-watch-page {
+    font-size: 1.1rem;
+  }
+
+  .watch-episodes-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .watch-ep-btn {
+    padding: 14px 10px !important;
+    font-size: 1rem !important;
+    border-radius: 10px !important;
+  }
+
+  .watch__info-grid {
+    grid-template-columns: 1fr 420px !important;
+    padding: 36px !important;
+  }
+}
+
+/* TV Remote Focus State Glow for Accessibility */
+*:focus-visible {
+  outline: 3px solid var(--red, #e50914) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 16px rgba(229, 9, 20, 0.8) !important;
+}
+
+/* Smooth Video Player Transitions */
+.video-player-container {
+  transition: all 0.3s ease;
+}
+
+.video-player-container:fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #000 !important;
+}
+
+.video-player-container:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #000 !important;
+}
+
+
 
 
 

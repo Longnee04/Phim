@@ -70,11 +70,11 @@ export default function WatchClient({
     return serverEpisodes[0]?.slug || 'tap-01';
   });
 
-  // Toggles (Iframe Embed is default as requested)
+  // Toggles (Iframe Embed is default as requested, with Projector & Theater support)
   const [autoNext, setAutoNext] = useState(true);
   const [theaterMode, setTheaterMode] = useState(false);
+  const [isProjectorMode, setIsProjectorMode] = useState(false);
   const [forceEmbed, setForceEmbed] = useState(true);
-  const [showServerModal, setShowServerModal] = useState(false);
 
   // Watch history & My List
   const { addToHistory, getMovieProgress } = useWatchHistory();
@@ -160,7 +160,6 @@ export default function WatchClient({
       setActiveSource(sourceId);
       setActiveServerIndex(0);
       const newEps = episodesList[0]?.server_data || [];
-      // Try to find matching episode or pick first
       const matched = newEps.find(
         (ep: any) =>
           ep.slug === selectedEpSlug ||
@@ -218,27 +217,34 @@ export default function WatchClient({
     }
   }, [movie.slug, currentEpisode?.slug, activeServerIndex]);
 
+  const toggleProjectorMode = useCallback(() => {
+    setIsProjectorMode((prev) => !prev);
+  }, []);
+
+  const isWideMode = theaterMode || isProjectorMode;
+
   return (
     <div
-      className="netflix-watch-page"
+      className={`netflix-watch-page ${isProjectorMode ? 'watch-projector-mode' : ''}`}
       style={{
-        background: '#0a0a0f',
+        background: isProjectorMode ? '#000000' : '#0a0a0f',
         minHeight: '100vh',
         color: '#fff',
-        paddingTop: '68px',
+        paddingTop: isWideMode ? '60px' : '68px',
         paddingBottom: '80px',
+        transition: 'background 0.3s ease, padding 0.3s ease',
       }}
     >
       <div
         style={{
-          maxWidth: theaterMode ? '100%' : '1360px',
+          maxWidth: isWideMode ? '100%' : '1360px',
           margin: '0 auto',
-          padding: theaterMode ? '0' : '0 24px',
+          padding: isWideMode ? '0' : '0 24px',
           transition: 'max-width 0.3s ease, padding 0.3s ease',
         }}
       >
-        {/* Top Breadcrumb & Back button */}
-        {!theaterMode && (
+        {/* Top Breadcrumb & Source indicator */}
+        {!isWideMode && (
           <div
             style={{
               display: 'flex',
@@ -283,17 +289,21 @@ export default function WatchClient({
           </div>
         )}
 
-        {/* Netflix Cinema Video Player Box */}
+        {/* Netflix Cinema Video Player Box with Ambient Projector Glow */}
         <div
+          className="watch-player-wrapper"
           style={{
             position: 'relative',
             width: '100%',
             aspectRatio: '16/9',
             background: '#000',
-            borderRadius: theaterMode ? '0' : '12px',
+            borderRadius: isWideMode ? '0' : '12px',
             overflow: 'hidden',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.9)',
-            border: theaterMode ? 'none' : '1px solid rgba(255,255,255,0.08)',
+            boxShadow: isProjectorMode
+              ? '0 0 90px rgba(229,9,20,0.35), 0 30px 90px rgba(0,0,0,1)'
+              : '0 25px 60px rgba(0,0,0,0.9)',
+            border: isWideMode ? 'none' : '1px solid rgba(255,255,255,0.08)',
+            transition: 'box-shadow 0.3s ease, border-radius 0.3s ease',
           }}
         >
           <VideoPlayer
@@ -303,26 +313,31 @@ export default function WatchClient({
             movieTitle={movie.name}
             episodeName={currentEpisode?.name || 'Tập 01'}
             initialTime={initialTime}
+            isProjectorMode={isProjectorMode}
             onTimeUpdate={handleTimeUpdate}
             onNextEpisode={hasNextEpisode ? handleNextEpisode : undefined}
+            onToggleProjector={toggleProjectorMode}
           />
         </div>
 
-        {/* Player Quick Controls Bar (Netflix Dark UI) */}
+        {/* Player Quick Controls Bar (Mobile, Desktop, TV & Projector friendly) */}
         <div
+          className="watch-controls-toolbar"
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '12px',
-            padding: '16px 8px',
+            padding: '16px 12px',
             borderBottom: '1px solid rgba(255,255,255,0.08)',
             fontSize: '0.85rem',
+            background: isProjectorMode ? 'rgba(10,10,12,0.85)' : 'transparent',
           }}
         >
           {/* Left Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            {/* Auto Next */}
             <button
               type="button"
               onClick={() => setAutoNext(!autoNext)}
@@ -354,6 +369,32 @@ export default function WatchClient({
               </span>
             </button>
 
+            {/* Projector Mode Toggle */}
+            <button
+              type="button"
+              title="Chế độ Máy Chiếu: Nền đen tuyệt đối, độ tương phản cao, tối ưu hiển thị máy chiếu & TV lớn (Phím P)"
+              onClick={toggleProjectorMode}
+              style={{
+                background: isProjectorMode ? 'var(--red, #e50914)' : 'rgba(255,255,255,0.06)',
+                border: '1px solid ' + (isProjectorMode ? 'var(--red, #e50914)' : 'rgba(255,255,255,0.15)'),
+                color: '#fff',
+                padding: '5px 12px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                boxShadow: isProjectorMode ? '0 0 16px rgba(229,9,20,0.5)' : 'none',
+                transition: 'all 0.2s',
+              }}
+            >
+              <i className="fas fa-video"></i>
+              <span>Máy Chiếu: {isProjectorMode ? 'BẬT' : 'TẮT'}</span>
+            </button>
+
+            {/* Theater Mode */}
             <button
               type="button"
               onClick={() => setTheaterMode(!theaterMode)}
@@ -373,6 +414,7 @@ export default function WatchClient({
               <span>Rạp phim: {theaterMode ? 'BẬT' : 'TẮT'}</span>
             </button>
 
+            {/* Player Mode Switcher */}
             <button
               type="button"
               onClick={() => setForceEmbed(!forceEmbed)}
@@ -380,7 +422,7 @@ export default function WatchClient({
                 background: forceEmbed ? 'rgba(70,211,105,0.18)' : 'rgba(255,255,255,0.06)',
                 border: '1px solid ' + (forceEmbed ? '#46d369' : 'rgba(255,255,255,0.12)'),
                 color: forceEmbed ? '#46d369' : '#fff',
-                padding: '4px 12px',
+                padding: '5px 12px',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontWeight: 700,
@@ -452,7 +494,7 @@ export default function WatchClient({
         {/* ==================== MANUAL SOURCE & SERVER SELECTOR ==================== */}
         <div
           style={{
-            background: 'var(--surface, #181818)',
+            background: isProjectorMode ? '#0a0a0c' : 'var(--surface, #181818)',
             border: '1px solid var(--border, #333)',
             borderRadius: '12px',
             padding: '20px 24px',
@@ -523,7 +565,7 @@ export default function WatchClient({
             })}
           </div>
 
-          {/* Server / Bản Chiếu Tabs (If multiple servers exist) */}
+          {/* Server / Bản Chiếu Tabs */}
           {currentSourceEpisodes.length > 1 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--t3, #6d6d6d)', fontWeight: 600, marginRight: '4px' }}>
@@ -542,9 +584,9 @@ export default function WatchClient({
                     }
                   }}
                   style={{
-                    padding: '5px 12px',
+                    padding: '6px 14px',
                     borderRadius: '6px',
-                    fontSize: '0.78rem',
+                    fontSize: '0.8rem',
                     fontWeight: 700,
                     cursor: 'pointer',
                     background: activeServerIndex === sIdx ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.04)',
@@ -559,24 +601,25 @@ export default function WatchClient({
             </div>
           )}
 
-          {/* ==================== NETFLIX EPISODE SELECTOR GRID ==================== */}
+          {/* ==================== EPISODE SELECTOR GRID (Optimized for Mobile, TV & Projector) ==================== */}
           <div style={{ paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <i className="fas fa-list" style={{ color: 'var(--red, #e50914)' }}></i>
                 <span>Danh Sách Tập ({serverEpisodes.length} tập)</span>
               </h3>
-              <span style={{ fontSize: '0.75rem', color: 'var(--t3, #6d6d6d)' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--t3, #888)' }}>
                 Bấm vào tập để phát trực tiếp
               </span>
             </div>
 
             <div
+              className="watch-episodes-grid"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))',
                 gap: '8px',
-                maxHeight: '320px',
+                maxHeight: '340px',
                 overflowY: 'auto',
                 paddingRight: '4px',
               }}
@@ -588,20 +631,25 @@ export default function WatchClient({
                     key={ep.slug || idx}
                     type="button"
                     onClick={() => setSelectedEpSlug(ep.slug)}
+                    className={`watch-ep-btn ${isSelected ? 'watch-ep-btn--active' : ''}`}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '6px',
-                      padding: '10px 6px',
+                      padding: '11px 8px',
                       borderRadius: '8px',
-                      fontSize: '0.82rem',
+                      fontSize: '0.85rem',
                       fontWeight: 700,
                       cursor: 'pointer',
-                      border: '1px solid ' + (isSelected ? 'var(--red, #e50914)' : 'rgba(255,255,255,0.08)'),
+                      border: '1px solid ' + (isSelected ? 'var(--red, #e50914)' : 'rgba(255,255,255,0.1)'),
                       background: isSelected ? 'var(--red, #e50914)' : 'rgba(255,255,255,0.06)',
                       color: '#fff',
-                      boxShadow: isSelected ? '0 4px 14px rgba(229,9,20,0.4)' : 'none',
+                      boxShadow: isSelected
+                        ? isProjectorMode
+                          ? '0 0 16px rgba(229,9,20,0.8)'
+                          : '0 4px 14px rgba(229,9,20,0.4)'
+                        : 'none',
                       transition: 'all 0.15s ease',
                     }}
                   >
@@ -621,7 +669,7 @@ export default function WatchClient({
             gridTemplateColumns: '1fr 340px',
             gap: '32px',
             marginTop: '32px',
-            background: 'var(--surface, #181818)',
+            background: isProjectorMode ? '#0a0a0c' : 'var(--surface, #181818)',
             border: '1px solid var(--border, #333)',
             borderRadius: '12px',
             padding: '28px',
@@ -645,7 +693,7 @@ export default function WatchClient({
                 98% Trùng khớp
               </span>
               <span style={{ border: '1px solid rgba(255,255,255,0.3)', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>
-                18+
+                HD
               </span>
               <span style={{ background: '#0d9488', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>
                 {movie.quality || 'FHD'}

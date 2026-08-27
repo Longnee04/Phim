@@ -9,8 +9,10 @@ interface VideoPlayerProps {
   movieTitle: string;
   episodeName: string;
   initialTime?: number;
+  isProjectorMode?: boolean;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onNextEpisode?: () => void;
+  onToggleProjector?: () => void;
 }
 
 export default function VideoPlayer({
@@ -19,13 +21,16 @@ export default function VideoPlayer({
   movieTitle,
   episodeName,
   initialTime = 0,
+  isProjectorMode = false,
   onTimeUpdate,
   onNextEpisode,
+  onToggleProjector,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTapRef = useRef<number>(0);
 
   // Compute official player embed URL
   const officialPlayerUrl = useMemo(() => {
@@ -47,6 +52,7 @@ export default function VideoPlayer({
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showResumeToast, setShowResumeToast] = useState(initialTime > 15);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Synchronize useEmbed if m3u8Url changes
   useEffect(() => {
@@ -54,6 +60,19 @@ export default function VideoPlayer({
       setUseEmbed(true);
     }
   }, [m3u8Url, officialPlayerUrl]);
+
+  // Listen to Fullscreen change events
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
 
   const formatTime = (seconds: number) => {
     if (isNaN(seconds) || seconds < 0) return '00:00';
@@ -72,6 +91,41 @@ export default function VideoPlayer({
     }, 3500);
   }, []);
 
+  // Double Click / Double Tap Fullscreen Toggle
+  const toggleFullscreen = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (!document.fullscreenElement) {
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(() => {});
+      } else if ((container as any).webkitRequestFullscreen) {
+        (container as any).webkitRequestFullscreen();
+      } else if ((videoRef.current as any)?.webkitEnterFullscreen) {
+        (videoRef.current as any).webkitEnterFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      }
+    }
+  }, []);
+
+  // Mobile Double Tap detector
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const now = Date.now();
+      if (now - lastTapRef.current < 320) {
+        // Double tap!
+        toggleFullscreen();
+      }
+      lastTapRef.current = now;
+    },
+    [toggleFullscreen]
+  );
+
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -84,39 +138,54 @@ export default function VideoPlayer({
     resetControlsTimeout();
   }, [resetControlsTimeout]);
 
-  const seek = useCallback((seconds: number) => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + seconds));
-    resetControlsTimeout();
-  }, [resetControlsTimeout]);
+  const seek = useCallback(
+    (seconds: number) => {
+      const v = videoRef.current;
+      if (!v) return;
+      v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + seconds));
+      resetControlsTimeout();
+    },
+    [resetControlsTimeout]
+  );
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (Desktop, TV Remote & Projector)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const el = document.activeElement;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
-      if (!videoRef.current || useEmbed) return;
 
       const key = e.key.toLowerCase();
-      if (key === ' ' || key === 'k') { e.preventDefault(); togglePlay(); }
-      else if (key === 'f') {
+      if (key === 'f') {
         e.preventDefault();
-        if (!document.fullscreenElement) containerRef.current?.requestFullscreen().catch(() => {});
-        else document.exitFullscreen().catch(() => {});
+        toggleFullscreen();
+      } else if (key === 'p' && onToggleProjector) {
+        e.preventDefault();
+        onToggleProjector();
       }
-      else if (key === 'm') {
+
+      if (!videoRef.current || useEmbed) return;
+
+      if (key === ' ' || key === 'k') {
+        e.preventDefault();
+        togglePlay();
+      } else if (key === 'm') {
         e.preventDefault();
         videoRef.current.muted = !videoRef.current.muted;
         setIsMuted(videoRef.current.muted);
+      } else if (key === 'arrowleft') {
+        e.preventDefault();
+        seek(-10);
+      } else if (key === 'arrowright') {
+        e.preventDefault();
+        seek(10);
+      } else if (key === 'n' && onNextEpisode) {
+        e.preventDefault();
+        onNextEpisode();
       }
-      else if (key === 'arrowleft') { e.preventDefault(); seek(-10); }
-      else if (key === 'arrowright') { e.preventDefault(); seek(10); }
-      else if (key === 'n' && onNextEpisode) { e.preventDefault(); onNextEpisode(); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlay, seek, onNextEpisode, useEmbed]);
+  }, [togglePlay, seek, onNextEpisode, useEmbed, toggleFullscreen, onToggleProjector]);
 
   // HLS Stream Setup
   useEffect(() => {
@@ -208,12 +277,26 @@ export default function VideoPlayer({
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const bufferedPercent = duration > 0 ? (buffered / duration) * 100 : 0;
 
-  // Embed mode (Iframe)
+  // =========================================================================
+  // EMBED (IFRAME) PLAYER MODE
+  // =========================================================================
   if (useEmbed && officialPlayerUrl) {
     return (
       <div
         ref={containerRef}
-        style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}
+        className={`video-player-container video-player-container--embed ${
+          isProjectorMode ? 'video-player-container--projector' : ''
+        }`}
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          background: '#000',
+          overflow: 'hidden',
+          userSelect: 'none',
+        }}
+        onDoubleClick={toggleFullscreen}
+        onTouchEnd={handleTouchEnd}
       >
         <iframe
           src={officialPlayerUrl}
@@ -222,40 +305,112 @@ export default function VideoPlayer({
           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
           title={`${movieTitle} - ${episodeName}`}
         />
-        {/* Toggle back to custom player if m3u8 available */}
-        {m3u8Url && (
+
+        {/* Floating Quick Action Overlay (Switch HLS + Fullscreen + Projector) */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            zIndex: 20,
+          }}
+        >
+          {onToggleProjector && (
+            <button
+              type="button"
+              title={isProjectorMode ? 'Tắt Chế độ Máy Chiếu' : 'Bật Chế độ Máy Chiếu'}
+              onClick={onToggleProjector}
+              style={{
+                background: isProjectorMode ? 'var(--red, #e50914)' : 'rgba(0,0,0,0.75)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid ' + (isProjectorMode ? 'var(--red, #e50914)' : 'rgba(255,255,255,0.2)'),
+                color: '#fff',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: isProjectorMode ? '0 0 16px rgba(229,9,20,0.6)' : 'none',
+              }}
+            >
+              <i className="fas fa-video"></i>
+              <span>{isProjectorMode ? 'Máy Chiếu: BẬT' : 'Máy Chiếu'}</span>
+            </button>
+          )}
+
+          {m3u8Url && (
+            <button
+              type="button"
+              onClick={() => setUseEmbed(false)}
+              style={{
+                background: 'rgba(0,0,0,0.75)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                color: '#fff',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              <i className="fas fa-play" style={{ marginRight: 6 }}></i>
+              Player HLS
+            </button>
+          )}
+
           <button
             type="button"
-            onClick={() => setUseEmbed(false)}
+            title="Toàn màn hình (Nhấp đúp chuột / Double click)"
+            onClick={toggleFullscreen}
             style={{
-              position: 'absolute',
-              top: '12px',
-              right: '12px',
               background: 'rgba(0,0,0,0.75)',
-              backdropFilter: 'blur(8px)',
+              backdropFilter: 'blur(10px)',
               border: '1px solid rgba(255,255,255,0.2)',
               color: '#fff',
-              padding: '6px 12px',
+              width: 32,
+              height: 32,
               borderRadius: '6px',
-              fontSize: '0.75rem',
-              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.85rem',
               cursor: 'pointer',
-              zIndex: 10,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
             }}
           >
-            <i className="fas fa-play" style={{ marginRight: 6 }}></i>
-            Chuyển Player HLS
+            <i className={`fas fa-${isFullscreen ? 'compress' : 'expand'}`}></i>
           </button>
-        )}
+        </div>
       </div>
     );
   }
 
-  // Custom HLS Player mode (Netflix style)
+  // =========================================================================
+  // CUSTOM DIRECT HLS PLAYER MODE (NETFLIX + PROJECTOR + SMART TV READY)
+  // =========================================================================
   return (
     <div
       ref={containerRef}
-      style={{ position: 'relative', width: '100%', height: '100%', background: '#000', overflow: 'hidden' }}
+      className={`video-player-container video-player-container--hls ${
+        isProjectorMode ? 'video-player-container--projector' : ''
+      }`}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        background: '#000',
+        overflow: 'hidden',
+        userSelect: 'none',
+      }}
+      onDoubleClick={toggleFullscreen}
+      onTouchEnd={handleTouchEnd}
       onMouseMove={resetControlsTimeout}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
@@ -263,17 +418,30 @@ export default function VideoPlayer({
         ref={videoRef}
         playsInline
         onClick={togglePlay}
+        onDoubleClick={toggleFullscreen}
         onTimeUpdate={handleTimeUpdate}
         onEnded={onNextEpisode}
         onCanPlay={() => setLoading(false)}
         onLoadedData={() => setLoading(false)}
         onWaiting={() => setLoading(true)}
-        onPlaying={() => { setLoading(false); setIsPlaying(true); }}
-        onPause={() => { setLoading(false); setIsPlaying(false); }}
-        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+        onPlaying={() => {
+          setLoading(false);
+          setIsPlaying(true);
+        }}
+        onPause={() => {
+          setLoading(false);
+          setIsPlaying(false);
+        }}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          display: 'block',
+          cursor: isPlaying ? (showControls ? 'default' : 'none') : 'default',
+        }}
       />
 
-      {/* Floating Header Overlay (Back + Title) */}
+      {/* Floating Header Overlay (Back + Title + Mode Badges) */}
       <div
         style={{
           position: 'absolute',
@@ -281,7 +449,7 @@ export default function VideoPlayer({
           left: 0,
           right: 0,
           padding: '16px 20px',
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 100%)',
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.9) 0%, transparent 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -291,40 +459,80 @@ export default function VideoPlayer({
           transition: 'opacity 0.3s ease',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '1rem', fontWeight: 800, color: '#fff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff' }}>
             {movieTitle}
           </span>
-          <span style={{ fontSize: '0.85rem', color: 'var(--red, #e50914)', fontWeight: 700 }}>
+          <span style={{ fontSize: '0.88rem', color: 'var(--red, #e50914)', fontWeight: 700 }}>
             • {episodeName}
           </span>
+          {isProjectorMode && (
+            <span
+              style={{
+                fontSize: '0.7rem',
+                background: 'rgba(229,9,20,0.2)',
+                border: '1px solid var(--red, #e50914)',
+                color: '#fff',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontWeight: 800,
+                letterSpacing: '0.5px',
+              }}
+            >
+              🎬 CINEMA PROJECTOR
+            </span>
+          )}
         </div>
 
-        {officialPlayerUrl && (
-          <button
-            type="button"
-            onClick={() => setUseEmbed(true)}
-            style={{
-              background: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              color: '#fff',
-              padding: '4px 10px',
-              borderRadius: '4px',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            <i className="fas fa-arrow-up-right-from-square" style={{ marginRight: 5 }}></i>
-            Embed Player
-          </button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onToggleProjector && (
+            <button
+              type="button"
+              title="Bật/Tắt Chế độ Máy Chiếu"
+              onClick={onToggleProjector}
+              style={{
+                background: isProjectorMode ? 'var(--red, #e50914)' : 'rgba(255,255,255,0.12)',
+                border: '1px solid ' + (isProjectorMode ? 'var(--red, #e50914)' : 'rgba(255,255,255,0.2)'),
+                color: '#fff',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              <i className="fas fa-video" style={{ marginRight: 5 }}></i>
+              {isProjectorMode ? 'Máy Chiếu: BẬT' : 'Máy Chiếu'}
+            </button>
+          )}
+
+          {officialPlayerUrl && (
+            <button
+              type="button"
+              onClick={() => setUseEmbed(true)}
+              style={{
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                color: '#fff',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              <i className="fas fa-arrow-up-right-from-square" style={{ marginRight: 5 }}></i>
+              Embed Player
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Center Play Overlay */}
+      {/* Center Play / Pause Overlay */}
       {!isPlaying && !loading && (
         <div
           onClick={togglePlay}
+          onDoubleClick={toggleFullscreen}
           style={{
             position: 'absolute',
             inset: 0,
@@ -338,17 +546,17 @@ export default function VideoPlayer({
         >
           <div
             style={{
-              width: 72,
-              height: 72,
+              width: 76,
+              height: 76,
               borderRadius: '50%',
-              border: '2px solid rgba(255,255,255,0.8)',
+              border: '2px solid rgba(255,255,255,0.85)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'rgba(20,20,20,0.6)',
+              background: 'rgba(20,20,20,0.7)',
               color: '#fff',
-              fontSize: '1.6rem',
-              boxShadow: '0 8px 30px rgba(0,0,0,0.7)',
+              fontSize: '1.8rem',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.8)',
               transition: 'transform 0.2s',
             }}
           >
@@ -515,14 +723,15 @@ export default function VideoPlayer({
             <button
               type="button"
               onClick={togglePlay}
-              style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem' }}
+              title="Phát/Tạm dừng (Space)"
+              style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.25rem' }}
             >
               <i className={`fas fa-${isPlaying ? 'pause' : 'play'}`}></i>
             </button>
             <button
               type="button"
               onClick={() => seek(-10)}
-              title="Lùi 10 giây"
+              title="Lùi 10 giây (←)"
               style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.05rem' }}
             >
               <i className="fas fa-rotate-left"></i>
@@ -530,7 +739,7 @@ export default function VideoPlayer({
             <button
               type="button"
               onClick={() => seek(10)}
-              title="Tua 10 giây"
+              title="Tua 10 giây (→)"
               style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.05rem' }}
             >
               <i className="fas fa-rotate-right"></i>
@@ -539,7 +748,7 @@ export default function VideoPlayer({
               <button
                 type="button"
                 onClick={onNextEpisode}
-                title="Tập tiếp theo"
+                title="Tập tiếp theo (N)"
                 style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.05rem' }}
               >
                 <i className="fas fa-forward-step"></i>
@@ -553,6 +762,7 @@ export default function VideoPlayer({
                   setIsMuted(videoRef.current.muted);
                 }
               }}
+              title="Âm thanh (M)"
               style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.05rem' }}
             >
               <i className={`fas fa-${isMuted ? 'volume-xmark' : 'volume-high'}`}></i>
@@ -628,13 +838,11 @@ export default function VideoPlayer({
 
             <button
               type="button"
-              onClick={() => {
-                if (!document.fullscreenElement) containerRef.current?.requestFullscreen().catch(() => {});
-                else document.exitFullscreen().catch(() => {});
-              }}
-              style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.1rem' }}
+              title="Toàn màn hình (F hoặc Nhấp đúp chuột)"
+              onClick={toggleFullscreen}
+              style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.15rem' }}
             >
-              <i className="fas fa-expand"></i>
+              <i className={`fas fa-${isFullscreen ? 'compress' : 'expand'}`}></i>
             </button>
           </div>
         </div>
