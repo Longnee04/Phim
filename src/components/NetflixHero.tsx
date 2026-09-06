@@ -149,7 +149,7 @@ export default function NetflixHero({ movies = [], movie }: NetflixHeroProps) {
             ))}
           </div>
         )}
-        <span className="billboard__age">18+</span>
+        <span className="billboard__age">HD</span>
       </div>
 
       <div className="billboard__timer">

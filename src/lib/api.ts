@@ -260,35 +260,34 @@ function normalizeOPhimItem(item: any): MovieItem {
 /**
  * Normalize NguonC movie detail object
  */
-function normalizeNguonCMovieDetail(data: any): MovieDetailResponse | null {
-  if (!data || !data.movie) return null;
-  const m = data.movie;
+function normalizeNguonCMovieDetail(raw: any): MovieDetailResponse | null {
+  if (!raw || !raw.movie) return null;
+  const m = raw.movie;
 
-  const categories: { id: string; name: string; slug: string }[] = [];
-  const country: { id: string; name: string; slug: string }[] = [];
-  let year = 2026;
-  let type = 'series';
+  const categories = (m.category || []).map((c: any) => ({
+    id: c.id || c.slug,
+    name: c.name,
+    slug: c.slug,
+  }));
 
-  if (m.category && typeof m.category === 'object') {
-    for (const key of Object.keys(m.category)) {
-      const grp = m.category[key];
-      if (grp?.group?.name === 'Thể loại' && Array.isArray(grp.list)) {
-        categories.push(...grp.list.map((c: any) => ({ id: c.id || c.slug, name: c.name, slug: c.slug })));
-      } else if (grp?.group?.name === 'Quốc gia' && Array.isArray(grp.list)) {
-        country.push(...grp.list.map((c: any) => ({ id: c.id || c.slug, name: c.name, slug: c.slug })));
-      } else if (grp?.group?.name === 'Năm' && Array.isArray(grp.list) && grp.list[0]?.name) {
-        year = parseInt(grp.list[0].name, 10) || year;
-      } else if (grp?.group?.name === 'Định dạng' && Array.isArray(grp.list) && grp.list[0]?.slug) {
-        type = grp.list[0].slug;
-      }
-    }
+  const country = m.country
+    ? [{ id: m.country.id || '', name: m.country.name, slug: m.country.slug }]
+    : [];
+
+  const year = m.year || 0;
+  const thumb = m.thumb_url || m.poster_url || '';
+  const poster = m.poster_url || m.thumb_url || '';
+
+  let type = 'single';
+  if (m.category && Array.isArray(m.category)) {
+    const isSeries = m.category.some((c: any) => c.slug === 'phim-bo' || c.name === 'Phim Bộ');
+    if (isSeries) type = 'series';
+    const isAnime = m.category.some((c: any) => c.slug === 'hoat-hinh' || c.name === 'Hoạt Hình');
+    if (isAnime) type = 'hoathinh';
   }
 
-  let poster = m.thumb_url || m.poster_url || '';
-  let thumb = m.poster_url || m.thumb_url || '';
-
   const episodes: MovieServer[] = [];
-  if (Array.isArray(m.episodes)) {
+  if (m.episodes && Array.isArray(m.episodes)) {
     for (const s of m.episodes) {
       const serverData = (s.items || []).map((ep: any) => ({
         name: ep.name ? (ep.name.startsWith('Tập') ? ep.name : `Tập ${ep.name}`) : 'Full',
@@ -337,7 +336,7 @@ function normalizeNguonCMovieDetail(data: any): MovieDetailResponse | null {
 /**
  * Fetch raw JSON with caching & timeout protection
  */
-export async function fetchRaw<T>(url: string, revalidateTime: number = 180): Promise<T | null> {
+export async function fetchRaw<T>(url: string, revalidateTime: number = 300): Promise<T | null> {
   const cached = _cache.get(url);
   if (cached && Date.now() < cached.expiry) {
     return cached.data as T;
@@ -345,7 +344,7 @@ export async function fetchRaw<T>(url: string, revalidateTime: number = 180): Pr
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4500); // 4.5s fast timeout
+    const timeoutId = setTimeout(() => controller.abort(), 7000); // 7s timeout
 
     const res = await fetch(url, {
       next: { revalidate: revalidateTime },
@@ -372,17 +371,9 @@ export async function fetchRaw<T>(url: string, revalidateTime: number = 180): Pr
 export async function getLatestMovies(page: number = 1): Promise<MovieListResponse | null> {
   // 1. Try NguonC
   try {
-    const p1 = (page - 1) * 2 + 1;
-    const p2 = (page - 1) * 2 + 2;
-
-    const [d1, d2] = await Promise.all([
-      fetchRaw<any>(`https://phim.nguonc.com/api/films/phim-moi-cap-nhat?page=${p1}`),
-      fetchRaw<any>(`https://phim.nguonc.com/api/films/phim-moi-cap-nhat?page=${p2}`),
-    ]);
-
+    const d1 = await fetchRaw<any>(`https://phim.nguonc.com/api/films/phim-moi-cap-nhat?page=${page}`);
     if (d1 && d1.items && d1.items.length > 0) {
-      const combined = [...d1.items, ...(d2?.items || [])];
-      const safeItems = filterSafeMovies(combined.map(normalizeNguonCItem));
+      const safeItems = filterSafeMovies(d1.items.map(normalizeNguonCItem));
       const totalItems = d1.paginate?.total_items || 300;
       const totalPages = Math.ceil(totalItems / 20);
 
