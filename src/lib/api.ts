@@ -21,7 +21,7 @@ export const SOURCES: Record<SourceType, { name: string; api: string; imgCdn: st
     name: 'OPhim',
     label: 'OPhim (Dự phòng 2)',
     desc: 'Kho phim phong phú',
-    api: 'https://ophim1.com',
+    api: 'https://ophim.cc',
     imgCdn: 'https://img.ophim.live/uploads/movies/',
   },
   vsmov: {
@@ -423,7 +423,7 @@ export async function getLatestMovies(page: number = 1): Promise<MovieListRespon
 
   // 3. Fallback to OPhim
   try {
-    const ophimData = await fetchRaw<any>(`https://ophim1.com/danh-sach/phim-moi-cap-nhat?page=${page}`);
+    const ophimData = await fetchRaw<any>(`https://ophim.cc/danh-sach/phim-moi-cap-nhat?page=${page}`);
     if (ophimData && ophimData.items && ophimData.items.length > 0) {
       return {
         status: 'success',
@@ -516,7 +516,7 @@ export async function getMoviesByType(type: string, page: number = 1): Promise<M
 
   // 3. Fallback to OPhim
   try {
-    const ophimData = await fetchRaw<any>(`https://ophim1.com/v1/api/danh-sach/${type}?page=${page}&limit=24`);
+    const ophimData = await fetchRaw<any>(`https://ophim.cc/v1/api/danh-sach/${type}?page=${page}&limit=24`);
     if (ophimData?.data?.items && ophimData.data.items.length > 0) {
       return {
         status: 'success',
@@ -594,7 +594,7 @@ export async function getMoviesByGenre(genreSlug: string, page: number = 1): Pro
 
   // 3. Fallback to OPhim
   try {
-    const ophimData = await fetchRaw<any>(`https://ophim1.com/v1/api/the-loai/${genreSlug}?page=${page}&limit=24`);
+    const ophimData = await fetchRaw<any>(`https://ophim.cc/v1/api/the-loai/${genreSlug}?page=${page}&limit=24`);
     if (ophimData?.data?.items && ophimData.data.items.length > 0) {
       return {
         status: 'success',
@@ -668,7 +668,7 @@ export async function getMoviesByCountry(countrySlug: string, page: number = 1):
 
   // 3. Fallback to OPhim
   try {
-    const ophimData = await fetchRaw<any>(`https://ophim1.com/v1/api/quoc-gia/${countrySlug}?page=${page}&limit=24`);
+    const ophimData = await fetchRaw<any>(`https://ophim.cc/v1/api/quoc-gia/${countrySlug}?page=${page}&limit=24`);
     if (ophimData?.data?.items && ophimData.data.items.length > 0) {
       return {
         status: 'success',
@@ -711,7 +711,7 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
       return data;
     }
   } else if (source === 'ophim') {
-    const data = await fetchRaw<MovieDetailResponse>(`https://ophim1.com/phim/${slug}`, 300);
+    const data = await fetchRaw<MovieDetailResponse>(`https://ophim.cc/phim/${slug}`, 300);
     if (data?.movie) {
       if (isAdultMovie(data.movie)) return null;
       data.movie.poster_url = getImageUrl(data.movie.poster_url, 'ophim');
@@ -751,7 +751,7 @@ export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'
 
   // Fallback 2: OPhim
   try {
-    const ophimData = await fetchRaw<MovieDetailResponse>(`https://ophim1.com/phim/${slug}`, 300);
+    const ophimData = await fetchRaw<MovieDetailResponse>(`https://ophim.cc/phim/${slug}`, 300);
     if (ophimData?.movie) {
       if (isAdultMovie(ophimData.movie)) return null;
       ophimData.movie.poster_url = getImageUrl(ophimData.movie.poster_url, 'ophim');
