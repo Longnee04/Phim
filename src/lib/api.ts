@@ -333,6 +333,48 @@ function normalizeNguonCMovieDetail(raw: any): MovieDetailResponse | null {
   };
 }
 
+async function nodeHttpsFetch<T>(url: string): Promise<T | null> {
+  try {
+    const https = await import('https');
+    return new Promise((resolve) => {
+      const agent = new https.Agent({ rejectUnauthorized: false, minVersion: 'TLSv1' });
+      const req = https.get(
+        url,
+        {
+          agent,
+          timeout: 8000,
+          headers: {
+            Accept: 'application/json',
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          },
+        },
+        (res) => {
+          if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+            return resolve(null);
+          }
+          let data = '';
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(data) as T);
+            } catch {
+              resolve(null);
+            }
+          });
+        }
+      );
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(null);
+      });
+    });
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fetch raw JSON with caching & timeout protection
  */
@@ -350,19 +392,30 @@ export async function fetchRaw<T>(url: string, revalidateTime: number = 300): Pr
       next: { revalidate: revalidateTime },
       headers: {
         Accept: 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       },
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
 
-    if (!res.ok) return null;
-    const data = await res.json();
-    _cache.set(url, { data, expiry: Date.now() + CACHE_TTL });
-    return data as T;
+    if (res.ok) {
+      const data = await res.json();
+      _cache.set(url, { data, expiry: Date.now() + CACHE_TTL });
+      return data as T;
+    }
   } catch (err) {
-    return null;
+    // Fallback to HTTPS agent if fetch fails (e.g. SSL/TLS negotiation error)
   }
+
+  // Fallback attempt
+  const fallbackData = await nodeHttpsFetch<T>(url);
+  if (fallbackData) {
+    _cache.set(url, { data: fallbackData, expiry: Date.now() + CACHE_TTL });
+    return fallbackData;
+  }
+
+  return null;
 }
 
 /**
@@ -677,6 +730,166 @@ export async function getMoviesByCountry(countrySlug: string, page: number = 1):
 }
 
 /**
+ * 5. Get Movies By Year - Filtered Safe
+ */
+export async function getMoviesByYear(year: string, page: number = 1): Promise<MovieListResponse | null> {
+  // 1. Try NguonC
+  try {
+    const p1 = (page - 1) * 2 + 1;
+    const p2 = (page - 1) * 2 + 2;
+
+    const [d1, d2] = await Promise.all([
+      fetchRaw<any>(`https://phim.nguonc.com/api/films/nam-phat-hanh/${year}?page=${p1}`),
+      fetchRaw<any>(`https://phim.nguonc.com/api/films/nam-phat-hanh/${year}?page=${p2}`),
+    ]);
+
+    if (d1 && d1.items && d1.items.length > 0) {
+      const combined = [...d1.items, ...(d2?.items || [])];
+      const safeItems = filterSafeMovies(combined.map(normalizeNguonCItem));
+      const totalItems = d1.paginate?.total_items || 200;
+      const totalPages = Math.ceil(totalItems / 20);
+
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: `Phim Năm ${year}`,
+          items: safeItems,
+          params: {
+            pagination: {
+              totalItems,
+              totalItemsPerPage: 20,
+              currentPage: page,
+              pageRanges: totalPages,
+            },
+          },
+        },
+      };
+    }
+  } catch (e) {}
+
+  // 2. Fallback to KKPhim
+  try {
+    const kkData = await fetchRaw<any>(`https://phimapi.com/v1/api/nam-phat-hanh/${year}?page=${page}&limit=24`);
+    if (kkData?.data?.items && kkData.data.items.length > 0) {
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: kkData.data.titlePage || `Phim Năm ${year}`,
+          items: filterSafeMovies(kkData.data.items.map(normalizeKKItem)),
+          params: kkData.data.params,
+        },
+      };
+    }
+  } catch (e) {}
+
+  // 3. Fallback to OPhim
+  try {
+    const ophimData = await fetchRaw<any>(`https://ophim.cc/v1/api/nam-phat-hanh/${year}?page=${page}&limit=24`);
+    if (ophimData?.data?.items && ophimData.data.items.length > 0) {
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: ophimData.data.titlePage || `Phim Năm ${year}`,
+          items: filterSafeMovies(ophimData.data.items.map(normalizeOPhimItem)),
+          params: ophimData.data.params,
+        },
+      };
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+/**
+ * 6. Get Movies By Language / Audio Version (long-tieng, thuyet-minh, vietsub)
+ */
+export async function getMoviesByLanguage(lang: string, page: number = 1): Promise<MovieListResponse | null> {
+  const langSlugMap: Record<string, string> = {
+    'long-tieng': 'phim-long-tieng',
+    'thuyet-minh': 'phim-thuyet-minh',
+    'vietsub': 'phim-vietsub',
+    'phim-long-tieng': 'phim-long-tieng',
+    'phim-thuyet-minh': 'phim-thuyet-minh',
+    'phim-vietsub': 'phim-vietsub',
+  };
+
+  const kkSlug = langSlugMap[lang] || lang;
+
+  // 1. Try KKPhim
+  try {
+    const kkData = await fetchRaw<any>(`https://phimapi.com/v1/api/danh-sach/${kkSlug}?page=${page}&limit=24`);
+    if (kkData?.data?.items && kkData.data.items.length > 0) {
+      const safeItems = filterSafeMovies(kkData.data.items.map(normalizeKKItem));
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage:
+            kkData.data.titlePage ||
+            (lang === 'long-tieng'
+              ? 'Phim Lồng Tiếng'
+              : lang === 'thuyet-minh'
+              ? 'Phim Thuyết Minh'
+              : 'Phim Vietsub'),
+          items: safeItems,
+          params: kkData.data.params,
+        },
+      };
+    }
+  } catch (e) {}
+
+  // 2. Try OPhim
+  try {
+    const ophimData = await fetchRaw<any>(`https://ophim.cc/v1/api/danh-sach/${kkSlug}?page=${page}&limit=24`);
+    if (ophimData?.data?.items && ophimData.data.items.length > 0) {
+      const safeItems = filterSafeMovies(ophimData.data.items.map(normalizeOPhimItem));
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: ophimData.data.titlePage || 'Danh Sách Phim',
+          items: safeItems,
+          params: ophimData.data.params,
+        },
+      };
+    }
+  } catch (e) {}
+
+  // 3. Fallback to NguonC
+  try {
+    const searchWord =
+      lang === 'long-tieng' ? 'lồng tiếng' : lang === 'thuyet-minh' ? 'thuyết minh' : 'vietsub';
+    const nguoncData = await fetchRaw<any>(
+      `https://phim.nguonc.com/api/films/search?keyword=${encodeURIComponent(searchWord)}&page=${page}`
+    );
+    if (nguoncData && nguoncData.items && nguoncData.items.length > 0) {
+      const safeItems = filterSafeMovies(nguoncData.items.map(normalizeNguonCItem));
+      return {
+        status: 'success',
+        msg: 'success',
+        data: {
+          titlePage: `Phim ${searchWord}`,
+          items: safeItems,
+          params: {
+            pagination: {
+              totalItems: nguoncData.paginate?.total_items || safeItems.length,
+              totalItemsPerPage: 20,
+              currentPage: page,
+              pageRanges: nguoncData.paginate?.total_page || 1,
+            },
+          },
+        },
+      };
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+/**
  * 5. Get Movie Detail (NguonC primary, with automatic KKPhim/OPhim fallback) - Block 18+ content
  */
 export async function getMovieDetail(slug: string, source: SourceType = 'nguonc'): Promise<MovieDetailResponse | null> {
@@ -947,23 +1160,88 @@ export async function filterSearchMovies(params: MovieFilterParams): Promise<Mov
   let rawList: MovieItem[] = [];
   let totalItemsCount = 0;
 
-  // 1. Determine base candidate set from most specific search
+  // List active primary criteria
+  const activeFilters = [
+    keyword && keyword.trim() ? 'keyword' : null,
+    genre && genre !== 'all' ? 'genre' : null,
+    country && country !== 'all' ? 'country' : null,
+    type && type !== 'all' ? 'type' : null,
+    year && year !== 'all' && !year.includes('-') ? 'year' : null,
+    lang && lang !== 'all' ? 'lang' : null,
+  ].filter(Boolean) as string[];
+
+  const isCompound = activeFilters.length > 1;
+
+  // 1. Determine the best primary candidate source stream
   if (keyword && keyword.trim()) {
-    const searchRes = await searchMovies(keyword.trim(), 48, page);
+    const searchRes = await searchMovies(keyword.trim(), isCompound ? 60 : 48, page);
     rawList = searchRes?.data?.items || [];
     totalItemsCount = searchRes?.data?.params?.pagination?.totalItems || rawList.length;
   } else if (genre && genre !== 'all') {
-    const genreRes = await getMoviesByGenre(genre, page);
-    rawList = genreRes?.data?.items || [];
-    totalItemsCount = genreRes?.data?.params?.pagination?.totalItems || rawList.length;
+    if (isCompound) {
+      const [res1, res2] = await Promise.all([
+        getMoviesByGenre(genre, page * 2 - 1),
+        getMoviesByGenre(genre, page * 2),
+      ]);
+      rawList = [...(res1?.data?.items || []), ...(res2?.data?.items || [])];
+      totalItemsCount = res1?.data?.params?.pagination?.totalItems || rawList.length;
+    } else {
+      const genreRes = await getMoviesByGenre(genre, page);
+      rawList = genreRes?.data?.items || [];
+      totalItemsCount = genreRes?.data?.params?.pagination?.totalItems || rawList.length;
+    }
   } else if (country && country !== 'all') {
-    const countryRes = await getMoviesByCountry(country, page);
-    rawList = countryRes?.data?.items || [];
-    totalItemsCount = countryRes?.data?.params?.pagination?.totalItems || rawList.length;
+    if (isCompound) {
+      const [res1, res2] = await Promise.all([
+        getMoviesByCountry(country, page * 2 - 1),
+        getMoviesByCountry(country, page * 2),
+      ]);
+      rawList = [...(res1?.data?.items || []), ...(res2?.data?.items || [])];
+      totalItemsCount = res1?.data?.params?.pagination?.totalItems || rawList.length;
+    } else {
+      const countryRes = await getMoviesByCountry(country, page);
+      rawList = countryRes?.data?.items || [];
+      totalItemsCount = countryRes?.data?.params?.pagination?.totalItems || rawList.length;
+    }
   } else if (type && type !== 'all') {
-    const typeRes = await getMoviesByType(type, page);
-    rawList = typeRes?.data?.items || [];
-    totalItemsCount = typeRes?.data?.params?.pagination?.totalItems || rawList.length;
+    if (isCompound) {
+      const [res1, res2] = await Promise.all([
+        getMoviesByType(type, page * 2 - 1),
+        getMoviesByType(type, page * 2),
+      ]);
+      rawList = [...(res1?.data?.items || []), ...(res2?.data?.items || [])];
+      totalItemsCount = res1?.data?.params?.pagination?.totalItems || rawList.length;
+    } else {
+      const typeRes = await getMoviesByType(type, page);
+      rawList = typeRes?.data?.items || [];
+      totalItemsCount = typeRes?.data?.params?.pagination?.totalItems || rawList.length;
+    }
+  } else if (year && year !== 'all' && !year.includes('-')) {
+    if (isCompound) {
+      const [res1, res2] = await Promise.all([
+        getMoviesByYear(year, page * 2 - 1),
+        getMoviesByYear(year, page * 2),
+      ]);
+      rawList = [...(res1?.data?.items || []), ...(res2?.data?.items || [])];
+      totalItemsCount = res1?.data?.params?.pagination?.totalItems || rawList.length;
+    } else {
+      const yearRes = await getMoviesByYear(year, page);
+      rawList = yearRes?.data?.items || [];
+      totalItemsCount = yearRes?.data?.params?.pagination?.totalItems || rawList.length;
+    }
+  } else if (lang && lang !== 'all') {
+    if (isCompound) {
+      const [res1, res2] = await Promise.all([
+        getMoviesByLanguage(lang, page * 2 - 1),
+        getMoviesByLanguage(lang, page * 2),
+      ]);
+      rawList = [...(res1?.data?.items || []), ...(res2?.data?.items || [])];
+      totalItemsCount = res1?.data?.params?.pagination?.totalItems || rawList.length;
+    } else {
+      const langRes = await getMoviesByLanguage(lang, page);
+      rawList = langRes?.data?.items || [];
+      totalItemsCount = langRes?.data?.params?.pagination?.totalItems || rawList.length;
+    }
   } else {
     const latestRes = await getLatestMovies(page);
     rawList = latestRes?.data?.items || [];
@@ -973,8 +1251,8 @@ export async function filterSearchMovies(params: MovieFilterParams): Promise<Mov
   // 2. Client-side/In-memory filtering for multi-criteria refinement
   let filtered = filterSafeMovies(rawList);
 
-  // Filter by Type
-  if (type && type !== 'all') {
+  // Filter by Type (if type was not the primary stream)
+  if (type && type !== 'all' && activeFilters[0] !== 'type') {
     filtered = filtered.filter((m) => {
       if (m.type === type) return true;
       if (
@@ -1002,13 +1280,13 @@ export async function filterSearchMovies(params: MovieFilterParams): Promise<Mov
     });
   }
 
-  // Filter by Language / Audio version (Vietsub, Thuyết minh, Lồng tiếng)
-  if (lang && lang !== 'all') {
+  // Filter by Language / Audio version (if lang was not the primary stream)
+  if (lang && lang !== 'all' && activeFilters[0] !== 'lang') {
     filtered = filtered.filter((m) => matchMovieLanguage(m, lang));
   }
 
-  // Filter by Genre
-  if (genre && genre !== 'all') {
+  // Filter by Genre (if genre was not the primary stream)
+  if (genre && genre !== 'all' && activeFilters[0] !== 'genre') {
     filtered = filtered.filter((m) =>
       m.category?.some(
         (c) =>
@@ -1018,8 +1296,8 @@ export async function filterSearchMovies(params: MovieFilterParams): Promise<Mov
     );
   }
 
-  // Filter by Country
-  if (country && country !== 'all') {
+  // Filter by Country (if country was not the primary stream)
+  if (country && country !== 'all' && activeFilters[0] !== 'country') {
     filtered = filtered.filter((m) =>
       m.country?.some(
         (c) =>
@@ -1035,7 +1313,7 @@ export async function filterSearchMovies(params: MovieFilterParams): Promise<Mov
       filtered = filtered.filter((m) => m.year && m.year >= 2010 && m.year <= 2014);
     } else if (year === 'truoc-2010') {
       filtered = filtered.filter((m) => m.year && m.year < 2010);
-    } else {
+    } else if (activeFilters[0] !== 'year') {
       const targetYear = parseInt(year, 10);
       if (!isNaN(targetYear)) {
         filtered = filtered.filter((m) => m.year === targetYear);
@@ -1051,7 +1329,11 @@ export async function filterSearchMovies(params: MovieFilterParams): Promise<Mov
   }
 
   const finalItems = filtered.slice(0, limit);
-  const total = totalItemsCount > 0 ? totalItemsCount : filtered.length;
+  const total = isCompound
+    ? filtered.length
+    : totalItemsCount > 0
+    ? totalItemsCount
+    : filtered.length;
   const pageRanges = Math.max(1, Math.ceil(total / limit));
 
   return {
