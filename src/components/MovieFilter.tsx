@@ -2,11 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FILTER_TYPES, GENRES, COUNTRIES, FILTER_YEARS, SORT_OPTIONS } from '@/lib/constants';
+import {
+  FILTER_TYPES,
+  FILTER_LANGUAGES,
+  GENRES,
+  COUNTRIES,
+  FILTER_YEARS,
+  SORT_OPTIONS,
+} from '@/lib/constants';
 
 interface MovieFilterProps {
   initialKeyword?: string;
   initialType?: string;
+  initialLang?: string;
   initialGenre?: string;
   initialCountry?: string;
   initialYear?: string;
@@ -16,6 +24,7 @@ interface MovieFilterProps {
 export default function MovieFilter({
   initialKeyword = '',
   initialType = 'all',
+  initialLang = 'all',
   initialGenre = 'all',
   initialCountry = 'all',
   initialYear = 'all',
@@ -26,6 +35,7 @@ export default function MovieFilter({
 
   const [keyword, setKeyword] = useState(initialKeyword);
   const [type, setType] = useState(initialType);
+  const [lang, setLang] = useState(initialLang);
   const [genre, setGenre] = useState(initialGenre);
   const [country, setCountry] = useState(initialCountry);
   const [year, setYear] = useState(initialYear);
@@ -36,6 +46,7 @@ export default function MovieFilter({
   useEffect(() => {
     setKeyword(searchParams.get('q') || '');
     setType(searchParams.get('type') || 'all');
+    setLang(searchParams.get('lang') || 'all');
     setGenre(searchParams.get('genre') || 'all');
     setCountry(searchParams.get('country') || 'all');
     setYear(searchParams.get('year') || 'all');
@@ -48,6 +59,7 @@ export default function MovieFilter({
 
     if (keyword.trim()) params.set('q', keyword.trim());
     if (type && type !== 'all') params.set('type', type);
+    if (lang && lang !== 'all') params.set('lang', lang);
     if (genre && genre !== 'all') params.set('genre', genre);
     if (country && country !== 'all') params.set('country', country);
     if (year && year !== 'all') params.set('year', year);
@@ -59,6 +71,7 @@ export default function MovieFilter({
   const handleResetFilter = () => {
     setKeyword('');
     setType('all');
+    setLang('all');
     setGenre('all');
     setCountry('all');
     setYear('all');
@@ -66,13 +79,14 @@ export default function MovieFilter({
     router.push('/tim-kiem');
   };
 
-  const removeSingleFilter = (key: 'q' | 'type' | 'genre' | 'country' | 'year' | 'sort') => {
+  const removeSingleFilter = (key: 'q' | 'type' | 'lang' | 'genre' | 'country' | 'year' | 'sort') => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete(key);
     params.delete('page'); // Reset to page 1
 
     if (key === 'q') setKeyword('');
     if (key === 'type') setType('all');
+    if (key === 'lang') setLang('all');
     if (key === 'genre') setGenre('all');
     if (key === 'country') setCountry('all');
     if (key === 'year') setYear('all');
@@ -85,6 +99,7 @@ export default function MovieFilter({
   const activeCount = [
     keyword.trim() ? 1 : 0,
     type !== 'all' ? 1 : 0,
+    lang !== 'all' ? 1 : 0,
     genre !== 'all' ? 1 : 0,
     country !== 'all' ? 1 : 0,
     year !== 'all' ? 1 : 0,
@@ -92,6 +107,7 @@ export default function MovieFilter({
   ].reduce((a, b) => a + b, 0);
 
   const getTypeName = (slug: string) => FILTER_TYPES.find((t) => t.slug === slug)?.name || slug;
+  const getLangName = (slug: string) => FILTER_LANGUAGES.find((l) => l.slug === slug)?.name || slug;
   const getGenreName = (slug: string) => GENRES.find((g) => g.slug === slug)?.name || slug;
   const getCountryName = (slug: string) => COUNTRIES.find((c) => c.slug === slug)?.name || slug;
   const getYearName = (slug: string) => FILTER_YEARS.find((y) => y.slug === slug)?.name || slug;
@@ -260,7 +276,37 @@ export default function MovieFilter({
           </select>
         </div>
 
-        {/* 3. Genre Selector */}
+        {/* 3. Language / Translation Selector */}
+        <div>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--t3, #888)', fontWeight: 700, marginBottom: '6px' }}>
+            <i className="fas fa-closed-captioning" style={{ marginRight: 6, color: '#06b6d4' }}></i>
+            Bản Dịch / Âm Thanh
+          </label>
+          <select
+            value={lang}
+            onChange={(e) => setLang(e.target.value)}
+            style={{
+              width: '100%',
+              height: '38px',
+              background: 'rgba(0,0,0,0.6)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: '6px',
+              padding: '0 10px',
+              color: '#fff',
+              fontSize: '0.82rem',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            {FILTER_LANGUAGES.map((l) => (
+              <option key={l.slug} value={l.slug} style={{ background: '#1a1a24', color: '#fff' }}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 4. Genre Selector */}
         <div>
           <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--t3, #888)', fontWeight: 700, marginBottom: '6px' }}>
             <i className="fas fa-film" style={{ marginRight: 6, color: '#f59e0b' }}></i>
@@ -466,6 +512,28 @@ export default function MovieFilter({
               }}
             >
               <span>{getTypeName(type)}</span>
+              <i className="fas fa-times" style={{ fontSize: '0.65rem' }}></i>
+            </span>
+          )}
+
+          {lang !== 'all' && (
+            <span
+              onClick={() => removeSingleFilter('lang')}
+              style={{
+                background: 'rgba(6,182,212,0.15)',
+                border: '1px solid rgba(6,182,212,0.3)',
+                color: '#06b6d4',
+                padding: '3px 10px',
+                borderRadius: '16px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>{getLangName(lang)}</span>
               <i className="fas fa-times" style={{ fontSize: '0.65rem' }}></i>
             </span>
           )}

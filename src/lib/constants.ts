@@ -11,7 +11,13 @@ export const FILTER_TYPES: FilterOption[] = [
   { name: 'Phim Lẻ', slug: 'phim-le', icon: 'fa-film' },
   { name: 'Hoạt Hình & Anime', slug: 'hoat-hinh', icon: 'fa-dragon' },
   { name: 'TV Shows', slug: 'tv-shows', icon: 'fa-masks-theater' },
-  { name: 'Phim Thuyết Minh', slug: 'phim-vietsub', icon: 'fa-microphone' },
+];
+
+export const FILTER_LANGUAGES: FilterOption[] = [
+  { name: 'Tất cả phiên bản', slug: 'all' },
+  { name: 'Vietsub (Phụ đề)', slug: 'vietsub', icon: 'fa-closed-captioning' },
+  { name: 'Thuyết Minh', slug: 'thuyet-minh', icon: 'fa-microphone' },
+  { name: 'Lồng Tiếng', slug: 'long-tieng', icon: 'fa-headset' },
 ];
 
 export const GENRES: FilterOption[] = [

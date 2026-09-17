@@ -8,6 +8,7 @@ interface SearchPageProps {
   searchParams: Promise<{
     q?: string;
     type?: string;
+    lang?: string;
     genre?: string;
     country?: string;
     year?: string;
@@ -17,9 +18,13 @@ interface SearchPageProps {
 }
 
 export async function generateMetadata({ searchParams }: SearchPageProps) {
-  const { q, genre, country, year } = await searchParams;
+  const { q, type, lang, genre, country, year } = await searchParams;
   const parts: string[] = [];
   if (q) parts.push(`"${q}"`);
+  if (lang && lang !== 'all') {
+    const langLabel = lang === 'vietsub' ? 'Vietsub' : lang === 'thuyet-minh' ? 'Thuyết Minh' : lang === 'long-tieng' ? 'Lồng Tiếng' : lang;
+    parts.push(`Bản dịch: ${langLabel}`);
+  }
   if (genre && genre !== 'all') parts.push(`Thể loại: ${genre}`);
   if (country && country !== 'all') parts.push(`Quốc gia: ${country}`);
   if (year && year !== 'all') parts.push(`Năm: ${year}`);
@@ -32,6 +37,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const {
     q = '',
     type = 'all',
+    lang = 'all',
     genre = 'all',
     country = 'all',
     year = 'all',
@@ -45,6 +51,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const data = await filterSearchMovies({
     keyword,
     type,
+    lang,
     genre,
     country,
     year,
@@ -61,6 +68,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const queryParams = new URLSearchParams();
   if (keyword) queryParams.set('q', keyword);
   if (type && type !== 'all') queryParams.set('type', type);
+  if (lang && lang !== 'all') queryParams.set('lang', lang);
   if (genre && genre !== 'all') queryParams.set('genre', genre);
   if (country && country !== 'all') queryParams.set('country', country);
   if (year && year !== 'all') queryParams.set('year', year);
@@ -71,6 +79,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const hasActiveFilters = !!(
     keyword ||
     (type && type !== 'all') ||
+    (lang && lang !== 'all') ||
     (genre && genre !== 'all') ||
     (country && country !== 'all') ||
     (year && year !== 'all') ||
@@ -84,6 +93,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <MovieFilter
           initialKeyword={keyword}
           initialType={type}
+          initialLang={lang}
           initialGenre={genre}
           initialCountry={country}
           initialYear={year}

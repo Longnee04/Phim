@@ -874,6 +874,7 @@ export async function fetchEpisodesFromSource(
 export interface MovieFilterParams {
   keyword?: string;
   type?: string;
+  lang?: string;
   genre?: string;
   country?: string;
   year?: string;
@@ -882,10 +883,59 @@ export interface MovieFilterParams {
   limit?: number;
 }
 
+export function matchMovieLanguage(m: MovieItem, lang: string): boolean {
+  if (!lang || lang === 'all') return true;
+  const l = (m.lang || '').toLowerCase();
+  const ep = (m.episode_current || '').toLowerCase();
+  const name = (m.name || '').toLowerCase();
+  const orig = (m.origin_name || '').toLowerCase();
+
+  if (lang === 'vietsub') {
+    return (
+      l.includes('vietsub') ||
+      l.includes('phụ đề') ||
+      l.includes('sub') ||
+      ep.includes('vietsub') ||
+      name.includes('vietsub') ||
+      orig.includes('vietsub')
+    );
+  }
+  if (lang === 'thuyet-minh') {
+    return (
+      l.includes('thuyết minh') ||
+      l.includes('thuyet minh') ||
+      l.includes('tm') ||
+      ep.includes('thuyết minh') ||
+      ep.includes('thuyet minh') ||
+      ep.includes('tm') ||
+      name.includes('thuyết minh') ||
+      name.includes('thuyet minh') ||
+      name.includes('(tm)') ||
+      name.includes('[tm]')
+    );
+  }
+  if (lang === 'long-tieng') {
+    return (
+      l.includes('lồng tiếng') ||
+      l.includes('long tieng') ||
+      l.includes('lt') ||
+      ep.includes('lồng tiếng') ||
+      ep.includes('long tieng') ||
+      ep.includes('lt') ||
+      name.includes('lồng tiếng') ||
+      name.includes('long tieng') ||
+      name.includes('(lt)') ||
+      name.includes('[lt]')
+    );
+  }
+  return true;
+}
+
 export async function filterSearchMovies(params: MovieFilterParams): Promise<MovieListResponse> {
   const {
     keyword = '',
     type = 'all',
+    lang = 'all',
     genre = 'all',
     country = 'all',
     year = 'all',
@@ -948,14 +998,13 @@ export async function filterSearchMovies(params: MovieFilterParams): Promise<Mov
       ) {
         return true;
       }
-      if (
-        type === 'phim-vietsub' &&
-        (m.lang?.toLowerCase().includes('vietsub') || m.lang?.toLowerCase().includes('thuyết minh'))
-      ) {
-        return true;
-      }
       return false;
     });
+  }
+
+  // Filter by Language / Audio version (Vietsub, Thuyết minh, Lồng tiếng)
+  if (lang && lang !== 'all') {
+    filtered = filtered.filter((m) => matchMovieLanguage(m, lang));
   }
 
   // Filter by Genre
