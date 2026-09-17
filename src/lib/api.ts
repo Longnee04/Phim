@@ -867,3 +867,158 @@ export async function fetchEpisodesFromSource(
     return { episodes: [], ok: false };
   }
 }
+
+/**
+ * 8. Comprehensive Multi-Criteria Movie Search & Filter
+ */
+export interface MovieFilterParams {
+  keyword?: string;
+  type?: string;
+  genre?: string;
+  country?: string;
+  year?: string;
+  sort?: string;
+  page?: number;
+  limit?: number;
+}
+
+export async function filterSearchMovies(params: MovieFilterParams): Promise<MovieListResponse> {
+  const {
+    keyword = '',
+    type = 'all',
+    genre = 'all',
+    country = 'all',
+    year = 'all',
+    sort = 'time',
+    page = 1,
+    limit = 24,
+  } = params;
+
+  let rawList: MovieItem[] = [];
+  let totalItemsCount = 0;
+
+  // 1. Determine base candidate set from most specific search
+  if (keyword && keyword.trim()) {
+    const searchRes = await searchMovies(keyword.trim(), 48, page);
+    rawList = searchRes?.data?.items || [];
+    totalItemsCount = searchRes?.data?.params?.pagination?.totalItems || rawList.length;
+  } else if (genre && genre !== 'all') {
+    const genreRes = await getMoviesByGenre(genre, page);
+    rawList = genreRes?.data?.items || [];
+    totalItemsCount = genreRes?.data?.params?.pagination?.totalItems || rawList.length;
+  } else if (country && country !== 'all') {
+    const countryRes = await getMoviesByCountry(country, page);
+    rawList = countryRes?.data?.items || [];
+    totalItemsCount = countryRes?.data?.params?.pagination?.totalItems || rawList.length;
+  } else if (type && type !== 'all') {
+    const typeRes = await getMoviesByType(type, page);
+    rawList = typeRes?.data?.items || [];
+    totalItemsCount = typeRes?.data?.params?.pagination?.totalItems || rawList.length;
+  } else {
+    const latestRes = await getLatestMovies(page);
+    rawList = latestRes?.data?.items || [];
+    totalItemsCount = latestRes?.data?.params?.pagination?.totalItems || rawList.length;
+  }
+
+  // 2. Client-side/In-memory filtering for multi-criteria refinement
+  let filtered = filterSafeMovies(rawList);
+
+  // Filter by Type
+  if (type && type !== 'all') {
+    filtered = filtered.filter((m) => {
+      if (m.type === type) return true;
+      if (
+        type === 'phim-bo' &&
+        (m.type === 'series' || m.episode_total?.includes('Tập') || m.episode_current?.includes('Tập'))
+      ) {
+        return true;
+      }
+      if (type === 'phim-le' && (m.type === 'single' || m.episode_current?.includes('Full'))) {
+        return true;
+      }
+      if (
+        type === 'hoat-hinh' &&
+        (m.type === 'hoathinh' || m.category?.some((c) => c.slug === 'hoat-hinh' || c.slug === 'anime'))
+      ) {
+        return true;
+      }
+      if (
+        type === 'tv-shows' &&
+        (m.type === 'tvshows' || m.category?.some((c) => c.slug === 'tv-shows'))
+      ) {
+        return true;
+      }
+      if (
+        type === 'phim-vietsub' &&
+        (m.lang?.toLowerCase().includes('vietsub') || m.lang?.toLowerCase().includes('thuyết minh'))
+      ) {
+        return true;
+      }
+      return false;
+    });
+  }
+
+  // Filter by Genre
+  if (genre && genre !== 'all') {
+    filtered = filtered.filter((m) =>
+      m.category?.some(
+        (c) =>
+          c.slug?.toLowerCase() === genre.toLowerCase() ||
+          c.name?.toLowerCase().includes(genre.toLowerCase())
+      )
+    );
+  }
+
+  // Filter by Country
+  if (country && country !== 'all') {
+    filtered = filtered.filter((m) =>
+      m.country?.some(
+        (c) =>
+          c.slug?.toLowerCase() === country.toLowerCase() ||
+          c.name?.toLowerCase().includes(country.toLowerCase())
+      )
+    );
+  }
+
+  // Filter by Year
+  if (year && year !== 'all') {
+    if (year === '2010-2014') {
+      filtered = filtered.filter((m) => m.year && m.year >= 2010 && m.year <= 2014);
+    } else if (year === 'truoc-2010') {
+      filtered = filtered.filter((m) => m.year && m.year < 2010);
+    } else {
+      const targetYear = parseInt(year, 10);
+      if (!isNaN(targetYear)) {
+        filtered = filtered.filter((m) => m.year === targetYear);
+      }
+    }
+  }
+
+  // 3. Sorting
+  if (sort === 'year') {
+    filtered.sort((a, b) => (b.year || 0) - (a.year || 0));
+  } else if (sort === 'name') {
+    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+  }
+
+  const finalItems = filtered.slice(0, limit);
+  const total = totalItemsCount > 0 ? totalItemsCount : filtered.length;
+  const pageRanges = Math.max(1, Math.ceil(total / limit));
+
+  return {
+    status: 'success',
+    msg: 'success',
+    data: {
+      titlePage: 'Kết Quả Lọc Phim',
+      items: finalItems,
+      params: {
+        pagination: {
+          totalItems: total,
+          totalItemsPerPage: limit,
+          currentPage: page,
+          pageRanges,
+        },
+      },
+    },
+  };
+}

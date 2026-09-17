@@ -6,51 +6,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { MovieItem } from '@/types/movie';
 import { getImageUrl, searchMovies } from '@/lib/api';
 
-const GENRES = [
-  { name: 'Hành Động', slug: 'hanh-dong', icon: 'fa-bolt' },
-  { name: 'Tình Cảm', slug: 'tinh-cam', icon: 'fa-heart' },
-  { name: 'Hài Hước', slug: 'hai-huoc', icon: 'fa-face-laugh-beam' },
-  { name: 'Cổ Trang', slug: 'co-trang', icon: 'fa-fan' },
-  { name: 'Tâm Lý', slug: 'tam-ly', icon: 'fa-brain' },
-  { name: 'Hình Sự', slug: 'hinh-su', icon: 'fa-handcuffs' },
-  { name: 'Chiến Tranh', slug: 'chien-tranh', icon: 'fa-shield' },
-  { name: 'Thể Thao', slug: 'the-thao', icon: 'fa-futbol' },
-  { name: 'Võ Thuật', slug: 'vo-thuat', icon: 'fa-hand-fist' },
-  { name: 'Viễn Tưởng', slug: 'vien-tuong', icon: 'fa-rocket' },
-  { name: 'Phiêu Lưu', slug: 'phieu-luu', icon: 'fa-compass' },
-  { name: 'Khoa Học', slug: 'khoa-hoc', icon: 'fa-atom' },
-  { name: 'Kinh Dị', slug: 'kinh-di', icon: 'fa-ghost' },
-  { name: 'Âm Nhạc', slug: 'am-nhac', icon: 'fa-music' },
-  { name: 'Thần Thoại', slug: 'than-thoai', icon: 'fa-wand-magic-sparkles' },
-  { name: 'Tài Liệu', slug: 'tai-lieu', icon: 'fa-book-open' },
-  { name: 'Gia Đình', slug: 'gia-dinh', icon: 'fa-house-chimney-user' },
-  { name: 'Chính Kịch', slug: 'chinh-kich', icon: 'fa-masks-theater' },
-  { name: 'Bí Ẩn', slug: 'bi-an', icon: 'fa-eye' },
-  { name: 'Học Đường', slug: 'hoc-duong', icon: 'fa-graduation-cap' },
-  { name: 'Kinh Điển', slug: 'kinh-dien', icon: 'fa-crown' },
-  { name: 'Anime', slug: 'anime', icon: 'fa-dragon' },
-];
+import { GENRES, COUNTRIES, FILTER_YEARS } from '@/lib/constants';
 
-const COUNTRIES = [
-  { name: 'Trung Quốc', slug: 'trung-quoc', flag: '🇨🇳' },
-  { name: 'Hàn Quốc', slug: 'han-quoc', flag: '🇰🇷' },
-  { name: 'Nhật Bản', slug: 'nhat-ban', flag: '🇯🇵' },
-  { name: 'Thái Lan', slug: 'thai-lan', flag: '🇹🇭' },
-  { name: 'Âu Mỹ', slug: 'au-my', flag: '🇺🇸' },
-  { name: 'Đài Loan', slug: 'dai-loan', flag: '🇹🇼' },
-  { name: 'Hồng Kông', slug: 'hong-kong', flag: '🇭🇰' },
-  { name: 'Ấn Độ', slug: 'an-do', flag: '🇮🇳' },
-  { name: 'Anh', slug: 'anh', flag: '🇬🇧' },
-  { name: 'Pháp', slug: 'phap', flag: '🇫🇷' },
-  { name: 'Canada', slug: 'canada', flag: '🇨🇦' },
-  { name: 'Đức', slug: 'duc', flag: '🇩🇪' },
-  { name: 'Tây Ban Nha', slug: 'tay-ban-nha', flag: '🇪🇸' },
-  { name: 'Thổ Nhĩ Kỳ', slug: 'tho-nhi-ky', flag: '🇹🇷' },
-  { name: 'Hà Lan', slug: 'ha-lan', flag: '🇳🇱' },
-  { name: 'Indonesia', slug: 'indonesia', flag: '🇮🇩' },
-];
-
-const YEARS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016];
+const NAV_GENRES = GENRES.filter((g) => g.slug !== 'all');
+const NAV_COUNTRIES = COUNTRIES.filter((c) => c.slug !== 'all');
+const NAV_YEARS = FILTER_YEARS.filter((y) => y.slug !== 'all' && !y.slug.includes('-'));
 
 export default function Navbar() {
   const router = useRouter();
@@ -445,13 +405,30 @@ export default function Navbar() {
               </Link>
             </li>
 
+            {/* Lọc Phim */}
+            <li>
+              <Link
+                href="/tim-kiem"
+                className={`nav__link ${pathname === '/tim-kiem' ? 'active' : ''}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  color: pathname === '/tim-kiem' ? '#fff' : 'var(--t1, #e5e5e5)',
+                }}
+              >
+                <i className="fas fa-filter" style={{ color: 'var(--red, #e50914)', fontSize: '0.78rem' }}></i>
+                <span>Lọc Phim</span>
+              </Link>
+            </li>
+
             {/* Thể Loại dropdown */}
             <li className="nav__dropdown">
               <a href="#" className="nav__link nav__link--dropdown" onClick={(e) => e.preventDefault()}>
                 Thể Loại <i className="fas fa-caret-down"></i>
               </a>
               <div className="nav__dropdown-menu" id="dropdown-genre">
-                {GENRES.map((g) => (
+                {NAV_GENRES.map((g) => (
                   <Link key={g.slug} href={`/the-loai/${g.slug}`}>
                     {g.name}
                   </Link>
@@ -465,7 +442,7 @@ export default function Navbar() {
                 Quốc Gia <i className="fas fa-caret-down"></i>
               </a>
               <div className="nav__dropdown-menu" id="dropdown-country">
-                {COUNTRIES.map((c) => (
+                {NAV_COUNTRIES.map((c) => (
                   <Link key={c.slug} href={`/quoc-gia/${c.slug}`}>
                     {c.name}
                   </Link>
@@ -479,9 +456,9 @@ export default function Navbar() {
                 Năm <i className="fas fa-caret-down"></i>
               </a>
               <div className="nav__dropdown-menu nav__dropdown-menu--small" id="dropdown-year">
-                {YEARS.map((y) => (
-                  <Link key={y} href={`/tim-kiem?q=${y}`}>
-                    {y}
+                {NAV_YEARS.map((y) => (
+                  <Link key={y.slug} href={`/tim-kiem?year=${y.slug}`}>
+                    {y.name}
                   </Link>
                 ))}
               </div>
@@ -610,6 +587,27 @@ export default function Navbar() {
                 <span>Trang Chủ</span>
               </Link>
 
+              {/* Bộ Lọc Phim */}
+              <Link
+                href="/tim-kiem"
+                onClick={() => setIsMobileMenuOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  color: pathname === '/tim-kiem' ? 'var(--red, #e50914)' : '#fff',
+                  background: pathname === '/tim-kiem' ? 'rgba(229,9,20,0.12)' : 'transparent',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  textDecoration: 'none',
+                }}
+              >
+                <i className="fas fa-filter" style={{ width: '20px', color: 'var(--red, #e50914)' }}></i>
+                <span>Bộ Lọc Phim</span>
+              </Link>
+
               <Link
                 href="/danh-sach/phim-bo"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -732,7 +730,7 @@ export default function Navbar() {
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <i className="fas fa-layer-group" style={{ color: 'var(--red, #e50914)' }}></i>
-                  <span>Thể Loại ({GENRES.length})</span>
+                  <span>Thể Loại ({NAV_GENRES.length})</span>
                 </span>
                 <i
                   className={`fas fa-chevron-${mobileGenreOpen ? 'up' : 'down'}`}
@@ -750,7 +748,7 @@ export default function Navbar() {
                     animation: 'fadeIn 0.2s ease',
                   }}
                 >
-                  {GENRES.map((g) => (
+                  {NAV_GENRES.map((g) => (
                     <Link
                       key={g.slug}
                       href={`/the-loai/${g.slug}`}
@@ -800,7 +798,7 @@ export default function Navbar() {
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <i className="fas fa-globe" style={{ color: '#38bdf8' }}></i>
-                  <span>Quốc Gia ({COUNTRIES.length})</span>
+                  <span>Quốc Gia ({NAV_COUNTRIES.length})</span>
                 </span>
                 <i
                   className={`fas fa-chevron-${mobileCountryOpen ? 'up' : 'down'}`}
@@ -818,7 +816,7 @@ export default function Navbar() {
                     animation: 'fadeIn 0.2s ease',
                   }}
                 >
-                  {COUNTRIES.map((c) => (
+                  {NAV_COUNTRIES.map((c) => (
                     <Link
                       key={c.slug}
                       href={`/quoc-gia/${c.slug}`}
@@ -883,10 +881,10 @@ export default function Navbar() {
                     animation: 'fadeIn 0.2s ease',
                   }}
                 >
-                  {YEARS.map((y) => (
+                  {NAV_YEARS.map((y) => (
                     <Link
-                      key={y}
-                      href={`/tim-kiem?q=${y}`}
+                      key={y.slug}
+                      href={`/tim-kiem?year=${y.slug}`}
                       onClick={() => setIsMobileMenuOpen(false)}
                       style={{
                         padding: '8px 4px',
@@ -896,10 +894,9 @@ export default function Navbar() {
                         fontSize: '0.82rem',
                         fontWeight: 700,
                         textAlign: 'center',
-                        textDecoration: 'none',
                       }}
                     >
-                      {y}
+                      {y.name}
                     </Link>
                   ))}
                 </div>
