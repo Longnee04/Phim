@@ -37,21 +37,28 @@ export async function POST(req: NextRequest) {
       }
     };
 
-    const apiKey =
-      customApiKey ||
+    // Keys to try: if customApiKey is provided, try it first; ALWAYS fallback to builtInKey!
+    const keysToTry: string[] = [];
+    if (customApiKey && typeof customApiKey === 'string' && customApiKey.trim().length > 15) {
+      keysToTry.push(customApiKey.trim());
+    }
+    const builtInKey =
       process.env.GEMINI_API_KEY ||
       process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
       getBuiltInKey();
+    if (builtInKey && !keysToTry.includes(builtInKey)) {
+      keysToTry.push(builtInKey);
+    }
 
     // =========================================================================
-    // 1. CALL GOOGLE GEMINI API (GEMINI 3.8 FLASH -> GEMINI 2.5 FLASH -> GEMINI 2.0 FLASH)
+    // 1. CALL GOOGLE GEMINI API (FLASH-LATEST -> 3.5 FLASH -> 3.8 FLASH)
     // =========================================================================
-    if (apiKey && apiKey.trim().length > 15) {
+    if (keysToTry.length > 0) {
       const candidateModels = [
+        'gemini-flash-latest',
+        'gemini-3.5-flash',
         'gemini-3.8-flash',
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
+        'gemini-flash-lite-latest',
       ];
 
       const geminiContents = messages.map((m: any) => ({
@@ -66,55 +73,57 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      for (const modelName of candidateModels) {
-        try {
-          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+      for (const curKey of keysToTry) {
+        for (const modelName of candidateModels) {
+          try {
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${curKey}`;
 
-          const res = await fetch(geminiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: geminiContents,
-              systemInstruction: {
-                parts: [{ text: SYSTEM_INSTRUCTION }],
-              },
-              generationConfig: {
-                temperature: 0.75,
-                topP: 0.95,
-                maxOutputTokens: 1200,
-              },
-            }),
-          });
+            const res = await fetch(geminiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: geminiContents,
+                systemInstruction: {
+                  parts: [{ text: SYSTEM_INSTRUCTION }],
+                },
+                generationConfig: {
+                  temperature: 0.75,
+                  topP: 0.95,
+                  maxOutputTokens: 1200,
+                },
+              }),
+            });
 
-          if (res.ok) {
-            const data = await res.json();
-            const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (res.ok) {
+              const data = await res.json();
+              const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-            if (replyText) {
-              const recMatches: { name: string; slug: string }[] = [];
-              const recLineMatch = replyText.match(/GỢI Ý:\s*(.*)/i);
+              if (replyText) {
+                const recMatches: { name: string; slug: string }[] = [];
+                const recLineMatch = replyText.match(/GỢI Ý:\s*(.*)/i);
 
-              if (recLineMatch && recLineMatch[1]) {
-                const titles = recLineMatch[1].split('|').map((t) => t.trim()).filter(Boolean);
-                for (const title of titles) {
-                  recMatches.push({
-                    name: title,
-                    slug: `tim-kiem?q=${encodeURIComponent(title)}`,
-                  });
+                if (recLineMatch && recLineMatch[1]) {
+                  const titles = recLineMatch[1].split('|').map((t) => t.trim()).filter(Boolean);
+                  for (const title of titles) {
+                    recMatches.push({
+                      name: title,
+                      slug: `tim-kiem?q=${encodeURIComponent(title)}`,
+                    });
+                  }
                 }
+
+                const cleanText = replyText.replace(/GỢI Ý:\s*.*$/im, '').trim();
+
+                return NextResponse.json({
+                  content: cleanText || replyText,
+                  recommendations: recMatches,
+                  source: modelName,
+                });
               }
-
-              const cleanText = replyText.replace(/GỢI Ý:\s*.*$/im, '').trim();
-
-              return NextResponse.json({
-                content: cleanText || replyText,
-                recommendations: recMatches,
-                source: modelName,
-              });
             }
+          } catch (modelErr) {
+            console.warn(`Gemini ${modelName} failed, trying next candidate:`, modelErr);
           }
-        } catch (modelErr) {
-          console.warn(`Gemini ${modelName} failed, trying next candidate:`, modelErr);
         }
       }
     }
@@ -553,7 +562,8 @@ export async function POST(req: NextRequest) {
     } else {
       // Clean query and search by keyword
       const cleanKeyword = userQuery
-        .replace(/^(gợi ý|tìm|xem|muốn xem|có phim|cho tôi|phim gì|tư vấn|bạn có biết|cho xin|hỏi về)\s*/gi, '')
+        .replace(/^(tôi muốn hỏi|cho tôi hỏi|cho hỏi|hỏi về|tôi muốn xem|muốn xem|gợi ý|tìm|xem|có phim|cho tôi|phim gì|tư vấn|bạn có biết|cho xin|bạn có phim|web có phim)\s*/gi, '')
+        .replace(/\s*(không|ko|k|nhỉ|vậy|nào hay|ạ|được không|không bạn|ko bạn)\s*$/gi, '')
         .trim();
 
       if (cleanKeyword.length >= 2) {

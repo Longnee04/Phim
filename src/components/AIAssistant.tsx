@@ -246,7 +246,7 @@ export default function AIAssistant() {
                       fontWeight: 700,
                     }}
                   >
-                    Gemini 2.5
+                    Gemini AI
                   </span>
                 )}
               </h4>
@@ -316,7 +316,7 @@ export default function AIAssistant() {
               <span>Google Gemini API Key:</span>
             </div>
             <p style={{ fontSize: '0.74rem', color: 'var(--t2, #a3a3a3)', marginBottom: 8 }}>
-              Nhập API Key Gemini của bạn để trò chuyện trực tiếp với Gemini 1.5 Flash (hoặc để trống để dùng AI mặc định của web):
+              Nhập API Key Gemini của bạn để trò chuyện trực tiếp với Google Gemini mới nhất (hoặc để trống để dùng AI mặc định sẵn của web):
             </p>
             <div style={{ display: 'flex', gap: 6 }}>
               <input
