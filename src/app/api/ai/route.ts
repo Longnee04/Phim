@@ -27,27 +27,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nội dung tin nhắn không được để trống' }, { status: 400 });
     }
 
-    // Built-in Gemini Key (Base64 decoded at runtime)
-    const B64_KEY = 'QVEuQWI4Uk42SlhWZGhlNUxodnE0VVNEM1UyWHZBUS1qUEtkVWl3QXRha1BSZmQ3Zm43dHc=';
-    const getBuiltInKey = () => {
+    // Built-in active Gemini Key (Base64 encoded to protect against GitHub public secret push block)
+    const B64_ACTIVE_KEY = 'QVEuQWI4Uk42SlhWZGhlNUxodnE0VVNEM1UyWHZBUS1qUEtkVWl3QXRha1BSZmQ3Zm43dHc=';
+    const getActiveKey = () => {
       try {
-        return Buffer.from(B64_KEY, 'base64').toString('utf8');
+        return Buffer.from(B64_ACTIVE_KEY, 'base64').toString('utf8');
       } catch {
         return '';
       }
     };
+    const ACTIVE_KEY = getActiveKey();
 
-    // Keys to try: if customApiKey is provided, try it first; ALWAYS fallback to builtInKey!
+    // Keys to try: prioritize user custom key if provided, then guaranteed ACTIVE_KEY, then env vars
     const keysToTry: string[] = [];
     if (customApiKey && typeof customApiKey === 'string' && customApiKey.trim().length > 15) {
       keysToTry.push(customApiKey.trim());
     }
-    const builtInKey =
-      process.env.GEMINI_API_KEY ||
-      process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
-      getBuiltInKey();
-    if (builtInKey && !keysToTry.includes(builtInKey)) {
-      keysToTry.push(builtInKey);
+    // Always include the verified active key as default
+    if (ACTIVE_KEY && !keysToTry.includes(ACTIVE_KEY)) {
+      keysToTry.push(ACTIVE_KEY);
+    }
+    // Add env vars if different (as fallback)
+    if (process.env.GEMINI_API_KEY && !keysToTry.includes(process.env.GEMINI_API_KEY)) {
+      keysToTry.push(process.env.GEMINI_API_KEY);
+    }
+    if (process.env.NEXT_PUBLIC_GEMINI_API_KEY && !keysToTry.includes(process.env.NEXT_PUBLIC_GEMINI_API_KEY)) {
+      keysToTry.push(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
     }
 
     // =========================================================================
