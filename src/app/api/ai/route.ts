@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nội dung tin nhắn không được để trống' }, { status: 400 });
     }
 
-    // Built-in Gemini 2.5 Key (Base64 decoded at runtime)
-    const B64_KEY = 'QVEuQWI4Uk42S1lyN190M2J6dU5MTTN3RFAxd3Y5UDhybnVXQ2RTZG9GUFhJUXE1SkdKdGc=';
+    // Built-in Gemini Key (Base64 decoded at runtime)
+    const B64_KEY = 'QVEuQWI4Uk42SlhWZGhlNUxodnE0VVNEM1UyWHZBUS1qUEtkVWl3QXRha1BSZmQ3Zm43dHc=';
     const getBuiltInKey = () => {
       try {
         return Buffer.from(B64_KEY, 'base64').toString('utf8');
@@ -44,15 +44,14 @@ export async function POST(req: NextRequest) {
       getBuiltInKey();
 
     // =========================================================================
-    // 1. CALL GOOGLE GEMINI API (GEMINI 2.5 FLASH -> GEMINI 2.0 FLASH -> 1.5 PRO)
+    // 1. CALL GOOGLE GEMINI API (GEMINI 3.8 FLASH -> GEMINI 2.5 FLASH -> GEMINI 2.0 FLASH)
     // =========================================================================
     if (apiKey && apiKey.trim().length > 15) {
       const candidateModels = [
+        'gemini-3.8-flash',
         'gemini-2.5-flash',
         'gemini-2.0-flash',
-        'gemini-2.0-flash-exp',
         'gemini-1.5-flash',
-        'gemini-1.5-pro',
       ];
 
       const geminiContents = messages.map((m: any) => ({
@@ -155,39 +154,87 @@ export async function POST(req: NextRequest) {
     // -------------------------------------------------------------------------
     // A. GREETING & CHIT-CHAT (Chào hỏi, hỏi thăm, danh tính)
     // -------------------------------------------------------------------------
-    const isGreeting =
-      /^(chào|chao|hi|hello|hey|alo|ê|xin chào|good morning|good evening|good afternoon)\b/i.test(lower) ||
-      lower.length <= 4 ||
-      lower === 'chào bạn' ||
-      lower === 'xin chào';
+    // 1. Identity / "Bạn tên là gì" / "Bạn là ai"
+    const isIdentityQuestion =
+      lower.includes('bạn tên là gì') ||
+      lower.includes('ban ten la gi') ||
+      lower.includes('bạn tên gì') ||
+      lower.includes('ban ten gi') ||
+      lower.includes('tên bạn là gì') ||
+      lower.includes('ten ban la gi') ||
+      lower.includes('tên của bạn') ||
+      lower.includes('ten cua ban') ||
+      lower.includes('bạn là ai') ||
+      lower.includes('ban la ai') ||
+      lower.includes('mày là ai') ||
+      lower.includes('may la ai') ||
+      lower.includes('em là ai') ||
+      lower.includes('em la ai') ||
+      lower.includes('ai day') ||
+      lower.includes('ai đấy') ||
+      lower.includes('who are you') ||
+      lower.includes('ai tạo ra bạn') ||
+      lower.includes('ai tao ra ban') ||
+      lower.includes('ai làm ra bạn') ||
+      lower.includes('nguồn gốc của bạn') ||
+      lower.includes('giới thiệu về bạn') ||
+      lower.includes('gioi thieu ve ban');
 
-    if (isGreeting) {
+    if (isIdentityQuestion) {
       return NextResponse.json({
-        content: `Xin chào bạn! 👋 Mình là **Trợ lý AI LPhim** 🤖✨\n\nMình có thể giúp bạn:\n• 🎬 **Gợi ý phim** theo tâm trạng, thể loại, quốc gia hoặc diễn viên.\n• 📖 **Tóm tắt cốt truyện** & đánh giá độ cuốn của bất kỳ bộ phim nào.\n• 🛠️ **Hướng dẫn sử dụng** các tính năng của LPhim (lưu phim, xem dở, phím tắt, đổi server...).\n• 💬 **Tiếp nhận báo lỗi & góp ý** để cải thiện web.\n\nHôm nay bạn muốn tìm phim gì hoặc cần mình hỗ trợ điều gì nào?`,
+        content: `Xin chào bạn! Mình là **Trợ lý AI LPhim** 🤖🎬 — trợ lý ảo am hiểu điện ảnh được tích hợp trực tiếp trên nền tảng xem phim **LPhim**.\n\nMục tiêu của mình là:\n• 🎬 **Gợi ý phim hay**: Đề xuất phim chuẩn gu theo tâm trạng, thể loại, diễn viên yêu thích.\n• 📖 **Tóm tắt & Review**: Tóm tắt cốt truyện nhanh mà không làm lộ kết phim (no spoiler).\n• 🛠️ **Hỗ trợ website**: Giải đáp mọi câu hỏi về lưu phim, tiếp tục xem, phím tắt, đổi server...\n• 💬 **Lắng nghe góp ý**: Tiếp nhận phản hồi để hoàn thiện web LPhim ngày một tốt hơn.\n\nHôm nay bạn muốn xem phim gì hoặc cần mình hỗ trợ điều gì nào? ❤️`,
         recommendations: [
           { name: '🔥 Phim Mới Cập Nhật', slug: 'danh-sach/phim-moi-cap-nhat' },
           { name: '💥 Phim Hành Động', slug: 'the-loai/hanh-dong' },
           { name: '🇰🇷 Phim Hàn Quốc Hot', slug: 'quoc-gia/han-quoc' },
-          { name: '🍿 Anime Hấp Dẫn', slug: 'the-loai/anime' },
+          { name: '🍿 Anime Hay', slug: 'the-loai/anime' },
         ],
         source: 'lphim-nlp-assistant',
       });
     }
 
-    // Identity / "Bạn là ai"
-    if (
-      lower.includes('bạn là ai') ||
-      lower.includes('ban la ai') ||
-      lower.includes('ai tạo ra bạn') ||
-      lower.includes('tên bạn là gì') ||
-      lower.includes('ai day') ||
-      lower.includes('who are you')
-    ) {
+    // 2. Capabilities / "Bạn làm được gì"
+    const isCapabilityQuestion =
+      lower.includes('làm được gì') ||
+      lower.includes('lam duoc gi') ||
+      lower.includes('có thể làm gì') ||
+      lower.includes('co the lam gi') ||
+      lower.includes('chức năng của bạn') ||
+      lower.includes('chuc nang cua ban') ||
+      lower.includes('giúp được gì') ||
+      lower.includes('giup duoc gi') ||
+      lower.includes('tính năng của bạn');
+
+    if (isCapabilityQuestion) {
       return NextResponse.json({
-        content: `Mình là **Trợ lý AI LPhim** 🤖🎬 — một trợ lý ảo am hiểu điện ảnh được tích hợp trực tiếp trên nền tảng xem phim **LPhim**.\n\nMục tiêu của mình là giúp bạn tìm kiếm được những bộ phim ưng ý nhất trong tích tắc, trả lời mọi thắc mắc về phim ảnh và hỗ trợ bạn trải nghiệm xem phim tuyệt vời nhất! ❤️`,
+        content: `Dưới đây là những điều mình có thể giúp bạn trên LPhim 🤖✨:\n\n1. 🎬 **Gợi ý phim thông minh**: Bạn chỉ cần nói tâm trạng (buồn, vui, xả stress...) hoặc thể loại, quốc gia, năm phát hành.\n2. 🔍 **Tìm kiếm phim & diễn viên**: Tìm phim theo tên nhân vật, diễn viên, đạo diễn.\n3. 📖 **Tóm tắt cốt truyện**: Nhắn *"tóm tắt phim [tên phim]"* để xem nội dung nhanh.\n4. 🛠️ **Hướng dẫn sử dụng web**: Hướng dẫn lưu phim vào tủ, tự chuyển tập, phím tắt bỏ qua quảng cáo, đổi server khi giật lag.\n5. 💬 **Tiếp nhận phản hồi**: Báo lỗi phim hỏng hoặc gửi góp ý tính năng mới.`,
         recommendations: [
-          { name: '🎬 Khám Phá Phim Ngay', slug: 'danh-sach/phim-moi-cap-nhat' },
-          { name: '🎭 Phim Bộ Hot', slug: 'danh-sach/phim-bo' },
+          { name: '📂 Mở Tủ Phim Của Bạn', slug: 'danh-sach-cua-toi' },
+          { name: '🔍 Tìm Kiếm Phim', slug: 'tim-kiem' },
+          { name: '🔥 Phim Mới Nhất', slug: 'danh-sach/phim-moi-cap-nhat' },
+        ],
+        source: 'lphim-nlp-assistant',
+      });
+    }
+
+    // 3. Greetings
+    const isGreeting =
+      /^(chào|chao|hi|hello|hey|alo|ê|xin chào|good morning|good evening|good afternoon)\b/i.test(lower) ||
+      lower === 'chào' ||
+      lower === 'chao' ||
+      lower === 'chào bạn' ||
+      lower === 'xin chào' ||
+      lower === 'hello bạn' ||
+      lower === 'alo bạn';
+
+    if (isGreeting) {
+      return NextResponse.json({
+        content: `Xin chào bạn! 👋 Mình là **Trợ lý AI LPhim** 🤖✨\n\nMình có thể giúp bạn tìm kiếm phim hay, tóm tắt nội dung, giải đáp thắc mắc về tính năng web hoặc gợi ý phim theo tâm trạng.\n\nHôm nay bạn muốn tìm phim gì hoặc cần mình hỗ trợ điều gì nào?`,
+        recommendations: [
+          { name: '🔥 Phim Mới Cập Nhật', slug: 'danh-sach/phim-moi-cap-nhat' },
+          { name: '💥 Phim Hành Động', slug: 'the-loai/hanh-dong' },
+          { name: '🇰🇷 Phim Hàn Quốc Hot', slug: 'quoc-gia/han-quoc' },
+          { name: '🍿 Anime Hấp Dẫn', slug: 'the-loai/anime' },
         ],
         source: 'lphim-nlp-assistant',
       });
@@ -453,6 +500,42 @@ export async function POST(req: NextRequest) {
         matchedCountrySlug = slug;
         break;
       }
+    }
+
+    const hasMovieIntent =
+      Boolean(matchedMoodInfo) ||
+      Boolean(matchedGenreSlug) ||
+      Boolean(matchedCountrySlug) ||
+      lower.includes('phim') ||
+      lower.includes('movie') ||
+      lower.includes('film') ||
+      lower.includes('xem') ||
+      lower.includes('chiếu rạp') ||
+      lower.includes('chieu rap') ||
+      lower.includes('anime') ||
+      lower.includes('series') ||
+      lower.includes('gợi ý') ||
+      lower.includes('goi y') ||
+      lower.includes('tìm') ||
+      lower.includes('tim') ||
+      lower.includes('tập') ||
+      lower.includes('tap') ||
+      lower.includes('diễn viên') ||
+      lower.includes('dien vien') ||
+      lower.includes('đạo diễn') ||
+      lower.includes('dao dien');
+
+    if (!hasMovieIntent) {
+      return NextResponse.json({
+        content: `Chào bạn! Mình là **Trợ lý AI LPhim** 🤖✨\n\nMình chuyên về tư vấn, tóm tắt nội dung phim và hỗ trợ trải nghiệm xem phim trên LPhim.\n\nBạn có thể hỏi mình:\n• *"Gợi ý phim hài hước cuối tuần"*\n• *"Phim hành động Hàn Quốc nào hay?"*\n• *"Tóm tắt phim Spider-Man"*\n• *"Cách lưu phim hoặc chuyển tập"*...\n\nBạn đang muốn tìm bộ phim như thế nào nào? 🎬🍿`,
+        recommendations: [
+          { name: '🔥 Top Phim Mới Nhất', slug: 'danh-sach/phim-moi-cap-nhat' },
+          { name: '💥 Phim Hành Động', slug: 'the-loai/hanh-dong' },
+          { name: '🇰🇷 Phim Hàn Quốc Hot', slug: 'quoc-gia/han-quoc' },
+          { name: '🍿 Anime Hay', slug: 'the-loai/anime' },
+        ],
+        source: 'lphim-nlp-chitchat',
+      });
     }
 
     let movieSearchResult = null;
