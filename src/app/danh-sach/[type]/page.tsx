@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getMoviesByType, getImageUrl } from '@/lib/api';
-import BrowseCard from '@/components/BrowseCard';
-import { Pagination } from '@/components/Pagination';
+import BrowseMoviesView from '@/components/BrowseMoviesView';
 
 export const revalidate = 180;
 
@@ -11,6 +10,8 @@ interface BrowseTypePageProps {
   }>;
   searchParams: Promise<{
     page?: string;
+    sort?: string;
+    year?: string;
   }>;
 }
 
@@ -24,7 +25,7 @@ const TYPE_TITLES: Record<string, string> = {
 
 export default async function BrowseTypePage({ params, searchParams }: BrowseTypePageProps) {
   const { type } = await params;
-  const { page } = await searchParams;
+  const { page, sort, year } = await searchParams;
   const currentPage = page ? parseInt(page, 10) || 1 : 1;
 
   const data = await getMoviesByType(type, currentPage);
@@ -54,39 +55,13 @@ export default async function BrowseTypePage({ params, searchParams }: BrowseTyp
         </div>
       </div>
 
-      <div className="browse__toolbar">
-        <div className="browse__sort">
-          <label>Sắp xếp: </label>
-          <select id="browse-sort" className="browse__sort-select">
-            <option value="default">Mặc định</option>
-            <option value="name">Tên A-Z</option>
-            <option value="year">Năm mới nhất</option>
-          </select>
-        </div>
-        <span className="browse__page-indicator" id="browse-page-indicator">
-          Trang {currentPage} / {totalPages}
-        </span>
-      </div>
-
-      {/* Top Pagination */}
-      <Pagination
+      <BrowseMoviesView
+        initialMovies={movies}
         currentPage={currentPage}
         totalPages={totalPages}
         basePath={`/danh-sach/${type}`}
-        isTop={true}
-      />
-
-      <div className="browse__grid" id="browse-grid">
-        {movies.map((movie) => (
-          <BrowseCard key={movie.slug} movie={movie} />
-        ))}
-      </div>
-
-      {/* Bottom Pagination */}
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        basePath={`/danh-sach/${type}`}
+        initialSort={sort}
+        initialYear={year}
       />
     </section>
   );

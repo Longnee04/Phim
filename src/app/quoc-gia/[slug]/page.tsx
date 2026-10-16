@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getMoviesByCountry, getImageUrl } from '@/lib/api';
-import BrowseCard from '@/components/BrowseCard';
-import { Pagination } from '@/components/Pagination';
+import BrowseMoviesView from '@/components/BrowseMoviesView';
 
 export const revalidate = 180;
 
@@ -11,12 +10,14 @@ interface CountryPageProps {
   }>;
   searchParams: Promise<{
     page?: string;
+    sort?: string;
+    year?: string;
   }>;
 }
 
 export default async function CountryPage({ params, searchParams }: CountryPageProps) {
   const { slug } = await params;
-  const { page } = await searchParams;
+  const { page, sort, year } = await searchParams;
   const currentPage = page ? parseInt(page, 10) || 1 : 1;
 
   const data = await getMoviesByCountry(slug, currentPage);
@@ -46,39 +47,13 @@ export default async function CountryPage({ params, searchParams }: CountryPageP
         </div>
       </div>
 
-      <div className="browse__toolbar">
-        <div className="browse__sort">
-          <label>Sắp xếp: </label>
-          <select id="browse-sort" className="browse__sort-select">
-            <option value="default">Mặc định</option>
-            <option value="name">Tên A-Z</option>
-            <option value="year">Năm mới nhất</option>
-          </select>
-        </div>
-        <span className="browse__page-indicator" id="browse-page-indicator">
-          Trang {currentPage} / {totalPages}
-        </span>
-      </div>
-
-      {/* Top Pagination */}
-      <Pagination
+      <BrowseMoviesView
+        initialMovies={movies}
         currentPage={currentPage}
         totalPages={totalPages}
         basePath={`/quoc-gia/${slug}`}
-        isTop={true}
-      />
-
-      <div className="browse__grid" id="browse-grid">
-        {movies.map((movie) => (
-          <BrowseCard key={movie.slug} movie={movie} />
-        ))}
-      </div>
-
-      {/* Bottom Pagination */}
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        basePath={`/quoc-gia/${slug}`}
+        initialSort={sort}
+        initialYear={year}
       />
     </section>
   );
