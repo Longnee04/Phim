@@ -142,7 +142,7 @@ export default function AIAssistant() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: text,
-          messages: newMessages.slice(-20).map((m) => ({
+          messages: newMessages.slice(-40).map((m) => ({
             role: m.role,
             content: m.content,
           })),
