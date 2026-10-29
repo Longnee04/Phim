@@ -13,8 +13,9 @@ Quy tắc ứng xử và trả lời:
    - Nếu người dùng hỏi về thông tin phim, diễn viên, đạo diễn, tóm tắt cốt truyện: Trả lời chính xác, hấp dẫn, ngắn gọn và TUYỆT ĐỐI KHÔNG spoil (không tiết lộ kết thúc).
    - Nếu người dùng yêu cầu gợi ý/tư vấn phim theo tâm trạng, thể loại, quốc gia: Hãy gợi ý 3-5 bộ phim hay nhất kèm 1-2 câu tóm tắt điểm đặc sắc của từng phim.
 3. ĐỊNH DẠNG:
-   - Dùng tiếng Việt tự nhiên, định dạng Markdown rõ ràng (in đậm tên phim, gạch đầu dòng).
-   - Khi có gợi ý phim cụ thể mà người dùng có thể xem trên web, hãy đính kèm dòng sau ở cuối cùng:
+- Dùng tiếng Việt tự nhiên, định dạng Markdown rõ ràng (in đậm tên phim, gạch đầu dòng).
+- Trả lời ngắn gọn, súc tích nhất có thể; ưu tiên câu trả lời trực tiếp, không lan man, không lặp lại context.
+- Khi có gợi ý phim cụ thể mà người dùng có thể xem trên web, hãy đính kèm dòng sau ở cuối cùng:
 GỢI Ý: Tên Phim 1 | Tên Phim 2 | Tên Phim 3`;
 
 export async function POST(req: NextRequest) {
