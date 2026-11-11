@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { MovieItem, MovieServer } from '@/types/movie';
 import { useWatchHistory } from '@/hooks/useWatchHistory';
 import { useMyList } from '@/hooks/useMyList';
-import { getImageUrl, SourceType, SOURCES } from '@/lib/api';
+import { getImageUrl, SourceType, SOURCES, fetchEpisodesFromSource } from '@/lib/api';
 import VideoPlayer from '@/components/VideoPlayer';
 
 interface WatchClientProps {
@@ -113,20 +113,58 @@ export default function WatchClient({
         const data = await res.json();
         const ping = `${Date.now() - startTime}ms`;
 
+        let isOk = Boolean(data.ok);
+        let episodes = data.ok ? data.episodes : [];
+
+        // If server proxy returned false for nguonc (Cloudflare 403 on Vercel),
+        // fallback to client-side direct fetch which works 100% in user's browser.
+        if (!isOk && sourceId === 'nguonc') {
+          try {
+            const clientRes = await fetchEpisodesFromSource(movie.slug, 'nguonc');
+            if (clientRes.ok && clientRes.episodes && clientRes.episodes.length > 0) {
+              episodes = clientRes.episodes;
+              isOk = true;
+            }
+          } catch {}
+        }
+
         setSources((prev) =>
           prev.map((s) =>
             s.id === sourceId
               ? {
                   ...s,
-                  status: data.ok ? 'ok' : 'error',
-                  ping: data.ok ? ping : 'Không khả dụng',
-                  episodes: data.ok ? data.episodes : [],
+                  status: isOk ? 'ok' : 'error',
+                  ping: isOk ? ping : 'Không khả dụng',
+                  episodes: isOk ? episodes : [],
                 }
               : s
           )
         );
-        return data.ok ? data.episodes : [];
+        return isOk ? episodes : [];
       } catch {
+        // Direct client fallback on network error
+        if (sourceId === 'nguonc') {
+          try {
+            const clientRes = await fetchEpisodesFromSource(movie.slug, 'nguonc');
+            if (clientRes.ok && clientRes.episodes && clientRes.episodes.length > 0) {
+              const ping = `${Date.now() - startTime}ms`;
+              setSources((prev) =>
+                prev.map((s) =>
+                  s.id === sourceId
+                    ? {
+                        ...s,
+                        status: 'ok',
+                        ping,
+                        episodes: clientRes.episodes,
+                      }
+                    : s
+                )
+              );
+              return clientRes.episodes;
+            }
+          } catch {}
+        }
+
         setSources((prev) =>
           prev.map((s) =>
             s.id === sourceId
